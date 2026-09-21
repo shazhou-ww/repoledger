@@ -1,6 +1,7 @@
 version: 2
 tasks:
   preferred-task-language:
-    state: backlog
+    state: ongoing
+    sourceBranch: task/preferred-task-language
     createdAt: "2026-09-21T09:25:13Z"
-    updatedAt: "2026-09-21T09:25:13Z"
+    updatedAt: "2026-09-21T09:53:12Z"
