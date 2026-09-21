@@ -1,0 +1,4 @@
+version: 2
+tasksDirectory: tasks
+primaryRepository: https://github.com/shazhou-ww/repoledger.git
+primaryBranch: main
