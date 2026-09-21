@@ -1,0 +1,56 @@
+{
+  "name": "repoledger",
+  "version": "0.8.2",
+  "description": "Query, validate, and publish Git-native repository task lifecycle state.",
+  "packageManager": "pnpm@11.22.0",
+  "type": "module",
+  "bin": {
+    "repoledger": "bin/repoledger.js"
+  },
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "schema"
+  ],
+  "scripts": {
+    "check": "node --check bin/repoledger.js && node --test && npm run pack:check && npm run smoke:pack && npm run check:skills",
+    "check:skills": "npx skills add . --list",
+    "pack:check": "node scripts/check-pack.js",
+    "prepare:npm-release": "node scripts/prepare-npm-release.mjs",
+    "smoke:pack": "node scripts/smoke-pack.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "keywords": [
+    "agent-skills",
+    "cli",
+    "repository",
+    "task-ledger",
+    "validation"
+  ],
+  "license": "UNLICENSED",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shazhou-ww/repoledger.git"
+  },
+  "devDependencies": {
+    "semver": "^7.8.5"
+  },
+  "dependencies": {
+    "commander": "^14.0.3",
+    "marked": "^18.0.13",
+    "mdast-util-from-markdown": "^2.0.3",
+    "mdast-util-to-markdown": "^2.1.2",
+    "yaml": "^2.9.1"
+  }
+}

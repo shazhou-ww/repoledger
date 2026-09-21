@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/shazhou-ww/repoledger/raw/refs/heads/main/schema/v1.json",
+  "title": "repoledger storage contracts v1",
+  "$defs": {
+    "timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+    },
+    "taskRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "createdAt", "updatedAt"],
+      "properties": {
+        "state": {
+          "enum": ["backlog", "ongoing", "completed", "abandoned"]
+        },
+        "createdAt": { "$ref": "#/$defs/timestamp" },
+        "updatedAt": { "$ref": "#/$defs/timestamp" }
+      }
+    },
+    "statusFile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "tasks"],
+      "properties": {
+        "version": { "const": 1 },
+        "tasks": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "additionalProperties": { "$ref": "#/$defs/taskRecord" }
+        }
+      }
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "tasksDirectory", "remote", "primaryBranch"],
+  "properties": {
+    "version": { "const": 1 },
+    "tasksDirectory": {
+      "type": "string",
+      "pattern": "^(?![A-Za-z]:)(?!/)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))(?!\\.$)(?!.*//)(?!.*\/$).+$"
+    },
+    "remote": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "primaryBranch": {
+      "type": "string",
+      "pattern": "^(?!refs/)(?!.*\\.\\.)(?!.*@\\{)(?!.*[ ~^:?*\\[\\\\])(?!.*(?:^|/)\\.)(?!.*\\.$)(?!.*\/$)(?!.*\\.lock$).+$"
+    }
+  }
+}

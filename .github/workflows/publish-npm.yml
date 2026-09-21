@@ -1,0 +1,70 @@
+name: Publish npm package
+
+on:
+  push:
+    tags:
+      - "npm/**"
+
+permissions: {}
+
+concurrency:
+  group: npm-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish ${{ github.ref_name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Check out full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Refresh primary branch and verify ancestry
+        run: |
+          git fetch --no-tags origin "+refs/heads/main:refs/remotes/origin/main"
+          git merge-base --is-ancestor "$GITHUB_SHA" refs/remotes/origin/main
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install frozen dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate release instruction
+        id: release
+        env:
+          RELEASE_COMMIT: ${{ github.sha }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: >-
+          node scripts/prepare-npm-release.mjs
+          --tag "$RELEASE_TAG"
+          --commit "$RELEASE_COMMIT"
+
+      - name: Validate workspace
+        run: pnpm check
+
+      - name: Verify selected package tarball
+        working-directory: ${{ steps.release.outputs.package_directory }}
+        run: npm run pack:check
+
+      - name: Publish selected package
+        working-directory: ${{ steps.release.outputs.package_directory }}
+        env:
+          NPM_CONFIG_REGISTRY: https://registry.npmjs.org/
+          NPM_DIST_TAG: ${{ steps.release.outputs.dist_tag }}
+        run: npm publish --access public --provenance --tag "$NPM_DIST_TAG"
