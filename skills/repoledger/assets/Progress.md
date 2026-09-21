@@ -2,6 +2,9 @@
 
 Updated: YYYY-MM-DD
 
+Write narrative prose in the language recorded by `Task.md`. Keep headings,
+checkpoint names, approval statuses, and outcome values in English.
+
 ## Current state
 
 The latest verified state and the next concrete action.

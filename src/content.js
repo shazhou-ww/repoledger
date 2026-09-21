@@ -1,6 +1,7 @@
 import { access, lstat, readFile, readdir, realpath } from "node:fs/promises";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 
+import { taskLanguageMetadata } from "./language.js";
 import { parseMarkdown, sectionText } from "./markdown.js";
 
 const TASK_HEADINGS = [
@@ -155,8 +156,8 @@ function validateAcceptanceCriteria({
       error(
         "task.acceptance.incomplete",
         displayPath(root, filePath),
-          "Completed task acceptance criteria contain unchecked items.",
-          "Record the actual result before completion, or mark the task abandoned.",
+        "Completed task acceptance criteria contain unchecked items.",
+        "Record the actual result before completion, or mark the task abandoned.",
       ),
     );
   }
@@ -683,6 +684,7 @@ async function validateLinks({ diagnostics, root, task }) {
 
 export async function inspectTaskContents({ root, tasks }) {
   const diagnostics = [];
+  const taskLanguages = {};
 
   for (const task of tasks) {
     await validateArtifactTree({ diagnostics, root, path: task.path });
@@ -708,6 +710,32 @@ export async function inspectTaskContents({ root, tasks }) {
     }
 
     const taskText = await readFile(taskFile, "utf8");
+    const language = taskLanguageMetadata(taskText);
+    taskLanguages[task.name] = language.language;
+    for (const issue of language.issues) {
+      const details = {
+        duplicate: {
+          message: "Task.md contains more than one Language metadata field.",
+          remediation: "Keep one Language field before the first section heading.",
+        },
+        invalid: {
+          message: "Task.md Language must contain one canonical BCP 47 tag.",
+          remediation: "Use canonical metadata such as Language: en or Language: zh-CN.",
+        },
+        misplaced: {
+          message: "Task.md Language metadata appears after the first section heading.",
+          remediation: "Move Language directly below the Created metadata.",
+        },
+      }[issue];
+      diagnostics.push(
+        error(
+          `task.language.${issue}`,
+          taskPath,
+          details.message,
+          details.remediation,
+        ),
+      );
+    }
     const document = parseMarkdown(taskText);
     for (const heading of missingHeadings(document, TASK_HEADINGS)) {
       diagnostics.push(
@@ -762,5 +790,5 @@ export async function inspectTaskContents({ root, tasks }) {
     await validateLinks({ diagnostics, root, task });
   }
 
-  return { diagnostics };
+  return { diagnostics, taskLanguages };
 }

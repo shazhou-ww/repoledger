@@ -1,7 +1,9 @@
+import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 import { loadConfig } from "./config.js";
 import { fetchPrimary, withTemporaryWorktree } from "./git.js";
+import { taskLanguageMetadata } from "./language.js";
 import { inspectLayout } from "./layout.js";
 import { isTimestamp, TASK_STATES } from "./ledger.js";
 import { effectiveSourceRepository } from "./repository.js";
@@ -30,6 +32,16 @@ function resolvedRecord(config, record) {
     ...record,
     sourceRepository: effectiveSourceRepository(config, record),
   };
+}
+
+async function taskLanguage(task) {
+  try {
+    const source = await readFile(resolve(task.path, "Task.md"), "utf8");
+    return taskLanguageMetadata(source).language;
+  } catch (caught) {
+    if (caught.code === "ENOENT") return undefined;
+    throw caught;
+  }
 }
 
 function validateFilters(filters, sort, limit) {
@@ -227,13 +239,19 @@ export async function statusRepository({
       task: taskName,
     });
   }
+  const language = task ? await taskLanguage(task) : undefined;
   return {
     command: "status",
     ok: diagnostics.every(({ level }) => level !== "error"),
     root: repositoryRoot,
     diagnostics,
     result: task
-      ? { source: "local", task: task.name, ...resolvedRecord(snapshot.config, task.record) }
+      ? {
+        source: "local",
+        task: task.name,
+        ...resolvedRecord(snapshot.config, task.record),
+        ...(language === undefined ? {} : { language }),
+      }
       : null,
   };
 }

@@ -1,7 +1,7 @@
 ---
 name: repoledger
 description: "Create, execute, inspect, complete, or abandon explicitly opted-in repository tasks through Repoledger. Ordinary implementation requests remain task-free."
-argument-hint: "<new|exec|status|complete|abandon> [task or context]"
+argument-hint: "<new [--language <tag>] [context]|exec [task]|status [task]|complete [task]|abandon [task]>"
 user-invocable: true
 ---
 
@@ -16,8 +16,10 @@ does not decide intent, semantic overlap, human approval, or code correctness.
 For an explicit `/repoledger` invocation, route by the first argument. Treat it
 as a verb, not as free-form task context:
 
-- `new [context]`: admit one accepted implementation outcome and register it in
-  backlog. Stop after registration; do not start or implement it.
+- `new [--language <tag>] [context]`: admit one accepted implementation
+  outcome and register it in backlog. `--language` overrides the user
+  preference for this task only. Stop after registration; do not start or
+  implement it.
 - `exec [task]`: resolve one existing task, start or resume it, and follow the
   lifecycle until it is terminal or genuinely blocked.
 - `status [task]`: list tasks when no task is supplied, or report and remotely
@@ -50,6 +52,34 @@ For cross-repository work, the repository owning the primary implementation
 owns the source task. Create a linked task only when another repository owns an
 independent implementation outcome.
 
+## Task Language
+
+Every registered task has one stable language track recorded in `Task.md` as
+`Language: <canonical-tag>`. The tag is canonical BCP 47, such as `en` or
+`zh-CN`. It controls narrative prose, not machine protocol.
+
+For `/repoledger new`, run
+`repoledger config resolve --global task-language [--language <tag>] --json`
+before preparing `Task.md`. Pass `--language` only when the invocation includes
+the one-task override. Resolution is deterministic: invocation override, then
+the user preference, then `en`. Record the returned value in `Task.md`; never
+record the preference source or user configuration path. Manage the persistent
+user preference with `repoledger config get --global task-language` and
+`repoledger config set --global task-language <tag>`. User preferences stay
+outside repositories and never modify `repoledger.yaml`.
+
+For every existing task, read its recorded `Language` from the authoritative
+`Task.md` or `repoledger status`; do not re-resolve the current user's
+preference. A legacy task without `Language` uses `en`. Never infer language
+from prose, translate existing artifacts, or change a task's language during
+resume or handoff.
+
+Write narrative titles, goals, context, scope, criteria, decisions, validation,
+blockers, evidence, and user instructions in the task language. Keep required
+Markdown headings, checkpoint names, applicability and approval values,
+outcomes, acceptance statuses, commands, identifiers, and other validated
+protocol markers in English exactly as the templates define them.
+
 ## Prepare Task Work
 
 1. Read repository instructions and the repository task profile.
@@ -57,7 +87,8 @@ independent implementation outcome.
    plausible overlaps.
 3. Run `repoledger status <task-name>` and
    `repoledger check <task-name> --remote` before resuming one task.
-4. Read its stable `Task.md` and any existing `Progress.md` from primary.
+4. Read its stable `Task.md`, task language, and any existing `Progress.md`
+  from primary.
 5. Preserve unrelated work and stop on semantic overlap or same-task conflicts.
 
 The configured primary repository and branch are authoritative. Their
@@ -71,10 +102,12 @@ accepted work must return to primary.
 
 After `/repoledger new` admission:
 
-1. Prepare `<tasksDirectory>/<task-name>/Task.md` from the task template.
-2. Run `repoledger task register <task-name>`. It snapshots that local task
+1. Resolve the task language as described above.
+2. Prepare `<tasksDirectory>/<task-name>/Task.md` from the task template and
+  record the resolved canonical `Language`.
+3. Run `repoledger task register <task-name>`. It snapshots that local task
    directory and publishes the backlog record and artifacts to primary.
-3. Do not start or implement it. A later `/repoledger exec` invocation owns
+4. Do not start or implement it. A later `/repoledger exec` invocation owns
   that transition.
 
 When execution begins, run `repoledger task start <task-name>`. The source
@@ -92,6 +125,8 @@ journal, not a transcript or a mirror of Git.
   modifies, renames, or deletes at least one path outside `tasksDirectory`.
 - In that same commit, record only outcome-relevant implementation changes,
   material decisions, validation, blockers, and the next action.
+- Write narrative Progress content in the task's recorded language while
+  preserving the template's English headings and canonical review values.
 - Never create a standalone Progress commit for fetches, checks, pushes, commit
   hashes, reachability, status transitions, resumes, handoffs, review requests,
   approvals without implementation, or task-only document edits.
@@ -145,6 +180,8 @@ physical interaction, or subjective judgment that the agent cannot verify.
 Publish it with an implementation delta. Record only the result the user
 reports, and require explicit delivery approval separately unless one response
 clearly supplies both decisions.
+Write its narrative instructions in the task language while preserving the
+English headings and canonical acceptance statuses.
 
 ## Complete Or Abandon
 

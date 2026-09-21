@@ -24,7 +24,7 @@ npx skills add shazhou-ww/repoledger --skill repoledger
 The skill exposes one command namespace:
 
 ```text
-/repoledger new [context]
+/repoledger new [--language <tag>] [context]
 /repoledger exec [task]
 /repoledger status [task]
 /repoledger complete [task]
@@ -60,6 +60,13 @@ primaryBranch: main
 clone. Local remote names are irrelevant. Git credential helpers and
 `url.*.insteadOf` or `url.*.pushInsteadOf` may provide machine-specific access.
 
+The optional task-language preference is user state, not repository state. It
+is stored in `%APPDATA%\repoledger\preferences.yaml` on Windows,
+`$XDG_CONFIG_HOME/repoledger/preferences.yaml` when XDG is configured,
+`~/Library/Application Support/repoledger/preferences.yaml` on macOS, or
+`~/.config/repoledger/preferences.yaml` on other Unix systems. It never changes
+`repoledger.yaml` or the Git worktree.
+
 `tasks/status.yaml` contains one sorted record per registered
 `tasks/<task-name>/` directory:
 
@@ -89,6 +96,9 @@ the persisted `backlog` state.
 ```text
 repoledger init --primary-repository <https-url> --primary-branch <branch>
                 [--tasks-directory <path>]
+repoledger config get --global task-language
+repoledger config set --global task-language <tag>
+repoledger config resolve --global task-language [--language <tag>]
 repoledger task list [--state <state>...] [--created-since <time>]
                      [--created-before <time>] [--updated-since <time>]
                      [--updated-before <time>] [--sort <name|created|updated>]
@@ -146,15 +156,39 @@ caller's branch, index, staged files, and unrelated working files unchanged.
 Use `--json` for stable structured reports. Exit status `0` means success, `1`
 means validation or operational failure, and `2` means invalid CLI usage.
 
+## Task language
+
+`config set` accepts a BCP 47 language tag and persists its canonical form, for
+example normalizing `zh-cn` to `zh-CN`. `config get` distinguishes an unset
+preference from a configured value. `config resolve` is read-only and applies
+the task-creation precedence: a one-command `--language` override, then the
+user preference, then `en`. Its structured result reports both the effective
+value and whether it came from `override`, `preference`, or `default`.
+
+Every newly registered `Task.md` records the resolved value near its creation
+date:
+
+```md
+Created: 2026-09-21
+Language: zh-CN
+```
+
+That value is the task's stable language track. Later `Progress.md` and
+`UserAcceptance.md` narrative content follows it even when another user or
+machine resumes the task. Required headings, checkpoint names, lifecycle and
+approval values, outcome values, and acceptance statuses remain English
+protocol markers. Existing tasks without `Language` deterministically use
+`en`; Repoledger does not guess from prose or translate historical artifacts.
+
 ## Validation
 
 `check` validates strict canonical YAML, registered-directory correspondence,
 lifecycle records and timestamps, source-ref uniqueness, required task
-artifacts, human review facts, acceptance state, and repository-local Markdown
-links. Unregistered directories are valid pre-registration state, while their
-task artifacts are still validated. `check --remote` reads from refreshed
-primary and verifies every selected ongoing source branch and its start
-ancestry.
+artifacts, canonical task-language metadata, human review facts, acceptance
+state, and repository-local Markdown links. Unregistered directories are valid
+pre-registration state, while their task artifacts are still validated.
+`check --remote` reads from refreshed primary and verifies every selected
+ongoing source branch and its start ancestry.
 
 The current package schema at `schema/v2.json` defines both configuration and
 task status record shapes. `schema/v1.json` remains historical; v2 commands

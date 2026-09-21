@@ -2,6 +2,9 @@
 
 Updated: YYYY-MM-DD
 
+Write narrative prose in the language recorded by `Task.md`. Keep headings and
+acceptance status values in English.
+
 This guide records manual test execution, not the delivery approval decision.
 Delivery approval is bound by `task complete --approved-commit`; do not create
 a Progress-only commit to repeat it. A single response satisfies both manual

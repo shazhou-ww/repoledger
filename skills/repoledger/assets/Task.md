@@ -1,6 +1,7 @@
 # Task title
 
 Created: YYYY-MM-DD
+Language: en
 
 ## Goal
 

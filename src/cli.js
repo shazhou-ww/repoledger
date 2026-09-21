@@ -4,6 +4,13 @@ import { Command, CommanderError, Option } from "commander";
 import { checkRepository } from "./index.js";
 import { initRepository } from "./init.js";
 import { isTimestamp, TASK_STATES } from "./ledger.js";
+import { resolveTaskLanguage } from "./language.js";
+import {
+  DEFAULT_TASK_LANGUAGE,
+  loadUserPreferences,
+  saveTaskLanguagePreference,
+  userPreferencesPath,
+} from "./preferences.js";
 import { mutateTask } from "./publication.js";
 import { listTasks, statusRepository } from "./status.js";
 
@@ -63,6 +70,23 @@ export function render(report, json, io) {
     io.error("FAILED");
     return;
   }
+  if (report.command === "config get") {
+    const result = report.result;
+    io.log(
+      result.configured
+        ? `${result.key}  ${result.value}`
+        : `${result.key}  unset (default ${result.defaultValue})`,
+    );
+    return;
+  }
+  if (report.command === "config set") {
+    io.log(`${report.result.key}  ${report.result.value}`);
+    return;
+  }
+  if (report.command === "config resolve") {
+    io.log(`${report.result.key}  ${report.result.value} (${report.result.source})`);
+    return;
+  }
   if (report.command === "task list") {
     const tasks = report.result.tasks;
     if (tasks.length === 0) io.log("No tasks.");
@@ -83,6 +107,9 @@ export function render(report, json, io) {
     if (result.createdAt) {
       io.log(`  created  ${result.createdAt}`);
       io.log(`  updated  ${result.updatedAt}`);
+    }
+    if (result.language !== undefined) {
+      io.log(`  language ${result.language ?? "invalid"}`);
     }
     if (result.state === "ongoing") {
       io.log(`  source   ${result.sourceRepository}#${result.sourceBranch}`);
@@ -209,7 +236,10 @@ function normalizeTimestampOptions(program, options, referenceInstant) {
   }
 }
 
-export function createProgram(io = console, { now = () => new Date() } = {}) {
+export function createProgram(io = console, {
+  now = () => new Date(),
+  preferencesPath = userPreferencesPath(),
+} = {}) {
   const program = new Command();
   program
     .name("repoledger")
@@ -226,10 +256,123 @@ export function createProgram(io = console, { now = () => new Date() } = {}) {
     .exitOverride()
     .addHelpText("after", `
 Examples:
+  $ repoledger config set --global task-language zh-CN
+  $ repoledger config get --global task-language
+  $ repoledger config resolve --global task-language --language fr-FR
   $ repoledger task list --state ongoing --sort updated
   $ repoledger status <task-name>
   $ repoledger check --remote
   $ repoledger task start <task-name>`);
+
+  const config = program.command("config").description("manage user preferences");
+  config
+    .command("get <key>")
+    .description("read one user preference")
+    .requiredOption("--global", "read the per-user preference outside repositories")
+    .option("--json", "emit the complete machine-readable report")
+    .action(async (key, options) => {
+      if (key !== "task-language") {
+        program.error(`error: unsupported user preference: ${key}`, {
+          exitCode: 2,
+          code: "repoledger.invalid-preference",
+        });
+      }
+      const loaded = await loadUserPreferences({ path: preferencesPath });
+      const report = {
+        command: "config get",
+        diagnostics: loaded.diagnostics,
+        ok: loaded.diagnostics.length === 0,
+        result: loaded.diagnostics.length === 0
+          ? {
+            configured: loaded.exists,
+            defaultValue: DEFAULT_TASK_LANGUAGE,
+            key,
+            path: loaded.path,
+            value: loaded.preferences.taskLanguage,
+          }
+          : null,
+      };
+      render(report, options.json, io);
+      program.setOptionValue("resultCode", report.ok ? 0 : 1);
+    });
+
+  config
+    .command("set <key> <value>")
+    .description("set one user preference")
+    .requiredOption("--global", "write the per-user preference outside repositories")
+    .option("--json", "emit the complete machine-readable report")
+    .action(async (key, value, options) => {
+      if (key !== "task-language") {
+        program.error(`error: unsupported user preference: ${key}`, {
+          exitCode: 2,
+          code: "repoledger.invalid-preference",
+        });
+      }
+      const saved = await saveTaskLanguagePreference({
+        language: value,
+        path: preferencesPath,
+      });
+      const report = {
+        command: "config set",
+        diagnostics: saved.diagnostics,
+        ok: saved.diagnostics.length === 0,
+        result: saved.diagnostics.length === 0
+          ? { key, path: saved.path, value: saved.language }
+          : null,
+      };
+      render(report, options.json, io);
+      program.setOptionValue("resultCode", report.ok ? 0 : 1);
+    });
+
+  config
+    .command("resolve <key>")
+    .description("resolve one effective user preference without changing it")
+    .requiredOption("--global", "read the per-user preference outside repositories")
+    .option("--language <tag>", "one-command task language override")
+    .option("--json", "emit the complete machine-readable report")
+    .action(async (key, options) => {
+      if (key !== "task-language") {
+        program.error(`error: unsupported user preference: ${key}`, {
+          exitCode: 2,
+          code: "repoledger.invalid-preference",
+        });
+      }
+      const loaded = await loadUserPreferences({ path: preferencesPath });
+      if (loaded.diagnostics.length > 0) {
+        const report = {
+          command: "config resolve",
+          diagnostics: loaded.diagnostics,
+          ok: false,
+          result: null,
+        };
+        render(report, options.json, io);
+        program.setOptionValue("resultCode", 1);
+        return;
+      }
+      const resolved = resolveTaskLanguage({
+        override: options.language,
+        preference: loaded.preferences.taskLanguage,
+      });
+      if (!resolved) {
+        program.error(`error: invalid BCP 47 task language: ${options.language}`, {
+          exitCode: 2,
+          code: "repoledger.invalid-task-language",
+        });
+      }
+      const report = {
+        command: "config resolve",
+        diagnostics: [],
+        ok: true,
+        result: {
+          key,
+          path: preferencesPath,
+          source: resolved.source,
+          value: resolved.language,
+        },
+      };
+      render(report, options.json, io);
+      program.setOptionValue("resultCode", 0);
+    });
 
   addCommonOptions(
     program

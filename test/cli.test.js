@@ -61,6 +61,7 @@ test("renders the approved command surface without legacy commands", async () =>
 
   assert.equal(exitCode, 0);
   assert.match(help, /check \[options\] \[task-name\]/);
+  assert.match(help, /config\s+manage user preferences/);
   assert.match(help, /init \[options\]/);
   assert.match(help, /status \[options\] <task-name>/);
   assert.match(help, /task\s+query or mutate task lifecycle state/);
@@ -68,6 +69,145 @@ test("renders the approved command surface without legacy commands", async () =>
   assert.doesNotMatch(help, /claim/);
   assert.doesNotMatch(help, /archive/);
   assert.doesNotMatch(help, /--config/);
+});
+
+test("reads and writes the global task language outside repositories", async () => {
+  const root = await mkdtemp(join(tmpdir(), "repoledger-cli-preferences-"));
+  temporaryDirectories.push(root);
+  const preferencesPath = join(root, "user", "preferences.yaml");
+  const missing = captureIo();
+  const fallback = captureIo();
+  const set = captureIo();
+  const get = captureIo();
+  const preferred = captureIo();
+  const overridden = captureIo();
+
+  assert.equal(
+    await runCli(
+      ["config", "get", "--global", "task-language"],
+      missing.io,
+      { preferencesPath },
+    ),
+    0,
+  );
+  assert.deepEqual(missing.output, ["task-language  unset (default en)"]);
+
+  assert.equal(
+    await runCli(
+      ["config", "resolve", "--global", "task-language"],
+      fallback.io,
+      { preferencesPath },
+    ),
+    0,
+  );
+  assert.deepEqual(fallback.output, ["task-language  en (default)"]);
+
+  assert.equal(
+    await runCli(
+      ["config", "set", "--global", "task-language", "zh-cn"],
+      set.io,
+      { preferencesPath },
+    ),
+    0,
+  );
+  assert.deepEqual(set.output, ["task-language  zh-CN"]);
+
+  assert.equal(
+    await runCli(
+      ["config", "get", "--global", "task-language", "--json"],
+      get.io,
+      { preferencesPath },
+    ),
+    0,
+  );
+  const report = JSON.parse(get.output.join("\n"));
+  assert.deepEqual(report.result, {
+    configured: true,
+    defaultValue: "en",
+    key: "task-language",
+    path: preferencesPath,
+    value: "zh-CN",
+  });
+
+  assert.equal(
+    await runCli(
+      ["config", "resolve", "--global", "task-language"],
+      preferred.io,
+      { preferencesPath },
+    ),
+    0,
+  );
+  assert.deepEqual(preferred.output, ["task-language  zh-CN (preference)"]);
+
+  assert.equal(
+    await runCli(
+      ["config", "resolve", "--global", "task-language", "--language", "fr-fr"],
+      overridden.io,
+      { preferencesPath },
+    ),
+    0,
+  );
+  assert.deepEqual(overridden.output, ["task-language  fr-FR (override)"]);
+  assert.equal(
+    await readFile(preferencesPath, "utf8"),
+    "version: 1\ntaskLanguage: zh-CN\n",
+  );
+});
+
+test("rejects invalid task languages and non-global preference commands", async () => {
+  const root = await mkdtemp(join(tmpdir(), "repoledger-cli-preferences-"));
+  temporaryDirectories.push(root);
+  const preferencesPath = join(root, "preferences.yaml");
+  const invalid = captureIo();
+  const missingScope = captureIo();
+  const unsupported = captureIo();
+
+  assert.equal(
+    await runCli(
+      ["config", "set", "--global", "task-language", "en_US"],
+      invalid.io,
+      { preferencesPath },
+    ),
+    1,
+  );
+  assert.match(invalid.errors.join("\n"), /Invalid BCP 47 task language/);
+
+  assert.equal(
+    await runCli(
+      ["config", "get", "task-language"],
+      missingScope.io,
+      { preferencesPath },
+    ),
+    2,
+  );
+  assert.match(missingScope.errors.join("\n"), /required option '--global'/);
+
+  assert.equal(
+    await runCli(
+      ["config", "get", "--global", "unknown"],
+      unsupported.io,
+      { preferencesPath },
+    ),
+    2,
+  );
+  assert.match(unsupported.errors.join("\n"), /unsupported user preference/);
+});
+
+test("reports malformed preferences even when resolution has an override", async () => {
+  const root = await mkdtemp(join(tmpdir(), "repoledger-cli-preferences-"));
+  temporaryDirectories.push(root);
+  const preferencesPath = join(root, "preferences.yaml");
+  await writeFile(preferencesPath, "version: 1\ntaskLanguage: zh-cn\n");
+  const capture = captureIo();
+
+  const exitCode = await runCli(
+    ["config", "resolve", "--global", "task-language", "--language", "fr-FR"],
+    capture.io,
+    { preferencesPath },
+  );
+
+  assert.equal(exitCode, 1);
+  assert.match(capture.errors.join("\n"), /Invalid canonical BCP 47 task language/);
 });
 
 test("renders task list time and state filters", async () => {
@@ -119,6 +259,27 @@ test("renders unregistered list and status results without undefined timestamps"
 
   assert.deepEqual(list.output, ["draft-task  unregistered"]);
   assert.deepEqual(status.output, ["draft-task  unregistered"]);
+});
+
+test("renders the task language in status output", () => {
+  const capture = captureIo();
+
+  render({
+    command: "status",
+    diagnostics: [],
+    ok: true,
+    result: {
+      language: "zh-CN",
+      source: "remote",
+      state: "backlog",
+      task: "localized-task",
+    },
+  }, false, capture.io);
+
+  assert.deepEqual(capture.output, [
+    "localized-task  backlog",
+    "  language zh-CN",
+  ]);
 });
 
 test("documents ergonomic task list time inputs", async () => {

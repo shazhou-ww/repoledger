@@ -48,7 +48,15 @@ async function createRepository() {
     join(root, "tasks", "status.yaml"),
     serializeStatusFile({ version: 2, tasks }),
   );
-  for (const name of Object.keys(tasks)) await mkdir(join(root, "tasks", name));
+  for (const name of Object.keys(tasks)) {
+    await mkdir(join(root, "tasks", name));
+    await writeFile(
+      join(root, "tasks", name, "Task.md"),
+      name === "alpha-task"
+        ? "# Alpha task\n\nCreated: 2026-09-17\nLanguage: zh-CN\n\n## Goal\n"
+        : `# ${name}\n\nCreated: 2026-09-17\n\n## Goal\n`,
+    );
+  }
   return root;
 }
 
@@ -63,8 +71,18 @@ test("returns one local task status", async () => {
     source: "local",
     task: "alpha-task",
     ...tasks["alpha-task"],
+    language: "zh-CN",
     sourceRepository: "https://example.com/owner/repository.git",
   });
+});
+
+test("reports en for a legacy task without Language metadata", async () => {
+  const root = await createRepository();
+
+  const report = await statusRepository({ local: true, root, taskName: "beta-task" });
+
+  assert.equal(report.ok, true);
+  assert.equal(report.result.language, "en");
 });
 
 test("returns and filters an unregistered task without fabricated timestamps", async () => {

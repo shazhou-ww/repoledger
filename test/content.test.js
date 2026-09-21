@@ -117,6 +117,34 @@ test("allows an ongoing task before its first implementation progress", async ()
   const { root, task } = await createTask("ongoing");
   const result = await inspectTaskContents({ root, tasks: [task] });
   assert.deepEqual(result.diagnostics.filter(({ level }) => level === "error"), []);
+  assert.deepEqual(result.taskLanguages, { "fixture-task": "en" });
+});
+
+test("accepts one canonical task language before the first section", async () => {
+  const { root, task } = await createTask("backlog");
+  await writeFile(
+    join(task.path, "Task.md"),
+    TASK.replace("Created: 2026-09-15", "Created: 2026-09-15\nLanguage: zh-CN"),
+  );
+
+  const result = await inspectTaskContents({ root, tasks: [task] });
+
+  assert.deepEqual(result.diagnostics.filter(({ level }) => level === "error"), []);
+  assert.deepEqual(result.taskLanguages, { "fixture-task": "zh-CN" });
+});
+
+test("rejects noncanonical, duplicate, and misplaced task languages", async () => {
+  for (const [source, code] of [
+    [TASK.replace("Created: 2026-09-15", "Created: 2026-09-15\nLanguage: zh-cn"), "task.language.invalid"],
+    [TASK.replace("Created: 2026-09-15", "Created: 2026-09-15\nLanguage: en\nLanguage: zh-CN"), "task.language.duplicate"],
+    [TASK.replace("## Goal", "## Goal\n\nLanguage: en"), "task.language.misplaced"],
+  ]) {
+    const { root, task } = await createTask("backlog");
+    await writeFile(join(task.path, "Task.md"), source);
+    const result = await inspectTaskContents({ root, tasks: [task] });
+    assert.ok(result.diagnostics.some(({ code: actual }) => actual === code), code);
+    assert.deepEqual(result.taskLanguages, { "fixture-task": null });
+  }
 });
 
 test("allows an unregistered task definition but rejects implementation progress", async () => {
