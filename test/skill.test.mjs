@@ -50,6 +50,9 @@ test("exposes one consolidated repoledger skill", async () => {
     "config resolve --global task-language",
     "`Language: <canonical-tag>`",
     "A legacy task without `Language` uses `en`",
+    "`primaryAfter` commit",
+    "fast-forward the caller's checked-out primary branch",
+    "Preserve unrelated index and worktree changes",
   ]) {
     assert.ok(source.includes(required), `repoledger skill is missing: ${required}`);
   }

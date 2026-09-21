@@ -107,8 +107,22 @@ After `/repoledger new` admission:
   record the resolved canonical `Language`.
 3. Run `repoledger task register <task-name>`. It snapshots that local task
    directory and publishes the backlog record and artifacts to primary.
-4. Do not start or implement it. A later `/repoledger exec` invocation owns
-  that transition.
+4. Synchronize the caller's local primary checkout as described below, then
+  stop without starting or implementing the task. A later `/repoledger exec`
+  invocation owns that transition.
+
+Registration publishes from an isolated worktree and deliberately leaves the
+caller's checkout unchanged. After successful publication, use the returned
+`primaryAfter` commit to fast-forward the caller's checked-out primary branch
+to the exact published commit. First verify that the current branch is the
+configured primary branch. Temporarily move the local task directory outside
+the worktree, fast-forward to `primaryAfter`, compare the restored tracked task
+directory with the saved input, and remove the saved copy only when they are
+identical. Preserve unrelated index and worktree changes. If the branch cannot
+fast-forward or the directories differ, restore or retain the saved input and
+report the blocker; never reset, silently switch branches, or discard content.
+Do not finish `/repoledger new` with remote primary ahead of the checked-out
+local primary branch.
 
 When execution begins, run `repoledger task start <task-name>`. The source
 defaults to `task/<task-name>` in the primary repository; use
