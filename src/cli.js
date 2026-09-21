@@ -261,6 +261,8 @@ Examples:
   $ repoledger config resolve --global task-language --language fr-FR
   $ repoledger task list --state ongoing --sort updated
   $ repoledger status <task-name>
+  $ repoledger check --commit HEAD
+  $ repoledger check --staged
   $ repoledger check --remote
   $ repoledger task start <task-name>`);
 
@@ -377,10 +379,20 @@ Examples:
   addCommonOptions(
     program
       .command("check [task-name]")
-      .description("validate task configuration, status, artifacts, and optional remote history")
-      .option("--remote", "fetch and validate the configured primary branch"),
+      .description("validate task configuration, status, artifacts, and an optional Git target")
+      .addOption(new Option("--remote", "fetch and validate the configured primary tip").conflicts(["commit", "staged", "unstaged"]))
+      .addOption(new Option("--commit <revision>", "validate one local commit and its first-parent diff").conflicts(["remote", "staged", "unstaged"]))
+      .addOption(new Option("--staged", "validate the index snapshot and staged changes").conflicts(["remote", "commit", "unstaged"]))
+      .addOption(new Option("--unstaged", "validate tracked worktree changes relative to the index").conflicts(["remote", "commit", "staged"])),
   ).action(async (taskName, options) => {
-    const report = await checkRepository({ remote: options.remote, root: options.root, taskName });
+    const report = await checkRepository({
+      commit: options.commit,
+      remote: options.remote,
+      root: options.root,
+      staged: options.staged,
+      taskName,
+      unstaged: options.unstaged,
+    });
     render(report, options.json, io);
     program.setOptionValue("resultCode", report.ok ? 0 : 1);
   });

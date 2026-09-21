@@ -104,7 +104,8 @@ repoledger task list [--state <state>...] [--created-since <time>]
                      [--updated-before <time>] [--sort <name|created|updated>]
                      [--limit <count>] [--local]
 repoledger status <task-name> [--local]
-repoledger check [<task-name>] [--remote]
+repoledger check [<task-name>]
+                 [--remote | --commit <revision> | --staged | --unstaged]
 repoledger task register <task-name>
 repoledger task start <task-name> [--source-repository <https-url>]
                                   [--source-branch <branch>]
@@ -112,9 +113,23 @@ repoledger task complete <task-name> --approved-commit <commit>
 repoledger task abandon <task-name>
 ```
 
-Remote reads fetch configured primary by URL and inspect an isolated temporary
-worktree. `--local` explicitly reads the current worktree snapshot. List and
-status report the effective source locator without fetching it.
+Check target options are mutually exclusive:
+
+- With no target option, `check` validates the current worktree snapshot and
+  does not apply a commit-level `Progress.md` change policy.
+- `--remote` fetches configured primary by URL, validates its tip snapshot and
+  first-parent diff, and verifies selected ongoing source refs. This is the
+  only check target that accesses a remote repository.
+- `--commit <revision>` resolves an existing local commit, validates that
+  snapshot, and checks only its diff from the first parent.
+- `--staged` validates the index snapshot and checks only paths staged relative
+  to `HEAD`; unstaged and untracked files do not affect it.
+- `--unstaged` validates the index plus tracked worktree changes and checks
+  only paths changed relative to the index. Untracked files are ignored.
+
+Commit, staged, and unstaged targets build isolated snapshots from local Git
+objects without changing the caller's branch, index, or worktree. List and
+status use `--local` to explicitly read the current worktree without fetching.
 
 Task-list time bounds accept these forms:
 
@@ -187,8 +202,13 @@ lifecycle records and timestamps, source-ref uniqueness, required task
 artifacts, canonical task-language metadata, human review facts, acceptance
 state, and repository-local Markdown links. Unregistered directories are valid
 pre-registration state, while their task artifacts are still validated.
-`check --remote` reads from refreshed primary and verifies every selected
-ongoing source branch and its start ancestry.
+Explicit Git targets also enforce that a selected change to any task
+`Progress.md` includes a tracked path outside `tasksDirectory`. Remote and
+commit checks compare merge commits with their first parent and root commits
+with the empty tree; they do not scan earlier commits for this policy.
+`check --commit HEAD` is suitable for CI validating the checked-out commit.
+`check --remote` additionally reads refreshed primary and verifies every
+selected ongoing source branch and its start ancestry.
 
 The current package schema at `schema/v2.json` defines both configuration and
 task status record shapes. `schema/v1.json` remains historical; v2 commands

@@ -222,6 +222,8 @@ tasks/
     `-- Task.md
 ```
 
-Run local `repoledger check` after task artifact changes and
-`repoledger check --remote` for CI or shared-state validation. Follow the
+Run local `repoledger check` after task artifact changes, `repoledger check
+--staged` for the index candidate, and `repoledger check --commit HEAD` for CI
+on the checked-out commit. Use `repoledger check --remote` when CI or a human
+must also validate refreshed primary and ongoing source refs. Follow the
 [adoption guide](./references/adoption.md) for setup and legacy migration.

@@ -492,6 +492,29 @@ test("returns a stable JSON validation report", async () => {
   assert.equal(report.diagnostics[0].code, "config.missing");
 });
 
+test("renders mutually exclusive Git check targets", async () => {
+  const helpCapture = captureIo();
+  assert.equal(await runCli(["check", "--help"], helpCapture.io), 0);
+  const help = helpCapture.output.join("\n");
+  for (const option of ["--remote", "--commit <revision>", "--staged", "--unstaged"]) {
+    assert.match(help, new RegExp(option.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  }
+
+  const conflicts = [
+    ["--remote", "--commit", "HEAD"],
+    ["--remote", "--staged"],
+    ["--remote", "--unstaged"],
+    ["--commit", "HEAD", "--staged"],
+    ["--commit", "HEAD", "--unstaged"],
+    ["--staged", "--unstaged"],
+  ];
+  for (const args of conflicts) {
+    const capture = captureIo();
+    assert.equal(await runCli(["check", ...args], capture.io), 2, args.join(" "));
+    assert.match(capture.errors.join("\n"), /cannot be used with option/);
+  }
+});
+
 test("requires explicit init coordination target and completion approval", async () => {
   const init = captureIo();
   const complete = captureIo();

@@ -23,6 +23,8 @@ Use:
 repoledger task list
 repoledger status <task-name>
 repoledger check <task-name> --remote
+repoledger check --commit HEAD
+repoledger check --staged
 repoledger task register <task-name>
 repoledger task start <task-name> [--source-repository <url>] [--source-branch <branch>]
 repoledger task complete <task-name> --approved-commit <commit>
@@ -40,5 +42,7 @@ uses the exact delivery-approved primary commit.
 
 - Run `pnpm check` after CLI, schema, task, configuration, or release changes.
 - Run `pnpm check:skills` after skill changes.
+- Use `repoledger check --commit HEAD` for the checked-out CI commit and
+    `repoledger check --remote` when refreshed source refs must also be checked.
 - Validate package contents, installed-package smoke behavior, Markdown links,
   and `git diff --check` before delivery review.

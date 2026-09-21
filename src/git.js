@@ -46,6 +46,57 @@ function requireGit(root, args, label) {
   return result.stdout;
 }
 
+function paths(stdout) {
+  return stdout.split(/\r?\n/).filter(Boolean);
+}
+
+export function resolveCommit(root, revision) {
+  return requireGit(
+    root,
+    ["rev-parse", "--verify", "--end-of-options", `${revision}^{commit}`],
+    `Cannot resolve commit ${revision}`,
+  );
+}
+
+export function commitChangedPaths(root, commit) {
+  const parent = runGit(root, ["rev-parse", "--verify", `${commit}^1`]);
+  const changed = parent.ok
+    ? requireGit(root, ["diff", "--name-only", parent.stdout, commit, "--"], `Cannot inspect commit ${commit}`)
+    : requireGit(
+      root,
+      ["diff-tree", "--root", "--no-commit-id", "--name-only", "-r", commit, "--"],
+      `Cannot inspect root commit ${commit}`,
+    );
+  return paths(changed);
+}
+
+export function indexSnapshot(root) {
+  return {
+    paths: paths(requireGit(root, ["diff", "--cached", "--name-only", "--"], "Cannot inspect staged changes")),
+    tree: requireGit(root, ["write-tree"], "Cannot snapshot the index"),
+  };
+}
+
+export function unstagedSnapshot(root) {
+  const snapshot = requireGit(
+    root,
+    [
+      "-c",
+      "user.name=repoledger",
+      "-c",
+      "user.email=repoledger@example.invalid",
+      "stash",
+      "create",
+      "repoledger check --unstaged",
+    ],
+    "Cannot snapshot unstaged changes",
+  );
+  return {
+    commit: snapshot || requireGit(root, ["rev-parse", "HEAD"], "Cannot resolve HEAD"),
+    paths: paths(requireGit(root, ["diff", "--name-only", "--"], "Cannot inspect unstaged changes")),
+  };
+}
+
 export function repositoryTrackingRef(repository, branch) {
   return `refs/repoledger/remotes/${repositoryNamespace(repository)}/heads/${branch}`;
 }
@@ -95,6 +146,22 @@ export async function withTemporaryWorktree(root, commit, callback) {
     requireGit(root, ["worktree", "add", "--detach", "--no-checkout", directory, commit], "Cannot create isolated worktree");
     added = true;
     requireGit(directory, ["reset", "--hard", commit], "Cannot populate isolated worktree");
+    return await callback(directory);
+  } finally {
+    if (added) runGit(root, ["worktree", "remove", "--force", directory]);
+    await rm(directory, { recursive: true, force: true });
+    runGit(root, ["worktree", "prune"]);
+  }
+}
+
+export async function withTemporaryTree(root, tree, callback) {
+  const directory = await mkdtemp(join(tmpdir(), "repoledger-tree-"));
+  let added = false;
+  try {
+    requireGit(root, ["worktree", "add", "--detach", "--no-checkout", directory, "HEAD"], "Cannot create isolated tree worktree");
+    added = true;
+    requireGit(directory, ["read-tree", tree], "Cannot populate isolated index");
+    requireGit(directory, ["checkout-index", "--all", "--force"], "Cannot populate isolated tree worktree");
     return await callback(directory);
   } finally {
     if (added) runGit(root, ["worktree", "remove", "--force", directory]);

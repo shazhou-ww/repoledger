@@ -1,19 +1,24 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { afterEach, test } from "node:test";
 
 import {
+  commitChangedPaths,
   commitPaths,
   fetchPrimary,
+  indexSnapshot,
   pushPrimary,
   pushStartAtomic,
   repositoryTrackingRef,
+  resolveCommit,
   sanitizeGitMessage,
+  unstagedSnapshot,
   verifySource,
+  withTemporaryTree,
   withTemporaryWorktree,
 } from "../src/git.js";
 
@@ -46,6 +51,7 @@ async function createRepository() {
   git(root, "init", "--initial-branch=main");
   git(root, "config", "user.name", "repoledger test");
   git(root, "config", "user.email", "repoledger@example.invalid");
+  git(root, "config", "core.autocrlf", "false");
   await writeFile(join(root, "README.md"), "fixture\n");
   git(root, "add", "README.md");
   git(root, "commit", "-m", "Initialize fixture");
@@ -117,4 +123,44 @@ test("redacts credentials and sensitive query values from Git messages", () => {
   assert.doesNotMatch(sanitized, /user:secret|abc123|ghp_/);
   assert.match(sanitized, /https:\/\/\[redacted\]@example\.test/);
   assert.match(sanitized, /token=\[redacted\]/);
+});
+
+test("resolves commits and reports root commit paths", async () => {
+  const { root } = await createRepository();
+  const commit = resolveCommit(root, "HEAD");
+
+  assert.equal(commit, git(root, "rev-parse", "HEAD"));
+  assert.deepEqual(commitChangedPaths(root, commit), ["README.md"]);
+  assert.throws(() => resolveCommit(root, "missing-revision"), /Cannot resolve commit/);
+});
+
+test("materializes staged and tracked unstaged snapshots without changing caller state", async () => {
+  const { root } = await createRepository();
+  await writeFile(join(root, "staged.txt"), "staged\n");
+  git(root, "add", "staged.txt");
+  await writeFile(join(root, "README.md"), "unstaged\n");
+  await writeFile(join(root, "untracked.txt"), "untracked\n");
+  git(root, "config", "--unset", "user.name");
+  git(root, "config", "--unset", "user.email");
+  const status = git(root, "status", "--short");
+
+  const staged = indexSnapshot(root);
+  assert.deepEqual(staged.paths, ["staged.txt"]);
+  await withTemporaryTree(root, staged.tree, async (worktree) => {
+    assert.equal(await readFile(join(worktree, "README.md"), "utf8"), "fixture\n");
+    assert.equal(await readFile(join(worktree, "staged.txt"), "utf8"), "staged\n");
+    await assert.rejects(readFile(join(worktree, "untracked.txt"), "utf8"), { code: "ENOENT" });
+  });
+
+  const unstaged = unstagedSnapshot(root);
+  assert.deepEqual(unstaged.paths, ["README.md"]);
+  await withTemporaryWorktree(root, unstaged.commit, async (worktree) => {
+    assert.equal(await readFile(join(worktree, "README.md"), "utf8"), "unstaged\n");
+    assert.equal(await readFile(join(worktree, "staged.txt"), "utf8"), "staged\n");
+    await assert.rejects(readFile(join(worktree, "untracked.txt"), "utf8"), { code: "ENOENT" });
+  });
+
+  assert.equal(git(root, "status", "--short"), status);
+  assert.equal(git(root, "branch", "--show-current"), "main");
+  assert.equal(git(root, "stash", "list"), "");
 });

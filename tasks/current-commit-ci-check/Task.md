@@ -39,19 +39,19 @@ unstaged changes 作为检查目标；所有提交级 `Progress.md` 策略检查
 
 ## Acceptance criteria
 
-- [ ] `repoledger check --remote` 不再枚举远端主分支的 commit history，检查成本不随历史 commit 数量线性增长。
-- [ ] 当前 tip commit 修改任一 task 的 `Progress.md` 且未修改 `tasksDirectory` 外的 tracked path 时，远端检查失败并返回明确诊断。
-- [ ] 当前 tip commit 的 `Progress.md` 变化同时伴随 `tasksDirectory` 外的 tracked path 变化时，提交级检查通过。
-- [ ] 既有历史包含 progress-only commit、但当前 tip 合规时，远端检查不会因旧提交失败。
-- [ ] `--commit <revision>` 校验该 revision 的完整快照和单个 commit diff；无效或不可解析的 revision 返回明确诊断。
-- [ ] `--staged` 只用 index 中的候选快照和相对 `HEAD` 的 staged changes 作出判断，不混入 unstaged 或 untracked changes。
-- [ ] `--unstaged` 只用工作树相对 index 的变化作出提交级判断，并以文档化、经过测试的方式处理 untracked files。
-- [ ] 同时提供多个目标参数时命令以 usage error 退出，不执行含糊的合并检查。
-- [ ] 不带目标参数的 `check` 保持现有本地工作树快照校验兼容性。
-- [ ] merge commit 和无父提交的 tip 行为有明确测试，不会回退为全历史扫描。
-- [ ] 远端 tip 的现有快照校验与 selected ongoing source branch 校验继续生效。
-- [ ] CLI 帮助和文档说明各目标的 snapshot、diff baseline、是否联网及适用的 CI 或本地工作流。
-- [ ] 自动化测试覆盖违规和合规目标、旧违规历史、参数冲突、merge commit、初始 commit、index/worktree 隔离及现有 source branch 失败场景。
+- [x] `repoledger check --remote` 不再枚举远端主分支的 commit history，检查成本不随历史 commit 数量线性增长。
+- [x] 当前 tip commit 修改任一 task 的 `Progress.md` 且未修改 `tasksDirectory` 外的 tracked path 时，远端检查失败并返回明确诊断。
+- [x] 当前 tip commit 的 `Progress.md` 变化同时伴随 `tasksDirectory` 外的 tracked path 变化时，提交级检查通过。
+- [x] 既有历史包含 progress-only commit、但当前 tip 合规时，远端检查不会因旧提交失败。
+- [x] `--commit <revision>` 校验该 revision 的完整快照和单个 commit diff；无效或不可解析的 revision 返回明确诊断。
+- [x] `--staged` 只用 index 中的候选快照和相对 `HEAD` 的 staged changes 作出判断，不混入 unstaged 或 untracked changes。
+- [x] `--unstaged` 只用工作树相对 index 的变化作出提交级判断，并以文档化、经过测试的方式处理 untracked files。
+- [x] 同时提供多个目标参数时命令以 usage error 退出，不执行含糊的合并检查。
+- [x] 不带目标参数的 `check` 保持现有本地工作树快照校验兼容性。
+- [x] merge commit 和无父提交的 tip 行为有明确测试，不会回退为全历史扫描。
+- [x] 远端 tip 的现有快照校验与 selected ongoing source branch 校验继续生效。
+- [x] CLI 帮助和文档说明各目标的 snapshot、diff baseline、是否联网及适用的 CI 或本地工作流。
+- [x] 自动化测试覆盖违规和合规目标、旧违规历史、参数冲突、merge commit、初始 commit、index/worktree 隔离及现有 source branch 失败场景。
 
 ## Constraints
 

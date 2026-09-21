@@ -273,6 +273,43 @@ test("remote check rejects a bookkeeping-only Progress commit", async () => {
   );
 });
 
+test("remote check ignores an old bookkeeping-only Progress commit", async () => {
+  const { primaryRepository, root } = await createRemoteRepository();
+  assert.equal(
+    (await initRepository({ primaryBranch: "main", primaryRepository, root })).ok,
+    true,
+  );
+  git(root, "pull", "--ff-only");
+  const taskPath = join(root, "tasks", "publication-task");
+  await mkdir(taskPath);
+  await writeFile(join(taskPath, "Task.md"), TASK);
+  assert.equal(
+    (await mutateTask({ operation: "register", root, taskName: "publication-task" })).ok,
+    true,
+  );
+  assert.equal(
+    (await mutateTask({ operation: "start", root, taskName: "publication-task" })).ok,
+    true,
+  );
+  await rm(taskPath, { recursive: true });
+  git(root, "pull", "--ff-only");
+  await writeFile(join(taskPath, "Progress.md"), PROGRESS);
+  git(root, "add", "tasks/publication-task/Progress.md");
+  git(root, "commit", "-m", "Add bookkeeping-only progress");
+  git(root, "push", "origin", "main");
+  await writeFile(join(root, "implementation.txt"), "implemented\n");
+  git(root, "add", "implementation.txt");
+  git(root, "commit", "-m", "Implement after progress update");
+  git(root, "push", "origin", "main");
+
+  const checked = await checkRepository({ remote: true, root });
+
+  assert.equal(checked.ok, true, JSON.stringify(checked.diagnostics));
+  assert.ok(
+    !checked.diagnostics.some(({ code }) => code === "progress.history.bookkeeping-only"),
+  );
+});
+
 test("registers matching published task contents and rejects divergent contents", async () => {
   const { primaryRepository, root } = await createRemoteRepository();
   assert.equal(

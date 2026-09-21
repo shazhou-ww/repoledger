@@ -26,7 +26,8 @@ Add repository instructions that:
 - admit only outcomes expected to change a path outside `tasksDirectory`;
 - name the repository task profile;
 - authorize routine non-force publication to primary;
-- require `repoledger check --remote` in CI; and
+- require `repoledger check --commit HEAD` for checked-out commit CI, plus
+   `repoledger check --remote` where refreshed primary and source refs matter;
 - prohibit standalone `Progress.md` bookkeeping commits.
 
 No Git identity, worktree lane, `.gitkeep`, or archive directory is required.
@@ -128,3 +129,9 @@ After migration, every primary commit that creates or edits a task
 `Progress.md` must also change at least one tracked path outside
 `tasksDirectory`. Review artifacts, status transitions, checks, approvals,
 resumes, and handoffs do not justify progress-only commits.
+
+`check --remote` and `check --commit <revision>` enforce this policy only for
+the selected commit relative to its first parent; they do not audit earlier
+history. `check --staged` applies it to the index relative to `HEAD`, while
+`check --unstaged` applies it to tracked worktree changes relative to the index
+and ignores untracked files.

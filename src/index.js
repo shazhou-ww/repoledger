@@ -3,9 +3,14 @@ import { resolve } from "node:path";
 import { loadConfig } from "./config.js";
 import { inspectTaskContents } from "./content.js";
 import {
+  commitChangedPaths,
   fetchPrimary,
   fetchRepositoryBranch,
+  indexSnapshot,
+  resolveCommit,
   runGit,
+  unstagedSnapshot,
+  withTemporaryTree,
   withTemporaryWorktree,
 } from "./git.js";
 import { inspectLayout } from "./layout.js";
@@ -22,52 +27,23 @@ function selectionDiagnostic(name) {
   };
 }
 
-function validateProgressHistory(root, config, primary) {
-  const statusPath = `${config.tasksDirectory}/status.yaml`;
-  const introduced = runGit(root, [
-    "log",
-    "--diff-filter=A",
-    "--format=%H",
-    "--reverse",
-    primary,
-    "--",
-    statusPath,
-  ]);
-  if (!introduced.ok || !introduced.stdout) return [];
-  const migration = introduced.stdout.split(/\r?\n/, 1)[0];
-  const listed = runGit(root, ["rev-list", "--first-parent", "--reverse", `${migration}..${primary}`]);
-  if (!listed.ok || !listed.stdout) return [];
-  const diagnostics = [];
+function validateProgressChanges(config, { commit, paths, target }) {
   const progressPattern = new RegExp(
     `^${config.tasksDirectory.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/[^/]+/Progress\\.md$`,
   );
-  for (const commit of listed.stdout.split(/\r?\n/).filter(Boolean)) {
-    const parent = runGit(root, ["rev-parse", `${commit}^1`]);
-    if (!parent.ok) continue;
-    const changed = runGit(root, [
-      "diff",
-      "--name-only",
-      parent.stdout,
-      commit,
-      "--",
-    ]);
-    if (!changed.ok) continue;
-    const paths = changed.stdout.split(/\r?\n/).filter(Boolean);
-    const changesProgress = paths.some((path) => progressPattern.test(path));
-    const changesOutsideTasks = paths.some(
-      (path) => path !== config.tasksDirectory && !path.startsWith(`${config.tasksDirectory}/`),
-    );
-    if (changesProgress && !changesOutsideTasks) {
-      diagnostics.push({
-        code: "progress.history.bookkeeping-only",
-        level: "error",
-        message: `Commit ${commit} changes Progress.md without an implementation path outside ${config.tasksDirectory}.`,
-        remediation: "Revert the bookkeeping-only change with a forward commit and keep future progress updates with implementation changes.",
-        actual: { commit, paths },
-      });
-    }
-  }
-  return diagnostics;
+  const changesProgress = paths.some((path) => progressPattern.test(path));
+  const changesOutsideTasks = paths.some(
+    (path) => path !== config.tasksDirectory && !path.startsWith(`${config.tasksDirectory}/`),
+  );
+  if (!changesProgress || changesOutsideTasks) return [];
+  const subject = commit ? `Commit ${commit}` : `The ${target} target`;
+  return [{
+    code: "progress.history.bookkeeping-only",
+    level: "error",
+    message: `${subject} changes Progress.md without an implementation path outside ${config.tasksDirectory}.`,
+    remediation: "Keep Progress.md changes with an implementation change outside the task directory.",
+    actual: commit ? { commit, paths } : { target, paths },
+  }];
 }
 
 function sourceIntroductionCommit(root, config, primary, taskName) {
@@ -155,62 +131,9 @@ function validateRemoteSources(root, config, primary, tasks) {
   return { diagnostics, sourceRefs };
 }
 
-export async function checkRepository({
-  remote = false,
-  root = process.cwd(),
-  taskName,
-} = {}) {
+async function inspectSnapshot({ root, taskName }) {
   const repositoryRoot = resolve(root);
   const loaded = await loadConfig({ root: repositoryRoot });
-  if (remote && loaded.config) {
-    try {
-      const primary = fetchPrimary(repositoryRoot, loaded.config);
-      const report = await withTemporaryWorktree(repositoryRoot, primary, (worktree) =>
-        checkRepository({ root: worktree, taskName }),
-      );
-      report.root = repositoryRoot;
-      let sources = { diagnostics: [], sourceRefs: [] };
-      if (report.ok) {
-        const layout = await withTemporaryWorktree(
-          repositoryRoot,
-          primary,
-          (worktree) => inspectLayout({ config: loaded.config, root: worktree }),
-        );
-        const selectedTasks = taskName
-          ? layout.tasks.filter(({ name }) => name === taskName)
-          : layout.tasks;
-        sources = validateRemoteSources(
-          repositoryRoot,
-          loaded.config,
-          primary,
-          selectedTasks,
-        );
-      }
-      report.result = {
-        ...report.result,
-        source: "remote",
-        primary,
-        sourceRefs: sources.sourceRefs,
-      };
-      report.diagnostics.push(...sources.diagnostics);
-      report.diagnostics.push(...validateProgressHistory(repositoryRoot, loaded.config, primary));
-      report.ok = report.diagnostics.every(({ level }) => level !== "error");
-      return report;
-    } catch (caught) {
-      return {
-        command: "check",
-        ok: false,
-        root: repositoryRoot,
-        diagnostics: [{
-          code: "git.fetch.failed",
-          level: "error",
-          message: caught.message,
-          remediation: "Check remote access and retry.",
-        }],
-        result: null,
-      };
-    }
-  }
   const layout = loaded.config
     ? await inspectLayout({ config: loaded.config, root: repositoryRoot })
     : { diagnostics: [], tasks: [] };
@@ -232,7 +155,7 @@ export async function checkRepository({
     ...contents.diagnostics,
   ];
 
-  return {
+  const report = {
     command: "check",
     ok: diagnostics.every(({ level }) => level !== "error"),
     root: repositoryRoot,
@@ -243,6 +166,171 @@ export async function checkRepository({
       total: layout.tasks.length,
     },
   };
+  return { config: loaded.config, layout, report };
+}
+
+function targetFailure(root, code, message, remediation) {
+  return {
+    command: "check",
+    ok: false,
+    root,
+    diagnostics: [{ code, level: "error", message, remediation }],
+    result: null,
+  };
+}
+
+function finishTarget({ commit, inspected, paths, result, root, source }) {
+  const report = inspected.report;
+  report.root = root;
+  report.result = { ...report.result, source, ...result };
+  if (inspected.config) {
+    report.diagnostics.push(...validateProgressChanges(inspected.config, {
+      commit,
+      paths,
+      target: source,
+    }));
+  }
+  report.ok = report.diagnostics.every(({ level }) => level !== "error");
+  return report;
+}
+
+export async function checkRepository({
+  commit,
+  remote = false,
+  root = process.cwd(),
+  staged = false,
+  taskName,
+  unstaged = false,
+} = {}) {
+  const repositoryRoot = resolve(root);
+  const targetCount = [remote, commit !== undefined, staged, unstaged].filter(Boolean).length;
+  if (targetCount > 1) {
+    return targetFailure(
+      repositoryRoot,
+      "check.target.conflict",
+      "Check targets are mutually exclusive.",
+      "Choose exactly one of remote, commit, staged, or unstaged.",
+    );
+  }
+
+  if (remote) {
+    const local = await loadConfig({ root: repositoryRoot });
+    if (!local.config) return (await inspectSnapshot({ root: repositoryRoot, taskName })).report;
+    try {
+      const primary = fetchPrimary(repositoryRoot, local.config);
+      const inspected = await withTemporaryWorktree(repositoryRoot, primary, (worktree) =>
+        inspectSnapshot({ root: worktree, taskName }),
+      );
+      let sources = { diagnostics: [], sourceRefs: [] };
+      if (inspected.report.ok && inspected.config) {
+        const selectedTasks = taskName
+          ? inspected.layout.tasks.filter(({ name }) => name === taskName)
+          : inspected.layout.tasks;
+        sources = validateRemoteSources(
+          repositoryRoot,
+          inspected.config,
+          primary,
+          selectedTasks,
+        );
+      }
+      inspected.report.diagnostics.push(...sources.diagnostics);
+      return finishTarget({
+        commit: primary,
+        inspected,
+        paths: commitChangedPaths(repositoryRoot, primary),
+        result: { primary, sourceRefs: sources.sourceRefs },
+        root: repositoryRoot,
+        source: "remote",
+      });
+    } catch (caught) {
+      return targetFailure(
+        repositoryRoot,
+        "git.fetch.failed",
+        caught.message,
+        "Check remote access and retry.",
+      );
+    }
+  }
+
+  if (commit !== undefined) {
+    let resolvedCommit;
+    try {
+      resolvedCommit = resolveCommit(repositoryRoot, commit);
+    } catch (caught) {
+      return targetFailure(
+        repositoryRoot,
+        "git.commit.invalid",
+        caught.message,
+        "Choose a commit available in the local repository.",
+      );
+    }
+    try {
+      const inspected = await withTemporaryWorktree(repositoryRoot, resolvedCommit, (worktree) =>
+        inspectSnapshot({ root: worktree, taskName }),
+      );
+      return finishTarget({
+        commit: resolvedCommit,
+        inspected,
+        paths: commitChangedPaths(repositoryRoot, resolvedCommit),
+        result: { commit: resolvedCommit },
+        root: repositoryRoot,
+        source: "commit",
+      });
+    } catch (caught) {
+      return targetFailure(
+        repositoryRoot,
+        "git.snapshot.failed",
+        caught.message,
+        "Resolve the repository state and retry the commit check.",
+      );
+    }
+  }
+
+  if (staged) {
+    try {
+      const snapshot = indexSnapshot(repositoryRoot);
+      const inspected = await withTemporaryTree(repositoryRoot, snapshot.tree, (worktree) =>
+        inspectSnapshot({ root: worktree, taskName }),
+      );
+      return finishTarget({
+        inspected,
+        paths: snapshot.paths,
+        root: repositoryRoot,
+        source: "staged",
+      });
+    } catch (caught) {
+      return targetFailure(
+        repositoryRoot,
+        "git.snapshot.failed",
+        caught.message,
+        "Resolve the index state and retry the staged check.",
+      );
+    }
+  }
+
+  if (unstaged) {
+    try {
+      const snapshot = unstagedSnapshot(repositoryRoot);
+      const inspected = await withTemporaryWorktree(repositoryRoot, snapshot.commit, (worktree) =>
+        inspectSnapshot({ root: worktree, taskName }),
+      );
+      return finishTarget({
+        inspected,
+        paths: snapshot.paths,
+        root: repositoryRoot,
+        source: "unstaged",
+      });
+    } catch (caught) {
+      return targetFailure(
+        repositoryRoot,
+        "git.snapshot.failed",
+        caught.message,
+        "Resolve the worktree state and retry the unstaged check.",
+      );
+    }
+  }
+
+  return (await inspectSnapshot({ root: repositoryRoot, taskName })).report;
 }
 
 export { listTasks, statusRepository } from "./status.js";

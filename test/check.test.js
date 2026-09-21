@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -58,6 +59,50 @@ Fixture context.
 - None.
 `;
 
+const progressDocument = `# Progress
+
+Updated: 2026-09-21
+
+## Current state
+
+Implementation is in progress.
+
+## Decisions
+
+- Keep the fixture focused.
+
+## Human approvals
+
+| Checkpoint | Status | Review artifact and decision evidence |
+| --- | --- | --- |
+| Scope | Approved | Fixture owner approved Task.md scope on 2026-09-21. |
+| Interface | Not applicable | No interface. |
+| Business and data model | Not applicable | No model. |
+| Architecture | Not applicable | No architecture. |
+| Delivery acceptance | Pending | Awaiting delivery. |
+
+## Validation
+
+- Target check pending.
+
+## Blockers
+
+- None.
+
+## Outcome
+
+Implementation remains ongoing.
+`;
+
+function git(root, ...args) {
+  const result = spawnSync("git", ["-C", root, ...args], {
+    encoding: "utf8",
+    windowsHide: true,
+  });
+  assert.equal(result.status, 0, result.stderr);
+  return result.stdout.trim();
+}
+
 function record(state, createdAt = "2026-09-18T08:30:00Z") {
   return { state, createdAt, updatedAt: createdAt };
 }
@@ -83,6 +128,31 @@ async function createRepository(tasks = {}) {
     await mkdir(join(root, "tasks", name));
   }
   return root;
+}
+
+function initializeGit(root) {
+  git(root, "init", "--initial-branch=main");
+  git(root, "config", "user.name", "repoledger test");
+  git(root, "config", "user.email", "repoledger@example.invalid");
+  git(root, "config", "core.autocrlf", "false");
+  git(root, "add", ".");
+  git(root, "commit", "-m", "Initialize fixture");
+  return git(root, "rev-parse", "HEAD");
+}
+
+async function createOngoingGitRepository({ progress = false } = {}) {
+  const root = await createRepository({
+    "target-task": {
+      ...record("ongoing"),
+      sourceBranch: "task/target-task",
+    },
+  });
+  const taskPath = join(root, "tasks", "target-task");
+  await writeFile(join(taskPath, "Task.md"), taskDocument);
+  if (progress) await writeFile(join(taskPath, "Progress.md"), progressDocument);
+  await writeFile(join(root, "implementation.txt"), "baseline\n");
+  const initial = initializeGit(root);
+  return { initial, root, taskPath };
 }
 
 test("accepts an empty stable task ledger", async () => {
@@ -204,4 +274,84 @@ test("rejects a symbolic-link task root", async () => {
   assert.ok(
     report.diagnostics.some(({ code }) => code === "config.invalid-tasks-directory"),
   );
+});
+
+test("checks one commit snapshot and diff without fetching history", async () => {
+  const { initial, root, taskPath } = await createOngoingGitRepository();
+  const rootReport = await checkRepository({ commit: initial, root });
+  assert.equal(rootReport.ok, true, JSON.stringify(rootReport.diagnostics));
+  assert.equal(rootReport.result.source, "commit");
+
+  await writeFile(join(taskPath, "Progress.md"), progressDocument);
+  git(root, "add", "tasks/target-task/Progress.md");
+  git(root, "commit", "-m", "Add progress only");
+  const progressOnly = git(root, "rev-parse", "HEAD");
+  const rejected = await checkRepository({ commit: progressOnly, root });
+  assert.equal(rejected.ok, false);
+  assert.ok(rejected.diagnostics.some(({ code }) => code === "progress.history.bookkeeping-only"));
+
+  await writeFile(join(root, "implementation.txt"), "implemented\n");
+  await writeFile(join(taskPath, "Progress.md"), progressDocument.replace("Target check pending.", "Target check passed."));
+  git(root, "add", "implementation.txt", "tasks/target-task/Progress.md");
+  git(root, "commit", "-m", "Implement with progress");
+  const accepted = await checkRepository({ commit: "HEAD", root });
+  assert.equal(accepted.ok, true, JSON.stringify(accepted.diagnostics));
+  assert.equal(accepted.result.commit, git(root, "rev-parse", "HEAD"));
+
+  const invalid = await checkRepository({ commit: "missing-revision", root });
+  assert.equal(invalid.ok, false);
+  assert.equal(invalid.diagnostics[0].code, "git.commit.invalid");
+});
+
+test("checks staged and unstaged targets without mixing change sets", async () => {
+  const stagedFixture = await createOngoingGitRepository();
+  await writeFile(join(stagedFixture.taskPath, "Progress.md"), progressDocument);
+  git(stagedFixture.root, "add", "tasks/target-task/Progress.md");
+  await writeFile(join(stagedFixture.root, "implementation.txt"), "unstaged implementation\n");
+  const stagedStatus = git(stagedFixture.root, "status", "--short");
+
+  const stagedRejected = await checkRepository({ root: stagedFixture.root, staged: true });
+  assert.equal(stagedRejected.ok, false);
+  assert.ok(stagedRejected.diagnostics.some(({ code }) => code === "progress.history.bookkeeping-only"));
+  assert.equal(git(stagedFixture.root, "status", "--short"), stagedStatus);
+
+  git(stagedFixture.root, "add", "implementation.txt");
+  const stagedAccepted = await checkRepository({ root: stagedFixture.root, staged: true });
+  assert.equal(stagedAccepted.ok, true, JSON.stringify(stagedAccepted.diagnostics));
+  assert.equal(stagedAccepted.result.source, "staged");
+
+  const unstagedFixture = await createOngoingGitRepository({ progress: true });
+  await writeFile(join(unstagedFixture.root, "implementation.txt"), "staged implementation\n");
+  git(unstagedFixture.root, "add", "implementation.txt");
+  await writeFile(join(unstagedFixture.taskPath, "Progress.md"), progressDocument.replace("Target check pending.", "Target check rerun."));
+  await writeFile(join(unstagedFixture.root, "untracked.txt"), "ignored implementation\n");
+  const unstagedStatus = git(unstagedFixture.root, "status", "--short");
+
+  const unstagedRejected = await checkRepository({ root: unstagedFixture.root, unstaged: true });
+  assert.equal(unstagedRejected.ok, false);
+  assert.ok(unstagedRejected.diagnostics.some(({ code }) => code === "progress.history.bookkeeping-only"));
+  assert.equal(git(unstagedFixture.root, "status", "--short"), unstagedStatus);
+
+  git(unstagedFixture.root, "restore", "--staged", "implementation.txt");
+  const unstagedAccepted = await checkRepository({ root: unstagedFixture.root, unstaged: true });
+  assert.equal(unstagedAccepted.ok, true, JSON.stringify(unstagedAccepted.diagnostics));
+  assert.equal(unstagedAccepted.result.source, "unstaged");
+});
+
+test("checks merge commits against their first parent", async () => {
+  const { root, taskPath } = await createOngoingGitRepository({ progress: true });
+  git(root, "switch", "-c", "progress-branch");
+  await writeFile(join(taskPath, "Progress.md"), progressDocument.replace("Target check pending.", "Merge target pending."));
+  git(root, "add", "tasks/target-task/Progress.md");
+  git(root, "commit", "-m", "Update progress on branch");
+  git(root, "switch", "main");
+  await writeFile(join(root, "implementation.txt"), "main implementation\n");
+  git(root, "add", "implementation.txt");
+  git(root, "commit", "-m", "Implement on main");
+  git(root, "merge", "--no-ff", "progress-branch", "-m", "Merge progress branch");
+
+  const report = await checkRepository({ commit: "HEAD", root });
+
+  assert.equal(report.ok, false);
+  assert.ok(report.diagnostics.some(({ code }) => code === "progress.history.bookkeeping-only"));
 });
