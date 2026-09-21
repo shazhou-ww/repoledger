@@ -1,10 +1,9 @@
 version: 2
 tasks:
   current-commit-ci-check:
-    state: ongoing
-    sourceBranch: task/current-commit-ci-check
+    state: completed
     createdAt: "2026-09-21T10:37:45Z"
-    updatedAt: "2026-09-21T10:54:50Z"
+    updatedAt: "2026-09-21T11:28:11Z"
   preferred-task-language:
     state: completed
     createdAt: "2026-09-21T09:25:13Z"
