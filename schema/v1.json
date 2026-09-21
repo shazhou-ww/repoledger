@@ -10,36 +10,63 @@
     "taskRecord": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["state", "createdAt", "updatedAt"],
+      "required": [
+        "state",
+        "createdAt",
+        "updatedAt"
+      ],
       "properties": {
         "state": {
-          "enum": ["backlog", "ongoing", "completed", "abandoned"]
+          "enum": [
+            "backlog",
+            "ongoing",
+            "completed",
+            "abandoned"
+          ]
         },
-        "createdAt": { "$ref": "#/$defs/timestamp" },
-        "updatedAt": { "$ref": "#/$defs/timestamp" }
+        "createdAt": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "updatedAt": {
+          "$ref": "#/$defs/timestamp"
+        }
       }
     },
     "statusFile": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["version", "tasks"],
+      "required": [
+        "version",
+        "tasks"
+      ],
       "properties": {
-        "version": { "const": 1 },
+        "version": {
+          "const": 1
+        },
         "tasks": {
           "type": "object",
           "propertyNames": {
             "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
           },
-          "additionalProperties": { "$ref": "#/$defs/taskRecord" }
+          "additionalProperties": {
+            "$ref": "#/$defs/taskRecord"
+          }
         }
       }
     }
   },
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "tasksDirectory", "remote", "primaryBranch"],
+  "required": [
+    "version",
+    "tasksDirectory",
+    "remote",
+    "primaryBranch"
+  ],
   "properties": {
-    "version": { "const": 1 },
+    "version": {
+      "const": 1
+    },
     "tasksDirectory": {
       "type": "string",
       "pattern": "^(?![A-Za-z]:)(?!/)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))(?!\\.$)(?!.*//)(?!.*\/$).+$"

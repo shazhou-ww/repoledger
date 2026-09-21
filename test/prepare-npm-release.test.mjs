@@ -228,11 +228,11 @@ test("uses a protected, least-privilege trusted-publishing workflow", async () =
   const stepNames = publish.steps.map(({ name }) => name);
   assert.ok(
     stepNames.indexOf("Refresh primary branch and verify ancestry") <
-      stepNames.indexOf("Install frozen dependencies"),
+    stepNames.indexOf("Install frozen dependencies"),
   );
   assert.ok(
     stepNames.indexOf("Validate release instruction") <
-      stepNames.indexOf("Publish selected package"),
+    stepNames.indexOf("Publish selected package"),
   );
 
   const checkout = publish.steps.find(({ name }) => name === "Check out full history");

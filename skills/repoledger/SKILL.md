@@ -159,9 +159,6 @@ and architecture review apply when those surfaces change.
   Progress update.
 - Reopen a checkpoint when later changes materially alter the reviewed result.
 
-When installed, `ui-change-review` and `business-data-model-review` are
-optional communication aids for their corresponding checkpoints. Their absence never blocks a checkpoint, and neither skill owns lifecycle state or approval.
-
 Do not cross a protected implementation gate until its required decision is
 explicit. Routine non-force publication needs no separate permission.
 
