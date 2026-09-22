@@ -8,3 +8,7 @@ tasks:
     state: completed
     createdAt: "2026-09-21T09:25:13Z"
     updatedAt: "2026-09-21T10:33:22Z"
+  project-default-task-language:
+    state: backlog
+    createdAt: "2026-09-22T05:07:00Z"
+    updatedAt: "2026-09-22T05:07:00Z"
