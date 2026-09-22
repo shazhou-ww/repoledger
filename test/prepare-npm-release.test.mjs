@@ -24,6 +24,9 @@ const releaseGuidePath = fileURLToPath(
 const workflowPath = fileURLToPath(
   new URL("../.github/workflows/publish-npm.yml", import.meta.url),
 );
+const publishSkillPath = fileURLToPath(
+  new URL("../.github/skills/publish/SKILL.md", import.meta.url),
+);
 const temporaryDirectories = [];
 
 afterEach(async () => {
@@ -277,5 +280,36 @@ test("documents trusted-publisher setup and the protected release procedure", as
   }
   assert.match(guide, /Do not\s+create an npm automation token/);
   assert.match(guide, /new commit on `main`, choose a new version/);
+});
+
+test("provides an explicit project publish skill with immutable release safeguards", async () => {
+  const source = await readFile(publishSkillPath, "utf8");
+  const frontmatter = /^---\r?\n([\s\S]*?)\r?\n---/.exec(source);
+  assert.ok(frontmatter, "publish skill is missing YAML frontmatter");
+  const document = parseDocument(frontmatter[1]);
+  assert.deepEqual(document.errors, []);
+  assert.deepEqual(document.toJS(), {
+    name: "publish",
+    description:
+      "Publish the allowlisted npm package from this repository through the protected GitHub Actions trusted-publishing workflow. Use only when the user explicitly invokes /publish with a release key and version intent.",
+    "argument-hint": "[repoledger] [major|minor|patch|x.y.z]",
+    "user-invocable": true,
+    "disable-model-invocation": true,
+  });
+  for (const required of [
+    "docs/npm-package-releases.md",
+    "scripts/prepare-npm-release.mjs",
+    ".github/workflows/publish-npm.yml",
+    "Never run",
+    "npm publish",
+    "pnpm install --frozen-lockfile",
+    "npm run pack:check",
+    "git tag npm/<release-key>/v<version> origin/main",
+    "Require the workflow conclusion to be `success`",
+  ]) {
+    assert.ok(source.includes(required), `publish skill is missing: ${required}`);
+  }
+  assert.match(source, /Never\r?\n\s+move, delete, or recreate a release tag/);
+  assert.doesNotMatch(source, /NPM_TOKEN\s*=|NODE_AUTH_TOKEN\s*=/);
 });
 

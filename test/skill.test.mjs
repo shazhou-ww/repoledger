@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readdir, readFile } from "node:fs/promises";
+import { readdir, readFile, readlink, realpath } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -22,14 +22,22 @@ async function findSkillFiles(directory) {
 
 test("exposes one consolidated repoledger skill", async () => {
   const skillFiles = await findSkillFiles(repositoryRoot);
-  assert.equal(skillFiles.length, 1);
+  const repoledgerSkills = [];
+  for (const path of skillFiles) {
+    const source = await readFile(path, "utf8");
+    const frontmatter = /^---\r?\n([\s\S]*?)\r?\n---/.exec(source);
+    if (!frontmatter) continue;
+    const document = parseDocument(frontmatter[1]);
+    if (document.get("name") === "repoledger") {
+      repoledgerSkills.push({ document, path, source });
+    }
+  }
+  assert.equal(repoledgerSkills.length, 1);
 
-  const path = skillFiles[0];
-  const source = await readFile(path, "utf8");
+  const [{ document, path, source }] = repoledgerSkills;
   const frontmatter = /^---\r?\n([\s\S]*?)\r?\n---/.exec(source);
   assert.ok(frontmatter, "repoledger skill is missing YAML frontmatter");
 
-  const document = parseDocument(frontmatter[1]);
   assert.deepEqual(document.errors, []);
   assert.deepEqual(document.toJS(), {
     name: "repoledger",
@@ -62,6 +70,15 @@ test("exposes one consolidated repoledger skill", async () => {
     const referenced = resolve(dirname(path), target);
     await assert.doesNotReject(() => readFile(referenced));
   }
+});
+
+test("registers the canonical repoledger skill for this project", async () => {
+  const canonical = resolve(repositoryRoot, "skills", "repoledger");
+  const registration = resolve(repositoryRoot, ".github", "skills", "repoledger");
+  const target = (await readlink(registration)).replaceAll("\\", "/");
+
+  assert.equal(target, "../../skills/repoledger");
+  assert.equal(await realpath(registration), await realpath(canonical));
 });
 
 test("keeps task-language instructions aligned across artifact templates", async () => {
