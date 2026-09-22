@@ -9,7 +9,6 @@ tasks:
     createdAt: "2026-09-21T09:25:13Z"
     updatedAt: "2026-09-21T10:33:22Z"
   project-default-task-language:
-    state: ongoing
-    sourceBranch: task/project-default-task-language
+    state: completed
     createdAt: "2026-09-22T05:07:00Z"
-    updatedAt: "2026-09-22T05:25:35Z"
+    updatedAt: "2026-09-22T06:20:40Z"
