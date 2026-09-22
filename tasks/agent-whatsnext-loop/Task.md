@@ -36,7 +36,10 @@ implementing 和 finalizing，并让 completed/abandoned 只表示经人确认�
   及旧 `ongoing` record 的确定性兼容或迁移规则。
 - 以六类可观察输入形成规范 snapshot：单条 task record、task folder 最近一次 Git
   变更及其内容、当前 project worktree 的 HEAD 与 changes、`repoledger.yaml` 及其 prompt
-  配置、全局 Repoledger 配置、remote primary 当前 hash。
+  配置、全局 Repoledger 配置、remote primary 与 active source ref 当前 hash。
+- 在 task folder 中增加规范化的机器可读 evidence，记录绑定具体 artifact 或 commit 的
+  planning approval、acceptance criterion、validation、finalization receipt 和 completion
+  decision；叙述性 Task/Progress/UserAcceptance 工件继续供人阅读，不作为隐式状态解析源。
 - 把 snapshot 到 prompt 的映射实现为可表驱动测试的纯函数；每条规则均表达为“在某种
   可观察情况下，应该指示 Agent 执行某项工作”，并声明完成该工作预期改变的输入、
   重新查询条件和 human/external yield 条件。
@@ -103,27 +106,144 @@ Completed/abandoned 不参与默认活跃任务选择。用户显式查询终态
 不得通过 Task/Progress 文本或工作树启发式静默猜测；实现必须提供确定、可审计且不会
 越过既有 review gate 的兼容或显式迁移路径。
 
+## Task metadata model
+
+共享元信息分为 control record、task evidence 和可推导 observation 三层。只有决定合法
+transition、共享 source identity 和并发更新的紧凑事实进入 `tasks/status.yaml`；高频变化
+的审批、验证和外部结果进入当前 task folder；能够从 Git 与配置计算的事实不重复持久化。
+
+`tasks/status.yaml` 中每条 task record 包含：
+
+| Field | Presence | Meaning |
+| --- | --- | --- |
+| `state` | Always | 当前 lifecycle state。 |
+| `generation` | Always | 初始为 1；每次 reactivate 递增，区分同名任务的独立生命周期。 |
+| `sourceRepository` / `sourceBranch` | Planning、implementing、finalizing | Canonical shared source identity；默认 primary repository 时可省略 repository。 |
+| `implementationCommit` | Finalizing、completed | 已进入 remote primary、供部署与验收绑定的精确 commit；返回 planning/implementing 时清除。 |
+| `createdAt` / `updatedAt` | Always | 任务创建和最近 lifecycle transition 时间。 |
+
+Approval、criterion status、validation result、external deployment id、prompt output、
+worktree hash、task folder hash、remote hash 和 next action 不进入 status record。这样普通
+证据更新不会争用中央 ledger，也不会把可计算信息复制成可能漂移的第二份状态。
+
+Planning 开始时在 task folder 创建规范化 `Evidence.yaml`，由 Repoledger schema 校验并按
+generation 隔离事实。概念结构如下；最终字段名可在 interface review 中收敛，但每类事实
+及其绑定关系不可省略：
+
+```yaml
+version: 1
+generation: 1
+guidanceBundleDigest: sha256:...
+planning:
+  contractDigest: sha256:...
+  promptBundleDigest: sha256:...
+  reviews:
+    scope:
+      status: approved
+      artifactDigest: sha256:...
+      reviewer: accountable-owner
+      decidedAt: "2026-09-22T00:00:00Z"
+      evidence: Explicit decision reference without secrets.
+implementation:
+  criteria:
+    AC-1:
+      status: satisfied
+      evidence: test/example.test.js
+  validations:
+    unit-tests:
+      status: passed
+      subjectCommit: 0123456789abcdef...
+      evidence: pnpm test
+finalization:
+  targetCommit: 0123456789abcdef...
+  promptBundleDigest: sha256:...
+  steps:
+    production-deploy:
+      status: waiting
+      instruction: Trigger the protected production deployment for targetCommit.
+      sourceDigest: sha256:...
+      externalId: deployment-123
+      evidence: Deployment run reference without secrets.
+closure:
+  outcome: completed
+  targetCommit: 0123456789abcdef...
+  reviewer: accountable-owner
+  decidedAt: "2026-09-22T00:00:00Z"
+  evidence: Explicit terminal decision reference without secrets.
+```
+
+Review status 使用 `pending | approved | rejected | reopened`；criterion 使用
+`pending | satisfied | failed | notApplicable`；validation 使用
+`pending | passed | failed | notApplicable`；finalization step 使用
+`pending | waiting | satisfied | failed | notApplicable`。Completion decision 由 completed
+transition 原子记录为 closure；abandoned transition 也记录对应 closure outcome 和理由。
+Stable IDs 来自 Task contract 或冻结后的 phase prompt requirements，未知、缺失或重复 ID
+使 evidence 无效，而不是按自由文本猜测。
+
+Planning decision 绑定 `Task.md` 的 canonical content digest 和当时完整 generation
+guidance bundle digest；Task 或适用 prompts 变化会使旧 approval stale，并在 implementing
+期间要求先回到 planning。Validation 绑定被验证的 subject commit。进入 finalizing 时把
+当时适用的 finalizing step IDs、实际 executable instruction、各自 source digest 和
+`implementationCommit` 冻结到 Evidence；digest 只验证来源，不能代替后续执行所需内容。
+后续项目配置变化不得给已进入 finalizing 或 terminal 的 generation 隐式增加工作。
+Completed/abandoned transition 把 terminal human decision 与 target 原子写入 closure，避免
+先写 approval 又改变待批准 primary commit 的自引用问题。
+
+`Progress.md` 继续是人类可读实现日志，`UserAcceptance.md` 继续是人工测试说明；会影响
+guidance 的结果必须同时成为 Evidence 中的结构化事实。Evidence 不保存 token、签名 URL、
+凭据或其他秘密，只保存稳定的非秘密 external ID 与证据引用。Checkpoint commit identity、
+task folder revision、remote refs 和 ancestry 均由 Git 推导，避免把 commit 自身 hash 写入
+同一个 commit 形成自引用。
+
 ## Guidance function
 
-`whatsnext` 先执行有 I/O 的 observation，再调用纯 projection：
+任务选择、I/O observation、prompt projection 和 loop advancement 是四个独立边界：
 
 $$
-S = observe(taskRecord, taskFolderRevision, worktree, projectConfig,
-globalConfig, remotePrimary)
+selectedTask = route(invocation, ledgerIndex)
+$$
+
+$$
+S = observe(selectedTask, repository, worktree, configuration)
 $$
 
 $$
 Prompt = render(S)
 $$
 
-规范 snapshot 只由以下输入构成：
+$$
+Next = advance(S_{before}, Prompt.expectedDelta, executionOutcome, S_{after})
+$$
 
-1. `tasks/status.yaml` 中对应的单条 task record。
-2. 当前 task folder 最近一次 Git 变更 hash，以及该 revision 对应的任务工件内容。
-3. 当前 project worktree 的 HEAD hash 和规范化 changes。
+`route`、`render` 和 `advance` 都是纯函数。`observe` 执行文件系统、配置和 Git I/O，但将
+结果规范化为不可变 snapshot；Git ancestry、path classification、approval freshness 和
+worktree binding 等派生事实全部在 observation 中算好，`render` 不再访问外部状态。
+
+规范 snapshot 的原始来源保持六类：
+
+1. `tasks/status.yaml` 中选中任务的 record；task selection 另由完整 ledger index 处理。
+2. 当前 task folder 最近一次 Git 变更 hash，以及该 revision 对应的 Task、Evidence、
+   Progress 和 UserAcceptance 内容。
+3. 当前 project worktree 的 HEAD、current branch、canonical push target 和规范化 changes。
 4. 当前 revision 的 `repoledger.yaml` 与其引用的 phase prompt 内容。
 5. 当前用户的全局 Repoledger 配置。
-6. Remote primary branch 的当前 hash。
+6. Remote primary branch 和选中 active task source ref 的当前 hash。
+
+Active worktree binding 不使用额外 local metadata。Observer 把当前非 detached branch 的
+push destination 解析为 `(canonical repository URL, branch)`，与 task record 的 effective
+`(sourceRepository, sourceBranch)` 比较，得到 `matching | unbound | mismatched | ambiguous`。
+Remote 名称如 `origin` 是 clone-local alias，不参与 identity；同一 target 但 HEAD 落后或
+分叉仍是 matching binding，只由同步派生事实决定后续 prompt。Detached HEAD、无 push
+target、无法规范化 URL 或冲突 source identity 得到保守诊断。Generation 通过 task record
+及 generation-specific source identity 表达，不在 worktree 另存一份可能漂移的绑定。
+
+Canonicalization 是 observer 的一个显式函数：它从当前 branch 的 Git push destination
+取得目标 ref，把 remote alias 解析成配置的 credential-free repository URL，将 ref 规范化为
+short branch，并输出唯一 `(repository, branch)` 或 invalid。它不得比较 `origin` 等 alias、
+猜测未知 SSH/HTTPS identity、读取 task-folder marker 或依赖未声明环境状态；无法证明与
+canonical task source 相等时保守返回 unbound/ambiguous。Observer 还从 commit graph 计算
+`headToSource`、`sourceContainedInPrimary`、`checkpointValid`、`validationFresh` 和 phase path
+classification，`render` 只消费这些规范化事实。
 
 Snapshot 具有稳定 digest。相同 snapshot 必须产生相同 prompt；任一输入在 observation
 期间变化时丢弃候选结果并重新观察。Prompt 至少表达 instruction、完成条件、预期输入
@@ -138,43 +258,102 @@ observe-before-act；无法形成 receipt 的动作不得放入自动重查 loop
 
 ## Guidance statements
 
-- 在配置、task record 或 snapshot 无效的情况下，应该指示 Agent 报告可操作诊断并停止。
-- 在任务不存在或无法唯一选择的情况下，应该指示 Agent 请求明确选择且不修改状态。
-- 在 prompt 绑定的 snapshot 已过期的情况下，应该指示 Agent 放弃剩余 instruction 并
-  重新查询。
-- 在当前 worktree 已绑定另一非终态任务或含无法归属的 changes 的情况下，应该指示
-  Agent 保留现状并使用独立 worktree。
-- 在 `backlog` 任务被明确执行的情况下，应该指示 Agent 建立 task source worktree、
+以下 statements 按负责判定条件的纯函数分组。每个条件只引用该层声明的输入；Agent 在
+执行中发现的语义事实写成 prompt 中始终存在的 contingency，不伪装成 snapshot predicate。
+
+### Routing statements
+
+- 在 invocation 指定未知 task 的情况下，应该返回 missing-task 诊断且不修改状态。
+- 在 invocation 未指定 task 且 ledger index 无法唯一选出一个非终态 task 的情况下，
+  应该请求明确选择且不修改状态。
+- 在 invocation 未指定 task 的情况下，应该排除 completed/abandoned task；终态 task 只有
+  被显式指定后才进入 observation。
+- 在 invocation 已唯一解析 task 的情况下，应该把该 task 交给 observation，不自行生成
+  lifecycle prompt。
+
+### Observation statements
+
+- 在项目/全局配置、task record、Evidence、prompt path 或 task artifact 无效的情况下，
+  应该返回可操作诊断并停止，不调用 `render`。
+- 在必须读取的 remote primary 或 active source ref 无法取得的情况下，应该返回 fetch
+  诊断并停止，不用 stale local tracking ref 生成 prompt。
+- 在 observation 前后任一原始输入发生变化的情况下，应该丢弃候选 snapshot 并重新观察。
+- 在 active task 的 worktree push target 为 unbound、mismatched 或 ambiguous 的情况下，
+  应该在 snapshot 中输出对应 binding fact；不创建或读取 worktree-local task metadata。
+- 在 commit graph、canonical push target 或 path classification 无法无歧义计算的情况下，
+  应该返回诊断，不把不确定关系降级为可执行 lifecycle prompt。
+
+### Pure projection statements
+
+- 在 active task 的 worktree binding 不是 matching 的情况下，应该指示 Agent 保留现状
+  并建立或使用匹配 source target 的独立 worktree；在修复前不得产生 task 写入。Repoledger
+  只证明结构绑定和 phase path legality，不从 diff 内容猜测语义归属。
+- 在 `backlog` 的情况下，应该指示 Agent 建立 generation-specific source target、
   transition 到 `planning` 并重新查询。
-- 在 `planning` 的情况下，应该指示 Agent 只修改当前 task folder，使用核心要求和项目
-  planning prompts 完善计划，并向用户请求绑定权威 artifact 的明确评审决定。
-- 在 `planning` 出现 task folder 外 changes 的情况下，应该指示 Agent 停止发布、保留
-  changes，并在合法 transition 或隔离后处理，不能把实现伪装成计划。
-- 在 planning review 尚未批准的情况下，应该指示 Agent yield，不进入实现。
-- 在计划获得所有适用批准的情况下，应该指示 Agent transition 到 `implementing` 后再
-  修改项目内容。
-- 在 `implementing` 且存在未满足验收条件的情况下，应该指示 Agent继续实现、验证并
-  准备下一次 implementation checkpoint。
-- 在一个 macro-step 包含多个实现 commit 的情况下，应该允许中间 commit 只修改项目；
-  但在发布 checkpoint 或重新调用 `whatsnext` 前，应该指示 Agent 以至少一个同时包含
-  项目变化和对应 Progress 更新的 commit 完成该区间。
-- 在 `implementing` 发现计划或目标需要重审的情况下，应该指示 Agent 保留已有工作并
-  回到 `planning`，不得静默扩大 scope。
-- 在实现已验证、发布并进入 remote primary 的情况下，应该指示 Agent 绑定该 primary
-  commit、transition 到 `finalizing` 并重新查询。
-- 在 `finalizing` 的情况下，应该指示 Agent 只修改当前 task folder，按 finalizing
-  prompts 操作外部工具，并记录部署、smoke test、manual acceptance 等 receipt。
-- 在 finalizing 发现任何 task folder 外 tracked change 或需要修改实现的情况下，应该
-  指示 Agent 保留变化、先回到 `implementing`，再提交实现变化。
-- 在 finalizing 发现目标或计划需要改变的情况下，应该指示 Agent 先回到 `planning`。
-- 在 finalizing 等待 human input 或外部系统的情况下，应该指示 Agent 给出精确等待对象
-  后 yield，不立即重新查询。
-- 在所有 finalization 条件满足的情况下，应该指示 Agent 请求绑定 implementation target
-  的最终确认，并在批准后 transition 到 `completed`。
-- 在显式查询 `completed` 或 `abandoned` 任务的情况下，应该指示 Agent 询问用户是否调整
-  目标；用户拒绝时停止，用户确认时修订契约并执行 reactivate。
-- 在 instruction 完成且声明的输入变化已经发生的情况下，应该指示 Agent 重新调用
-  `whatsnext`；在没有变化、等待或错误的情况下，应该指示 Agent 报告 no progress 并停止。
+- 在 `planning` 且存在 task folder 外 changes 的情况下，应该指示 Agent 停止发布并保留
+  changes，先隔离 worktree 或完成合法 transition。
+- 在 `planning` 且 Evidence 缺失、generation 不匹配、contract/prompt digest 不匹配，
+  或任一 required review 为 pending/rejected/reopened 的情况下，应该指示 Agent 只修改
+  task folder，按当前 planning prompts 完善计划、更新 Evidence，并请求绑定当前 digest
+  的明确 human decision 后 yield。
+- 在 `planning` 且所有 required review 均为 approved 并绑定当前 contract/prompt digest
+  的情况下，应该指示 Agent transition 到 `implementing` 后重新查询。
+- 在 `implementing` 且当前 project guidance bundle 不等于 planning approval 绑定 bundle
+  的情况下，应该指示 Agent 保留工作并先回到 `planning` 重新评审，不静默采用新要求。
+- 在 `implementing` 且 worktree 有未形成合法 checkpoint 的 changes 或 commit range 的
+  情况下，应该指示 Agent 继续当前实现 macro-step、运行适当验证，并以至少一个同时包含
+  项目 delta 与对应 Progress/Evidence 更新的 commit 收束 checkpoint。
+- 在 `implementing` 且任一 required criterion 未 satisfied/notApplicable，或任一 required
+  validation 缺失、失败、或未绑定当前 implementation subject 的情况下，应该指示 Agent
+  继续实现和验证，并准备下一次合法 checkpoint。
+- 在 `implementing` 且 remote source tip 不是 worktree HEAD、两者为可安全快进或需要正常
+  整合的关系时，应该指示 Agent先同步并非强推发布合法 checkpoint；关系分叉时不得覆盖
+  concurrent source work。
+- 在 `implementing` 且 worktree clean、HEAD 等于 remote source tip、checkpoint 合法且
+  source tip 尚未被 remote primary 包含的情况下，应该指示 Agent 通过项目正常集成路径
+  推进该 source tip，并在集成后的 primary candidate 上完成 required validation。
+- 在 `implementing` 且 worktree clean、HEAD 等于 remote source tip、checkpoint 合法、
+  criteria/validations 均绑定当前 primary candidate，且 source tip 已进入 remote primary
+  的情况下，应该指示 Agent 以 remote primary tip 作为 `implementationCommit`，冻结实际
+  finalization instructions，transition 到 `finalizing` 并重新查询。
+- 在 `finalizing` 且存在 task folder 外 changes 的情况下，应该指示 Agent 保留变化并先
+  transition 回 `implementing`，不得在 finalizing 发布这些变化。
+- 在 `finalizing` 且 Evidence generation、target commit 或冻结的 finalization plan 与
+  task record 不一致的情况下，应该报告损坏或 stale evidence，禁止执行外部副作用。
+- 在 `finalizing` 且存在 failed step 的情况下，应该指示 Agent 根据该 step 的冻结 prompt
+  和 evidence 处理失败；若处理需要项目变化，必须先回到 `implementing`。
+- 在 `finalizing` 且存在 pending step 的情况下，应该指示 Agent 按稳定 ID 顺序执行下一
+  required step，并把结果或非秘密 external ID 写入 Evidence 后重新查询。
+- 在 `finalizing` 且存在 waiting step 的情况下，应该指示 Agent 使用记录的 external ID
+  观察该外部操作。外部结果作为 execution outcome 返回；有结果时先更新 Evidence，仍在
+  等待时明确 yield，不把未观察的外部状态当作 snapshot fact。
+- 在 `finalizing` 且所有 required step 均 satisfied/notApplicable 的情况下，应该请求
+  绑定 `implementationCommit` 和当前 finalization artifact 的最终 human decision；明确
+  批准后由 completed transition 原子记录 closure，拒绝或修改请求按 contingency 处理。
+- 在显式选中的 `completed` 或 `abandoned` task 下，应该指示 Agent 询问用户是否调整
+  目标。问题和 yes/no 分支是 prompt 的执行期 human contingency，不是 snapshot predicate；
+  否定回答后停止，肯定回答后按 reactivate contract 修订 Task、增加 generation 并
+  transition 到 `backlog`。
+
+每个 planning prompt 都必须包含：如果用户要求改变当前 contract，则更新 Task/Evidence
+并使旧 approval stale。每个 implementing prompt 都必须包含：如果发现目标或计划需要
+重审，保留工作并先回到 planning。每个 finalizing prompt 都必须包含：如果发现需要项目
+变化则先回到 implementing，如果目标需要变化则先回到 planning。这些是执行期 contingency，
+其输出由 phase 确定，不要求 `render` 预先判断尚未发生的人类或外部发现。
+每个非终态 prompt 还必须包含：如果用户明确要求 abandon，则先取得绑定当前 task 与
+generation 的明确决定，再通过合法 transition 原子记录 abandoned closure；沉默、普通
+Git 授权或 invocation 本身都不是该决定。
+
+### Harness advancement statements
+
+- 在执行副作用前发现当前 snapshot digest 不等于 prompt 绑定 digest 的情况下，应该
+  放弃剩余 instruction 并重新调用 `whatsnext`。
+- 在 execution outcome 为 human/external yield 且没有输入变化的情况下，应该结束当前
+  Agent turn，收到对应输入后重新 observe。
+- 在 $S_{after}$ 满足 prompt 声明的 expected delta 的情况下，应该重新调用 `whatsnext`。
+- 在输入发生未声明变化的情况下，应该丢弃剩余 instruction，重新 observe 并生成 prompt。
+- 在 instruction 已结束但 snapshot 未变化，且 outcome 不是 yield 或可操作错误的情况下，
+  应该报告 no progress 并停止，禁止用同一个 snapshot 空转。
 
 ## Phase permissions and enforcement
 
@@ -201,11 +380,13 @@ validator。可选 `pre-commit`/`pre-push` hook 只提供快速反馈，因为�
 `--no-verify` 跳过；真正阻止违规内容进入 primary 依赖 required CI 和 branch protection。
 
 一个 worktree 同时最多绑定一个可变任务。Planning、implementing 和 finalizing record
-都保留 advertised source branch，执行 worktree 必须与它对应；绑定另一任务、分支不符或
-存在无法归属 changes 时拒绝任务写入并建议独立 worktree。同一 repository 可以用多个
-worktree 并行任务，其他任务的 list/status/check 等只读操作不受限制。该约束使 worktree
-HEAD 与 changes 能无歧义地成为单个 task 的 guidance 输入，但不把本地 worktree 当作
-跨 clone 的全局锁；远端并发继续由 source ref 和非强推 publication 检测。
+都保留 advertised source target，执行 worktree 当前 branch 的 canonical push target 必须
+与它对应；不持久化额外 worktree-local task 或 generation 字段。Target 不符、detached、
+无法解析或 changes 违反当前 phase path rules 时拒绝任务写入并建议独立 worktree或合法
+transition。同一 repository 可以用多个 worktree 并行任务，其他任务的 list/status/check
+等只读操作不受限制。该约束使 worktree HEAD 与 changes 能无歧义地成为单个 task 的
+guidance 输入，但不把本地 worktree 当作跨 clone 的全局锁；远端并发继续由 source ref
+和非强推 publication 检测。
 
 ## Out of scope
 
@@ -216,7 +397,7 @@ HEAD 与 changes 能无歧义地成为单个 task 的 guidance 输入，但不�
   approval 要求。
 - 根据沉默、Git 活动或 prompt 文本自动推断人工批准、任务完成或放弃决定。
 - 为 pre-registration draft 引入没有 ledger task identity 的控制循环。
-- 允许一个 worktree 同时承载多个任务的可变工作，或自动丢弃、搬运无法归属的 changes。
+- 允许一个 worktree 同时承载多个任务的可变工作，或自动丢弃、搬运已有 changes。
 - 绕过受控系统直接实现 npm publish、部署等外部副作用；Agent 只按 finalizing prompt
   评估或安全触发，并记录不包含秘密的结果。
 - 在本任务设计阶段预先固定 JSON disposition 名称；它们应从 lifecycle statements 和
@@ -233,13 +414,23 @@ HEAD 与 changes 能无歧义地成为单个 task 的 guidance 输入，但不�
 - [ ] Lifecycle 支持 backlog、planning、implementing、finalizing、completed、abandoned
   及本文 transition graph；active phase 保留 source ref，finalizing 绑定精确
   implementation commit，reactivation 保留历史并使用新的 generation/source identity。
+- [ ] Status record 仅保存 state、generation、active source identity、适用时的
+  implementation commit 和 timestamps；approval、validation、receipt、Git hash 与
+  next action 不会成为高频中央 ledger 字段。
+- [ ] Task folder 中的规范 `Evidence.yaml` 按 generation 保存绑定具体 Task/prompt digest
+  或 commit 的 review、criteria、validation、冻结 finalization instructions 和 terminal
+  closure；未知 ID、stale binding、非法状态及秘密内容被拒绝。
 - [ ] 旧 `ongoing` record 具有确定、可审计且不靠文本启发式猜测的兼容或迁移行为。
 - [ ] `repoledger whatsnext [task]` 不修改任务、配置、Git refs、工作树或外部系统；默认
   刷新并读取 authoritative primary，必要时验证 active source ref。
 - [ ] 未指定任务且无法唯一选择时返回结构化 `selection-required` 与候选任务，不静默
   猜测；指定未知、冲突或绑定到其他 worktree task 时返回可操作诊断。
+- [ ] Routing、observation、pure projection 和 harness advancement 使用本文声明的独立
+  输入边界；selection、I/O 诊断、human/external outcome 和前后 snapshot 比较不会伪装成
+  单 snapshot predicate。
 - [ ] Observation 只使用本文六类输入并生成稳定 snapshot digest；相同 snapshot 的纯
-  projection 产生相同 prompt，observation 期间输入变化会使候选结果失效。
+  projection 产生相同 prompt，observation 期间输入变化会使候选结果失效；remote input
+  同时覆盖 primary 和 active source ref。
 - [ ] 一次 `whatsnext` 调用提供当前 macro-step 所需的 task contract、phase prompt、
   instruction、完成条件、预期输入变化、human/external yield 与 requery 条件，Agent 无需
   再逐个读取 lifecycle 工件或 prompt 文件。
@@ -257,8 +448,11 @@ HEAD 与 changes 能无歧义地成为单个 task 的 guidance 输入，但不�
   要求先回到 planning。
 - [ ] Completed/abandoned 不被默认选为活跃任务；显式查询会询问是否调整目标，否定时
   停止，肯定时经确认原子修订 Task、增加 generation 并 reactivate 到 backlog。
+- [ ] Worktree binding 只比较当前 branch 的 canonical push target 与 task source target，
+  不创建 worktree-local task/generation metadata；remote alias、detached HEAD、未知 URL
+  identity 和 phase-illegal changes 均有确定的保守处理。
 - [ ] 一个 worktree 最多绑定一个可变任务；同仓库多任务通过独立 worktree 并行，绑定
-  冲突或无法归属 changes 不会被覆盖、混入或自动丢弃。
+  冲突或已有 changes 不会被覆盖、混入或自动丢弃。
 - [ ] Git hooks 与 lifecycle/publication 命令复用同一 validator；绕过本地 hook 的违规
   candidate 仍被 required CI 拒绝进入 protected primary。
 - [ ] Repoledger skill 对 `exec`、`complete` 和 `abandon` 使用统一 loop contract，在
@@ -266,8 +460,9 @@ HEAD 与 changes 能无歧义地成为单个 task 的 guidance 输入，但不�
   permissions、worktree 绑定和终态 reactivation 规则。
 - [ ] `new` 仍只登记 backlog task 后停止；`status` 仍保持纯查询语义，不因引入 loop
   自动执行下一步。
-- [ ] `Task.md`、`Progress.md`、`UserAcceptance.md` 和 `tasks/status.yaml` 继续是可审计
-  source of truth；`whatsnext` 只做确定性 projection，不生成不存在的批准或实现事实。
+- [ ] `Task.md`、`Evidence.yaml`、`Progress.md`、`UserAcceptance.md` 和 `tasks/status.yaml`
+  共同形成可审计 source of truth；`whatsnext` 只做确定性 projection，不生成不存在的
+  批准、验证、外部结果或实现事实。
 - [ ] 自动化测试覆盖配置与路径校验、完整 transition graph、旧 ongoing 兼容、各 phase
   statements、snapshot 纯函数、stale snapshot、checkpoint range、路径权限、worktree
   冲突、human yield、finalization receipt、reactivation、文本/JSON 一致性和 skill loop。
