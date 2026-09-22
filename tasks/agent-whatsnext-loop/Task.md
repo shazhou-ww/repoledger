@@ -32,8 +32,9 @@ source branch 的 phase；primary `tasks/status.yaml` 在三者期间始终只�
   JSON 协议，并默认刷新 authoritative primary 与 active source ref。
 - 保持 primary lifecycle 为 `backlog`、`ongoing`、`completed` 和 `abandoned`；新增显式
   terminal reactivation 与低频 generation identity，但不把 active phase 写入 status。
-- 在 task folder 中增加唯一的规范 `State.yaml`，合并当前 generation 的 phase 与 review、
-  criterion、validation、finalization 和 closure evidence；移除独立 `Evidence.yaml` 概念。
+- 在 task folder 中增加唯一的规范 `State.yaml`，保存当前 generation、phase、通用
+  project-defined guidance item results、phase transition decision 与 closure；核心不内建
+  reviewer、acceptance criterion、test、deployment 或其他领域分类。
 - 使 `State.yaml` 和 `tasks/status.yaml` 只能通过意图明确的 Repoledger 命令修改；每次
   State mutation 使用 expected-tip CAS、规范序列化、独立 commit 和非强推 publication。
 - 用 task source first-parent history 中最近一个合法 `phase-entered` State commit 推导当前
@@ -44,13 +45,18 @@ source branch 的 phase；primary `tasks/status.yaml` 在三者期间始终只�
 - 对完整 source history 重建并验证所有已关闭 phase interval、当前 interval 及每个独立
   transition commit，避免跳过 hook 或后续 revert 掩盖历史违规。
 - Planning/finalizing range 硬性限制为当前 task folder；implementing range 允许项目变化，
-  并在 checkpoint、requery 和 phase close 边界累计验证 Progress、State 和 validation，
-  不要求某一个 commit 同时包含 task folder 内外变化。
+  并在 checkpoint、requery 和 phase close 边界累计验证 repository-declared journal、State
+  与通用 guidance requirements，不要求某一个 commit 同时包含 task folder 内外变化。
 - 支持项目配置按 planning、implementing、finalizing 注入可选 prompt；核心 lifecycle、
   phase permissions、审批、发布和安全规则不可覆盖，finalization instructions 在进入 phase
   时冻结。
 - 由当前 branch canonical push target 与 task source target 推导 worktree binding，不创建
   worktree-local task metadata；一个 worktree 同时最多修改一个 active task。
+- 让 observation 输出 staged/unstaged/untracked/conflict facts、local/source/primary ancestry
+  和 phase path legality；Agent 分类必要工作、来源明确的临时产物与未知现有工作，未知或
+  无关变更默认保留隔离，`whatsnext` 不自动 reset、clean、stash 或覆盖。
+- 对 clean fast-forward gap 输出可由显式 Repoledger sync 自动执行的 step；dirty、ahead 或
+  diverged 状态分别进入安全 commit/publication/integration guidance，不从 stale refs 猜测。
 - 更新 Repoledger skill，使 `exec`、`complete` 和 `abandon` 复用 whatsnext loop；在声明
   delta 后刷新，需要 human/external input 时 yield，在错误或 no-progress 时停止。
 - 更新存储 schema、CLI、checker、Git hooks/CI 指南、README、adoption/task workflow
@@ -78,7 +84,8 @@ source branch 的 phase；primary `tasks/status.yaml` 在三者期间始终只�
 - [ ] Primary `tasks/status.yaml` 在 planning、implementing 和 finalizing 期间始终记录
   `state: ongoing`；coarse lifecycle、generation 和 source identity 与 phase state 职责清晰。
 - [ ] `State.yaml` 使用 strict canonical schema，在一个文件中保存当前 generation、phase
-  和结构化 evidence；未知字段、非法 stable ID、秘密内容和不允许的 hash 被拒绝。
+  及通用 guidance item/transition/closure 状态；item ID 和语义由项目定义，未知字段、非法
+  stable ID、秘密内容和不允许的 hash 被拒绝。
 - [ ] Agent 和用户不直接编辑 State/status；Repoledger 的意图命令使用 expected source
   tip 或 snapshot digest 做 CAS，并创建可恢复、非强推发布的独立机器状态 commit。
 - [ ] Start transaction 在 primary 创建 `backlog -> ongoing` status commit，并在 source
@@ -99,7 +106,7 @@ source branch 的 phase；primary `tasks/status.yaml` 在三者期间始终只�
   `tasks/status.yaml` 变化均被拒绝，Repoledger lifecycle commit 按独立协议校验。
 - [ ] Implementing 的累计 range 可包含多个 code-only 或 task-only commits；checkpoint、
   source publication、whatsnext requery 和 finalizing transition 检查累计 external delta、
-  Progress/State evidence 与 validation freshness，不再要求 same-commit pairing。
+  repository-declared journal/State facts 与 generic item freshness，不再要求 same-commit pairing。
 - [ ] 所有持久 commit hash 在 State transaction 前已经存在，并解析为 transaction parent
   或其祖先；current/self、descendant、future、phase-base 和 cache hash 被拒绝。
 - [ ] 实现进入 primary 后，以 source 为 first parent 同步 primary、冻结具体 finalization
@@ -111,6 +118,12 @@ source branch 的 phase；primary `tasks/status.yaml` 在三者期间始终只�
   start 使用新的 source identity；旧 generation 与 source history 保持可审计。
 - [ ] Worktree binding 只比较 canonical push target 与 effective task source target；remote
   alias、detached HEAD、未知 URL identity 和多重匹配均得到确定的保守处理。
+- [ ] Snapshot 明确包含 dirty worktree 与 local/source/primary relation；必要 task changes
+  通过精确 staging 和累计检查提交，只有当前操作创建或 cleanup policy 明确识别的临时产物
+  可自动删除，未知/无关既有变更被保留并通过独立 worktree 或明确决定处理。
+- [ ] `whatsnext` 只 fetch/observe，不修改 checkout；clean behind source/primary 可由后续显式
+  sync step 做 `ff-only`，ahead 走 checkpoint publication，diverged 走非强推 integration，
+  dirty 状态在同步前先安全协调。
 - [ ] `repoledger.yaml` 可配置安全的 phase prompt paths；planning approval 绑定当前 Task 和
   compiled planning bundle digest，finalization steps 在进入 phase 时冻结且不会被后续配置
   变化隐式扩展。
@@ -141,6 +154,8 @@ source branch 的 phase；primary `tasks/status.yaml` 在三者期间始终只�
   first-parent merge 同步并承担对应累计 range。
 - Human reply、外部系统结果和 Agent 的语义发现是 execution outcome；只有写入结构化 State
   transaction 后才影响下一次 deterministic guidance。
+- Repoledger 只判断 Git shape、phase path legality 和结构化 item 状态，不判断任意 dirty
+  content 的业务归属；未知现有工作不因 Agent 推断“无关”而自动丢弃。
 - Git history 已记录 transition commit identity，因此 State/status 不复制 phase base；任何
   persisted hash 都必须通过 ancestor 与语义角色校验。
 - 同任务并发依靠 expected-tip CAS 和非强推 push 检测；不同任务通过独立 worktree 隔离。

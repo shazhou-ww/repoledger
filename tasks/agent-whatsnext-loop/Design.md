@@ -49,10 +49,10 @@ The primary record never stores:
 
 - `planning`, `implementing`, or `finalizing`;
 - a phase base or phase-transition commit;
-- implementation validation results;
+- phase guidance results;
 - prompt output or next action;
 - worktree, task-folder, source-tip, or primary-tip snapshots;
-- deployment, smoke-test, or manual-acceptance receipts.
+- project-specific or external-operation receipts.
 
 While a task is active, primary always reports `state: ongoing`. Phase changes
 on the source branch do not produce `tasks/status.yaml` commits and do not
@@ -71,35 +71,43 @@ version: 1
 generation: 1
 phase: implementing
 guidance:
-  planningBundleDigest: sha256:...
-planning:
-  contractDigest: sha256:...
-  reviews:
-    scope:
-      status: approved
-      artifactDigest: sha256:...
-      reviewer: accountable-owner
-      decidedAt: "2026-09-22T00:15:00Z"
-implementation:
-  criteria:
-    AC-1:
+  bundleDigest: sha256:...
+  items:
+    citation-audit:
       status: satisfied
-      evidence: test/example.test.js
-  validations:
-    unit-tests:
-      status: passed
-      subjectCommit: 0123456789abcdef0123456789abcdef01234567
-      evidence: pnpm test
-finalization:
-  targetCommit: null
-  promptBundleDigest: null
-  steps: {}
+      subject:
+        kind: commit
+        value: 0123456789abcdef0123456789abcdef01234567
+      receipt:
+        reference: docs/citation-audit.md
+transition:
+  status: pending
+  subject:
+    kind: artifact
+    digest: sha256:...
 closure: null
 ```
 
 The schema is strict and canonically serialized. Unknown fields, duplicate
 stable IDs, noncanonical ordering, invalid phase-specific fields, secrets, and
 hashes that do not resolve to permitted ancestors are errors.
+
+Repoledger does not define domain categories such as reviewer, acceptance
+criterion, unit test, deployment, smoke test, editorial review, or publication.
+Project configuration supplies ordered guidance item IDs and prompts. Core
+State understands only:
+
+- item identity and frozen bundle membership;
+- `pending | waiting | satisfied | failed | notApplicable` item status;
+- an optional commit or artifact subject;
+- a non-secret receipt reference or external ID;
+- phase-level transition decision and terminal closure.
+
+Transition decisions use `pending | approved | rejected` and bind the exact
+artifact digest or historical commit under decision. No `reviewer` field is
+required because Repoledger has no signed human-identity system. Git records
+who committed the State transaction, but that is not claimed to authenticate
+the human decision maker.
 
 `State.yaml` stores only the current generation. Earlier generations and
 superseded evidence remain available through Git history. A completion,
@@ -116,7 +124,8 @@ the next start, primary owns the current closure or reset envelope.
 
 Facts that change `whatsnext` output must also be represented structurally in
 `State.yaml`. Free-form prose is evidence for a human, not implicit machine
-state.
+state. Task acceptance prose is evaluated under current project guidance; it
+is not mechanically mirrored as one State item per checkbox.
 
 ## Lifecycle and phase graph
 
@@ -157,11 +166,8 @@ generic `set-state` or arbitrary YAML patch command.
 Conceptual events include:
 
 - `phase-entered`;
-- `review-recorded`;
-- `criterion-recorded`;
-- `validation-recorded`;
-- `finalization-step-recorded`;
-- `external-wait-recorded`.
+- `guidance-item-recorded`;
+- `transition-decision-recorded`.
 
 Exact public command names remain an interface-review decision. Each event
 executes the same transaction protocol:
@@ -417,10 +423,11 @@ For `planningBase..candidate`:
 
 - cumulative changed paths must stay under `tasks/<task>/`;
 - `tasks/status.yaml` and all project paths are forbidden;
-- the current Task contract, planning guidance digest, required reviews, and
-  approval bindings must be structurally consistent;
-- entering implementing requires every applicable planning review to be
-  approved against the current contract and guidance digests.
+- the current Task contract, frozen planning guidance bundle, item results,
+  and transition-decision binding must be structurally consistent;
+- entering implementing requires every required project-defined item to be
+  `satisfied` or `notApplicable`, plus an approved transition decision bound
+  to the current Task and bundle digests.
 
 ### Implementing
 
@@ -432,12 +439,12 @@ For `implementingBase..candidate`:
 - readiness checks evaluate the complete cumulative range, not the latest
   commit;
 - before a source checkpoint, `whatsnext` requery, or finalizing transition,
-  the range must include an external project delta and the required current
-  Progress/State evidence;
-- a Progress-only latest commit is valid when the cumulative implementing
-  range contains the corresponding project delta;
-- validations refer to an existing ancestor subject. They remain fresh only
-  when no relevant project path differs between that subject and candidate.
+  the range must include an external project delta and all State/journal facts
+  required by the repository profile and frozen implementing bundle;
+- a task-only latest commit is valid when the cumulative implementing range
+  contains the corresponding project delta;
+- an item bound to a commit remains fresh only when no path relevant to that
+  item's frozen instruction differs between its subject and candidate.
 
 There is no requirement that one individual commit contain both implementation
 and Progress changes.
@@ -448,23 +455,24 @@ For `finalizingBase..candidate`:
 
 - cumulative changed paths must stay under `tasks/<task>/`;
 - `tasks/status.yaml` and all project paths are forbidden;
-- finalization instructions are frozen when entering the phase;
+- finalization guidance items are frozen when entering the phase;
 - `phase-entered: finalizing` stores the compiled bundle digest, ordered stable
-  step IDs, and concrete executable instruction for each step in State;
+  item IDs, and source digest for each compiled item in State; executable text
+  remains recoverable from the immutable phase-base tree;
 - later project configuration is never re-read to add, remove, or rewrite a
-  step for that generation;
-- `targetCommit`, bundle digest, step order, step IDs, instructions, and each
-  instruction source digest are immutable throughout one finalizing interval;
-- step transactions may change only the selected step's status, non-secret
+  guidance item for that generation;
+- `targetCommit`, bundle digest, item order, item IDs, and each item source
+  digest are immutable throughout one finalizing interval;
+- item transactions may change only the selected item's status, non-secret
   external ID, evidence reference, attempt metadata, and timestamps according
-  to the legal step-state graph;
-- every receipt binds the frozen step ID, bundle digest, and `targetCommit`;
+  to the legal item-state graph;
+- every receipt binds the frozen item ID, bundle digest, and `targetCommit`;
   a mismatch is corrupt/stale State and blocks further external side effects;
 - a changed project configuration does not stale a frozen finalization plan;
   a changed desired target requires returning to implementing, and a changed
   contract requires returning to planning;
-- deployment, smoke-test, manual-acceptance, and other external results are
-  recorded through State transactions using non-secret stable IDs;
+- project-defined and external results are recorded through generic guidance
+  item transactions using non-secret stable IDs;
 - a required project change forces a tool-owned transition to implementing;
 - a goal or contract change forces a tool-owned transition to planning.
 
@@ -474,8 +482,9 @@ The range engine supports increasingly strong profiles:
 
 - `structural`: State schema, transition commits, ancestry, binding, and phase
   path permissions;
-- `checkpoint`: structural rules plus cumulative implementing Progress and
-  evidence requirements before source publication or `whatsnext` requery;
+- `checkpoint`: structural rules plus cumulative implementing journal and
+  generic guidance requirements before source publication or `whatsnext`
+  requery;
 - `close-phase`: checkpoint rules plus all conditions required to enter the
   requested next phase;
 - `delivery`: all closed phases, finalization receipts, source containment in
@@ -504,8 +513,8 @@ The following hashes are never persisted:
 
 Examples:
 
-- A validation State commit may refer to the already committed code parent it
-  validated.
+- A guidance-item State commit may refer to the already committed repository
+  revision or artifact it evaluated.
 - A finalizing transition may refer to a primary commit only after source has
   synchronized that commit into its ancestry.
 - A completion commit may record its already approved primary parent, never
@@ -520,8 +529,9 @@ To enter finalizing:
   which must equal current remote primary and contain the source tip.
 3. Synchronize `M` back into source with the old source tip as first parent and
   `M` as second parent.
-4. Run required validation against exact target `M`.
-5. Record validation against the now-historical target commit.
+4. Execute every implementing guidance item that must bind exact integrated
+  target `M`.
+5. Record those generic item results against the now-historical target commit.
 6. Freeze concrete finalization instructions in State.
 7. Create the isolated `phase-entered: finalizing` commit.
 
@@ -604,6 +614,70 @@ normal non-force integration.
 One worktree may mutate at most one active task. Other tasks remain available
 for read-only list, status, and check operations.
 
+## Repository observation and reconciliation
+
+`whatsnext` observes repository state before producing task work. The snapshot
+contains at least:
+
+- current branch, HEAD, canonical push target, index tree, tracked worktree
+  delta, nonignored untracked paths, and unresolved conflicts;
+- relation of local HEAD to fetched task source tip:
+  `equal | behind | ahead | diverged`;
+- ancestry relation between fetched source and primary tips;
+- phase path classification for every staged, unstaged, and untracked path.
+
+Fetches may occur during observation because they do not alter checked-out
+files or task history. `whatsnext` itself never checkout, merge, reset, stash,
+delete, commit, or fast-forward a worktree. It emits an explicit reconciliation
+step; the harness may execute a separate Repoledger sync command when that step
+is mechanically safe.
+
+### Dirty worktree classification
+
+Repoledger can classify Git shape and phase legality, but cannot determine the
+business relevance or ownership of arbitrary content. When candidate changes
+exist, the prompt requires the Agent to inspect exact diffs and classify them:
+
+| Classification | Required handling |
+| --- | --- |
+| Required task work | Retain it, ensure the current phase permits its paths, stage exact intended paths, validate the cumulative range, then commit through the normal task workflow. |
+| Known temporary output | Remove only when the Agent created it during the current operation or a repository-owned cleanup rule identifies it deterministically. |
+| Unrelated or unknown existing work | Preserve it. Do not reset, clean, checkout, overwrite, or silently stash it; continue the task in a separate worktree or request an explicit path-specific decision. |
+| Phase-illegal but task-relevant work | Preserve it and perform the legal phase transition before committing, or move task execution to a clean matching worktree. |
+| Unresolved conflict | Stop normal guidance and resolve the conflict without discarding either side before any State or source publication. |
+
+A broad `git clean`, `reset --hard`, or path restoration based only on an
+Agent's “unrelated” judgment is never an automatic step. An explicit user
+instruction may authorize disposal of named paths after a fresh diff review.
+
+### Local/source synchronization
+
+| Local HEAD vs fetched source | Worktree | Guidance |
+| --- | --- | --- |
+| equal | any legal state | Continue phase guidance after dirty-state handling. |
+| behind | clean | Instruct an explicit source sync; a Repoledger sync command may perform `ff-only`, then reobserve. |
+| behind | dirty | Classify and safely commit, remove known temporary output, or preserve/isolate existing work before sync. |
+| ahead | clean or legal task delta | Run the required cumulative checkpoint profile and publish non-force with expected-tip CAS. |
+| diverged | any | Never force or auto-reset. Preserve work and instruct normal non-force integration; conflicts return to the Agent. |
+
+An auto-sync operation is allowed only for a clean worktree, matching source
+target, fetched remote tip, and proven fast-forward. Any merge, source-first
+primary synchronization, or conflict resolution is an explicit task step.
+
+### Source/primary synchronization
+
+| Relation | Guidance |
+| --- | --- |
+| primary is ancestor of source | Source contains active task work; continue or publish according to local/source relation. |
+| source is ancestor of primary | Implementation is integrated; when the next phase requires it, explicitly synchronize primary back into source with old source tip as first parent. |
+| source and primary diverged | Planning/finalizing must not import project changes; implementing may explicitly merge primary with source as first parent after dirty-state reconciliation. |
+| relation unavailable | Return a fetch/ancestry diagnostic; never guess from stale tracking refs. |
+
+For a checked-out primary branch, a separate sync command may fast-forward a
+clean worktree when local primary is an ancestor of fetched primary. Dirty or
+diverged primary worktrees are preserved and reported, never changed by
+`whatsnext`.
+
 ## Guidance pipeline
 
 The command separates four concerns:
@@ -618,8 +692,8 @@ advance(before, expectedDelta, executionOutcome, after)
 - `route`, `render`, and `advance` are pure functions.
 - `observe` performs I/O and normalizes all Git and file facts.
 - `render` receives phase base, cumulative path union, net delta, evidence
-  freshness, ref ancestry, worktree binding, and phase guidance as explicit
-  snapshot facts.
+  freshness, dirty-worktree shape, ref ancestry, worktree binding, and phase
+  guidance as explicit snapshot facts.
 - human replies, external-system results, and semantic discoveries are
   execution outcomes, not hidden snapshot predicates.
 - `advance` re-runs guidance only after the declared input delta occurs; yield,
@@ -631,12 +705,19 @@ Project configuration may add phase-specific prompt files for planning,
 implementing, and finalizing. Repoledger validates paths and compiles only the
 current phase bundle.
 
+Each configured entry has a stable project-defined ID, phase, prompt path, and
+whether it is required. Repoledger preserves config order and tracks only the
+generic item state. For example, a documentation repository may configure
+`outline-review`, `citation-audit`, and `publish-site`; a software repository
+may independently choose build, test, release, or deployment items. None of
+those names or semantics exist in core State schema.
+
 - Core lifecycle, path, security, approval, and publication rules cannot be
   overridden.
-- Planning approval binds both the Task contract digest and compiled planning
-  bundle digest.
-- A changed planning bundle makes that approval stale.
-- Concrete finalization step IDs and instructions are frozen into State when
+- Planning transition decision binds both the Task contract digest and compiled
+  planning bundle digest.
+- A changed planning bundle makes that decision stale.
+- Concrete finalization item IDs and source digests are frozen into State when
   entering finalizing; later configuration changes do not mutate an active or
   terminal generation.
 
@@ -676,7 +757,7 @@ during their next lifecycle mutation or through explicit repository migration.
 | ongoing without generation and without State | Require explicit human choice of planning, implementing, or finalizing; publish generation 1 and one initial marker. |
 | ongoing without generation with one valid generation-1 marker chain | Validate the chain, persist generation 1 in primary, and retain its current phase without creating a second marker. |
 | ongoing with malformed, multiple-lineage, or generation-conflicting State history | Return migration-conflict; do not write either ref until the history is explicitly repaired. |
-| ongoing whose chosen finalizing phase lacks an ancestor integrated target and frozen steps | Reject finalizing migration; choose planning/implementing or first create valid historical evidence. |
+| ongoing whose chosen finalizing phase lacks an ancestor integrated target and frozen guidance items | Reject finalizing migration; choose planning/implementing or first create valid historical evidence. |
 
 The explicit phase choice is a human decision bound to the task, source tip,
 and primary tip. It is never inferred from changed paths, filenames, Task
@@ -702,17 +783,20 @@ checkboxes, Progress prose, or the presence of deployment tooling.
 - repeated phase transitions and nearest-base derivation;
 - evidence-only State commits ignored as phase markers;
 - path-union detection when a forbidden change is later reverted;
-- net-delta and evidence-freshness checks;
+- net-delta and generic item-freshness checks;
 - staged synthetic candidate, commit candidate, and fetched remote candidate;
 - first-parent merge handling and ambiguous history rejection;
 - planning/finalizing task-folder-only enforcement;
-- implementing cumulative Progress/evidence requirements without same-commit
+- implementing cumulative journal/State requirements without same-commit
   pairing;
 - closed-phase reconstruction in CI;
 - persisted-hash ancestor validation and self-reference rejection;
 - non-squash primary integration and source containment;
-- finalization freeze, external wait, manual acceptance, and completion;
+- finalization bundle freeze, generic external wait, and completion;
 - abandonment and generation-based reactivation;
 - legacy ongoing migration without heuristic phase inference;
 - worktree binding from canonical push target without local metadata;
+- dirty worktree classification without automatic disposal of unknown changes;
+- safe fast-forward sync, dirty-behind handling, ahead publication, and
+  diverged-ref reconciliation;
 - deterministic guidance output and no-progress loop termination.
