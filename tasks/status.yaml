@@ -1,5 +1,9 @@
 version: 2
 tasks:
+  agent-session-eval-harness:
+    state: backlog
+    createdAt: "2026-09-22T06:41:43Z"
+    updatedAt: "2026-09-22T06:41:43Z"
   agent-whatsnext-loop:
     state: backlog
     createdAt: "2026-09-22T06:31:54Z"
