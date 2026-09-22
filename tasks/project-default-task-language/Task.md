@@ -64,7 +64,7 @@ Task creation records this plan, not approval.
 | --- | --- | --- | --- | --- |
 | Scope | Required | User or accountable owner | 本文的目标、范围、非目标、约束和验收标准。 | Substantive implementation. |
 | Interface | Required | User or accountable owner | `repoledger.yaml` 字段、语言解析命令、来源输出、agent 回复语言、skill 调用方式及兼容行为。 | Implementing the affected interface. |
-| Business and data model | Required | User or accountable owner | 项目默认值、用户偏好、单次 override 与任务 language track 的优先级和持久化边界。 | Implementing the affected model or data changes. |
+| Business and data model | Not applicable: 不改变业务实体、关系、生命周期记录或持久化业务数据；配置 schema 与语言优先级由 Interface review 覆盖。 | Not applicable | Not applicable | Not applicable |
 | Architecture | Not applicable: 沿用现有配置、语言解析、用户偏好和 skill 模块边界。 | Not applicable | Not applicable | Not applicable |
 | Delivery acceptance | Required | User or accountable owner | 已发布实现、自动化验证结果及各优先级分支的代表性演示。 | Running `task complete` for the exact approved primary commit. |
 
