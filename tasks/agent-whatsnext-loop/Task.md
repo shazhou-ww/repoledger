@@ -28,24 +28,68 @@ hook 会混淆只读指导与外部副作用，也难以定义重试、审批和
 - 将任务状态、任务语言、稳定任务工件、review gate、manual acceptance、source ref、
   validation/blocker 以及当前适用的项目 prompt 解析为一个可执行 step，而不是要求
   Agent 分别读取和拼接生命周期上下文。
-- 执行时先盘清现有 task record schema、合法 lifecycle transition 和每种记录所允许的
-  下一步，再定义封闭的 disposition 集及其完整映射，不在任务创建阶段预设具体成员。
+- 定义最小且封闭的 disposition 集：`backlog -> unstarted`、`ongoing -> active`、
+  `completed | abandoned -> terminal`；missing、unregistered 和 selection-required 是命令
+  诊断或选择结果，不是 disposition。
 - 使 disposition 严格成为 `tasks/status.yaml` 中单条 task record 的纯函数；Task、
   Progress、prompt、human input、外部状态和 source ref 检查可以影响 instruction 与
   evidence，但不得暗中改变 disposition。
 - 定义确定性的 step identity、snapshot、完成条件和刷新边界；human decision 必须绑定
   明确的 review artifact 或 commit，恢复后先确认目标未过期。
 - 在项目配置中支持可选、具名、类型化且 phase 有限的 prompt extensions，只解析当前
-  step 所需的 prompt；明确开始准备、交付准备、完成后 follow-up 和放弃准备等时机的
-  适用边界。
-- 为完成后的发布、部署等 follow-up 定义可恢复且避免重复副作用的判定和回执语义，
-  并在数据模型评审中决定它们是否扩展 task record、因而参与 disposition 映射；若不
-  扩展记录，则 follow-up 不得让 completed/abandoned 记录变成非终止 disposition。
+  record state 所需的 prompt；首版 phase 只对应 `backlog`、`ongoing`、`completed` 和
+  `abandoned`，不从任务工件或对话猜测未持久化的执行子阶段。
+- 把完成后的发布、部署等 follow-up 作为 terminal advisory，在核心 task loop 外按
+  observe-before-act 处理；首版不为 advisory 增加 receipt，也不让它改变 terminal
+  disposition，需要跨会话持久协调的后续工作由外部系统或独立任务承载。
 - 更新 Repoledger skill，使 `exec`、`complete` 和 `abandon` 复用同一个 whatsnext
   loop：执行当前 step、在产生新状态后重新查询、需要用户决定时 yield，并按最终确定
   的 disposition contract 继续或停止；保留 `new` 只登记 backlog 后停止的现有边界。
 - 更新配置 schema、CLI 帮助、README、adoption/task workflow 文档和自动化测试，说明
   prompt 信任边界、loop 语义、恢复规则和兼容行为。
+
+## State machine design
+
+Disposition 的定义域是 `tasks/status.yaml` 中已经注册任务的单条 canonical record，且
+映射只读取 `state`：
+
+| Record state | Disposition | Legal ledger transitions | Source ref | Core loop meaning |
+| --- | --- | --- | --- | --- |
+| `backlog` | `unstarted` | `start -> ongoing`、`abandon -> abandoned` | Forbidden | 任务尚未建立共享执行分支；route intent 决定 start 或请求 abandon decision。 |
+| `ongoing` | `active` | `complete -> completed`、`abandon -> abandoned` | Required | 任务可恢复；Agent 继续当前 route，直到产生 transition、human yield 或实际 blocker。 |
+| `completed` | `terminal` | None | Forbidden | 核心任务成功终止；可呈现 terminal advisory，但不得重新激活任务。 |
+| `abandoned` | `terminal` | None | Forbidden | 核心任务放弃终止；可呈现 terminal advisory，但不得重新激活任务。 |
+
+`absent -> backlog` registration 不属于已注册 record 的 disposition transition。
+Primary 中存在任务目录但没有 status record 时得到的 `unregistered` 也是 layout 投影，
+不是合法 task record；`whatsnext` 对 missing、unregistered、选择歧义和无效 record 返回
+结构化诊断或 selection result，不伪造 disposition。
+
+Disposition 只回答核心 loop 是否尚未开始、正在进行或已经终止，不选择具体命令，也不
+表示 transition 已获授权。`exec`、`complete` 和 `abandon` 是 skill 持有的 route intent：
+同一个 `backlog` record 在 `exec` 下可以 start，在 `abandon` 下必须先取得明确决定；
+同一个 `ongoing` record 可以恢复实现、在满足 gate 后 complete，或在明确决定后 abandon。
+因此 route intent、approval readiness 和合法 transition capabilities 分别输出，不能塞进
+disposition。
+
+`whatsnext` 的 instruction projection 可以读取 authoritative Task/Progress/
+UserAcceptance、source tip、primary commit、项目 prompt 和外部只读证据。它们共同形成
+snapshot、instruction、required input、evidence 和 refresh boundary，但不改变
+disposition。Step identity 绑定完整 resolved snapshot；record 未变化而 source tip、任务
+工件或 prompt bundle 变化时，step 可以变化，disposition 必须不变。
+
+Human wait、环境故障和实现 blocker 是 Agent 执行当前 instruction 后的 outcome，不是
+ledger disposition。Agent 可以向用户提出精确问题并 yield，或报告 blocker 后停止当轮；
+恢复时重新取得最新 snapshot，并继续服从同一 record-derived disposition。只有合法 task
+record transition 可以改变 disposition。
+
+首版 prompt extension phase 与四个持久 record state 一一对应。`ongoing` prompt 必须一次
+提供实现、交付准备和 gate 相关的完整项目指导，因为现有 record 无法区分这些子阶段。
+`completed` 和 `abandoned` prompt 是 terminal advisory：允许检查 npm release、部署或
+通知是否适用，但必须幂等，重复读取不得重复副作用。项目配置变化可以改变以后显式查询
+看到的 advisory 文本，但不能改变历史 record 的 terminal disposition，也不会让默认
+`exec` 重新选择终态任务。Exactly-once receipt、持久 post-completion queue 或更细执行
+phase 若成为需求，必须通过独立评审显式扩展 task record 和 transition graph。
 
 ## Out of scope
 
@@ -72,25 +116,30 @@ hook 会混淆只读指导与外部副作用，也难以定义重试、审批和
 - [ ] 一次 `whatsnext` 调用可提供当前 step 所需的任务 contract、最新持久进展、gate、
   blocker、语言和项目指导，Agent 无需再次读取生命周期工件或逐个 prompt 文件。
 - [ ] JSON 输出包含版本化协议、task/language、primary/source snapshot、lifecycle、
-  disposition、稳定 step id、instruction、done condition、decision target、evidence 要求
-  和 refresh boundary；人类可读输出表达相同事实。
-- [ ] 实现前记录完整的 task record 到 disposition 映射及其理由；具体 disposition 集由
-  该状态机分析产生，而不是由预先选定的 harness 术语反推 ledger 状态。
+  disposition、合法 transition capabilities、route intent、稳定 step id、instruction、
+  done condition、decision target、evidence 要求和 refresh boundary；人类可读输出表达
+  相同事实。
+- [ ] 完整映射固定为 `backlog -> unstarted`、`ongoing -> active`、
+  `completed | abandoned -> terminal`；missing、unregistered、selection-required 和
+  invalid record 均不会产生 disposition。
 - [ ] 对任何已注册任务，只有其单条 task record 改变时 disposition 才可能改变；任务
   工件、项目 prompt、外部状态或同一轮 human input 的变化不得改变该纯函数结果。
-- [ ] 相同权威状态产生相同 disposition 和稳定 step identity；step 或 snapshot 过期时
-  明确要求刷新，且无新状态时不会指示 Agent 重复副作用或无界调用 `whatsnext`。
+- [ ] 相同 task record 产生相同 disposition；相同完整 resolved snapshot 产生相同 step
+  identity。Step 或 snapshot 过期时明确要求刷新，且无新证据时不会指示 Agent 重复
+  副作用或无界调用 `whatsnext`。
 - [ ] 需要 human input 的 instruction 明确描述等待内容、绑定的 artifact/commit 和恢复
   方式；Agent 可以 yield，但调用本身不把 yield、沉默或普通 Git 授权当作 ledger 状态
   或批准。
 - [ ] 项目 prompt 只在匹配 phase 时进入 instruction bundle，来源固定为 authoritative
   primary，并明确低于平台规则、skill 不变量和结构化 step contract 的优先级。
+- [ ] 首版 prompt phase 只对应四个 record state；Task、Progress、对话或启发式判断不会
+  产生 delivery-preparation、waiting-human 等隐藏 phase。
 - [ ] 交付前需要修改仓库的工作在 delivery preparation 中暴露；完成后的 npm release、
-  deployment 等 follow-up 可以幂等检查、跨 human yield 恢复，且不会回滚或重开已
-  完成任务。
-- [ ] 若 post-completion follow-up 会影响 disposition，其 pending/satisfied/applicability
-  事实必须进入同一 task record 并有明确 transition；若不扩展 task record，则
-  completed/abandoned 的 disposition 不得依赖 follow-up、receipt 或当前项目配置。
+  deployment 等 terminal advisory 可以幂等检查、跨 human yield 恢复，且不会回滚或
+  重开已完成任务；首版不承诺 exactly-once receipt。
+- [ ] Completed/abandoned 的 disposition 不依赖 follow-up、receipt 或当前项目配置；
+  需要持久 pending/satisfied/applicability 状态时，必须另行评审 task record 扩展，不能
+  写入旁路 ledger 后仍声称 disposition 是单条 record 的纯函数。
 - [ ] Prompt 配置修改、重命名或删除对已有终态任务的适用规则确定且有测试，不会无意
   重新激活全部历史 completed/abandoned 任务。
 - [ ] Repoledger skill 对 `exec`、`complete` 和 `abandon` 使用统一 loop contract，在
@@ -112,6 +161,8 @@ hook 会混淆只读指导与外部副作用，也难以定义重试、审批和
   input；任何一方都不得伪造另一方无法证明的事实。
 - Disposition 的唯一输入是 `tasks/status.yaml` 中该任务的单条 record；从 Task、Progress、
   prompt、Git reachability 或外部系统读取的事实只能进入 instruction、evidence 或诊断。
+- `unstarted`、`active` 和 `terminal` 描述 record 的核心 loop control，不是命令、Agent
+  outcome、审批状态或工作是否就绪的同义词。
 - 项目 prompt 是 repository-owned guidance，不是可提升权限的指令层，也不得改变
   disposition、审批目标或合法生命周期转换。
 - Phase、kind、执行时确定的 disposition 和机器协议字段使用封闭枚举并保持向后兼容；
@@ -120,6 +171,8 @@ hook 会混淆只读指导与外部副作用，也难以定义重试、审批和
   提前加载未来阶段 prompt。
 - Human yield 是正常暂停而非失败；没有新状态、外部证据或 human input 时不得立即重试
   同一个 step。
+- Terminal advisory 不拥有持久 receipt；必须可安全重复评估，任何需要 exactly-once 或
+  长期追踪的动作都留给外部 workflow 或独立 Repoledger task。
 - 外部动作采用 observe-before-act 和幂等恢复；不可回滚的发布或部署不得与 ledger
   transition 假装成一个原子事务。
 - 必须保留非强推发布、共享 source ref、精确 delivery-approved commit 和并发冲突检测
@@ -132,9 +185,9 @@ Task creation records this plan, not approval.
 | Checkpoint | Applicability | Reviewer | Planned review artifact | Approval required before |
 | --- | --- | --- | --- | --- |
 | Scope | Required | User or accountable owner | 本文的目标、范围、非目标、约束和验收标准。 | Substantive implementation. |
-| Interface | Required | User or accountable owner | `repoledger.yaml` prompt contract、`repoledger whatsnext` 文本/JSON 协议、disposition、CLI 帮助与 skill loop 行为。 | Implementing the affected interface. |
-| Business and data model | Required | User or accountable owner | 完整 task record/disposition 映射、纯函数边界、是否扩展 record 承载 follow-up 状态、历史终态任务适用规则及兼容策略。 | Implementing the affected model or persisted follow-up state. |
-| Architecture | Required | User or accountable owner | CLI 状态投影、prompt resolver、ledger/source ref 读取、skill harness 与外部副作用系统之间的职责边界。 | Implementing the affected module boundaries and control loop. |
+| Interface | Required | User or accountable owner | 本文 State machine design、`repoledger.yaml` prompt contract、`repoledger whatsnext` 文本/JSON 协议、CLI 帮助与 skill loop 行为。 | Implementing the affected interface. |
+| Business and data model | Required | User or accountable owner | 本文的三态 disposition 映射、route/outcome 分层、terminal advisory 非持久语义、历史终态任务适用规则及兼容策略。 | Implementing the affected model. |
+| Architecture | Required | User or accountable owner | 本文的 record/instruction/Agent outcome 分层，以及 CLI 状态投影、prompt resolver、skill harness 与外部副作用系统之间的职责边界。 | Implementing the affected module boundaries and control loop. |
 | Delivery acceptance | Required | User or accountable owner | 已发布实现、完整验证结果、最终 disposition 映射、human yield 演示及兼容性证据。 | Running `task complete` for the exact approved primary commit. |
 
 ## References
