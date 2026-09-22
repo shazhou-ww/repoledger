@@ -52,15 +52,21 @@ releases.
 ```yaml
 version: 2
 tasksDirectory: tasks
+taskLanguage: zh-CN
 primaryRepository: https://github.com/example/repository.git
 primaryBranch: main
 ```
+
+`taskLanguage` is an optional shared default for newly created tasks. It must
+be a canonical BCP 47 tag. Omitting it preserves the existing user-preference
+and `en` fallback behavior.
 
 `primaryRepository` is a canonical credential-free HTTPS URL shared by every
 clone. Local remote names are irrelevant. Git credential helpers and
 `url.*.insteadOf` or `url.*.pushInsteadOf` may provide machine-specific access.
 
-The optional task-language preference is user state, not repository state. It
+The per-user task-language preference remains user state, not repository
+state. It is used only when the project has no `taskLanguage`. The preference
 is stored in `%APPDATA%\repoledger\preferences.yaml` on Windows,
 `$XDG_CONFIG_HOME/repoledger/preferences.yaml` when XDG is configured,
 `~/Library/Application Support/repoledger/preferences.yaml` on macOS, or
@@ -98,6 +104,7 @@ repoledger init --primary-repository <https-url> --primary-branch <branch>
                 [--tasks-directory <path>]
 repoledger config get --global task-language
 repoledger config set --global task-language <tag>
+repoledger config resolve task-language [-r <repository>] [--language <tag>]
 repoledger config resolve --global task-language [--language <tag>]
 repoledger task list [--state <state>...] [--created-since <time>]
                      [--created-before <time>] [--updated-since <time>]
@@ -175,10 +182,12 @@ means validation or operational failure, and `2` means invalid CLI usage.
 
 `config set` accepts a BCP 47 language tag and persists its canonical form, for
 example normalizing `zh-cn` to `zh-CN`. `config get` distinguishes an unset
-preference from a configured value. `config resolve` is read-only and applies
-the task-creation precedence: a one-command `--language` override, then the
-user preference, then `en`. Its structured result reports both the effective
-value and whether it came from `override`, `preference`, or `default`.
+preference from a configured value. Project-aware `config resolve` is read-only
+and applies the task-creation precedence: a one-command `--language` override,
+then `repoledger.yaml#taskLanguage`, then the user preference, then `en`.
+`config resolve --global` skips the project layer for use outside repositories.
+Structured results identify `override`, `project`, `preference`, or `default`
+as the effective source.
 
 Every newly registered `Task.md` records the resolved value near its creation
 date:
@@ -190,10 +199,13 @@ Language: zh-CN
 
 That value is the task's stable language track. Later `Progress.md` and
 `UserAcceptance.md` narrative content follows it even when another user or
-machine resumes the task. Required headings, checkpoint names, lifecycle and
-approval values, outcome values, and acceptance statuses remain English
-protocol markers. Existing tasks without `Language` deterministically use
-`en`; Repoledger does not guess from prose or translate historical artifacts.
+machine resumes the task. During `/repoledger new`, agent-authored user-facing
+narrative replies use the resolved value; during `/repoledger exec` and
+`/repoledger complete`, they use the task's recorded value. Required headings,
+checkpoint names, lifecycle and approval values, outcome values, acceptance
+statuses, commands, identifiers, and quoted tool output remain unchanged.
+Existing tasks without `Language` deterministically use `en`; Repoledger does
+not guess from prose or translate historical artifacts.
 
 ## Validation
 

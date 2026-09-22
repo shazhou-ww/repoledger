@@ -12,6 +12,13 @@
       "format": "uri",
       "pattern": "^https://(?:[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?|\\[[0-9a-f:.]+\\])(?::(?!443(?:/|$))[0-9]+)?/(?!/)(?!.*//)(?!.*\\\\)(?!.*(?:/\\.{1,2})(?:/|$))(?!.*%(?:2[eEfF]|5[cC]))(?!.*[?#])[^/](?:.*[^/])?$"
     },
+    "language": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "pattern": "^(?:[a-z]{2,3}|[a-z]{5,8})(?:-[A-Z][a-z]{3})?(?:-(?:[A-Z]{2}|[0-9]{3}))?(?:-(?:[a-z0-9]{5,8}|[0-9][a-z0-9]{3}))*(?:-[0-9a-wy-z](?:-[a-z0-9]{2,8})+)*(?:-x(?:-[a-z0-9]{1,8})+)?$",
+      "description": "Canonical BCP 47 language tag; runtime validation additionally enforces Intl canonical form."
+    },
     "timestamp": {
       "type": "string",
       "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
@@ -109,6 +116,9 @@
     "tasksDirectory": {
       "type": "string",
       "pattern": "^(?![A-Za-z]:)(?!/)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))(?!\\.$)(?!.*//)(?!.*\/$).+$"
+    },
+    "taskLanguage": {
+      "$ref": "#/$defs/language"
     },
     "primaryRepository": {
       "$ref": "#/$defs/repository"

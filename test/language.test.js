@@ -54,10 +54,18 @@ test("rejects invalid, duplicate, and misplaced task language metadata", () => {
   );
 });
 
-test("resolves override, preference, and default task-language precedence", () => {
+test("resolves override, project, preference, and default task-language precedence", () => {
   assert.deepEqual(
-    resolveTaskLanguage({ override: "fr-fr", preference: "zh-CN" }),
+    resolveTaskLanguage({
+      override: "fr-fr",
+      project: "de",
+      preference: "zh-CN",
+    }),
     { language: "fr-FR", source: "override" },
+  );
+  assert.deepEqual(
+    resolveTaskLanguage({ project: "de", preference: "zh-CN" }),
+    { language: "de", source: "project" },
   );
   assert.deepEqual(resolveTaskLanguage({ preference: "zh-CN" }), {
     language: "zh-CN",
@@ -68,4 +76,5 @@ test("resolves override, preference, and default task-language precedence", () =
     source: "default",
   });
   assert.equal(resolveTaskLanguage({ override: "en_US" }), null);
+  assert.equal(resolveTaskLanguage({ project: "en_US" }), null);
 });

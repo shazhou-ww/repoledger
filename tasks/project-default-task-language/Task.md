@@ -36,16 +36,16 @@ override、项目默认值、用户偏好、`en`”的顺序解析新任务语�
 
 ## Acceptance criteria
 
-- [ ] version 2 `repoledger.yaml` 接受可选的规范 BCP 47 `taskLanguage`，非法或非规范值产生明确且可操作的诊断。
-- [ ] 未配置 `taskLanguage` 的现有项目配置继续有效，且无需迁移即可保持当前行为。
-- [ ] 单次 `--language` override 优先于项目默认值，且不修改项目配置或用户偏好。
-- [ ] 未提供单次 override 时，项目默认值优先于当前用户偏好。
-- [ ] 未配置项目默认值时使用用户偏好；两者均未配置时稳定回退到 `en`。
-- [ ] 有效语言解析的文本和 JSON 输出能够区分 override、项目、用户偏好和内置默认来源。
-- [ ] `/repoledger new` 将解析后的规范语言写入新任务的 `Task.md`，之后恢复或移交仍以该记录为准。
-- [ ] `/repoledger new` 的 agent 自然语言回复使用当次解析出的有效语言；`/repoledger exec` 和 `/repoledger complete` 的回复使用任务已记录的 `Language`，即使当前项目默认值或用户偏好不同。
-- [ ] 全局用户偏好的读取、设置和仓库外解析场景保持兼容，不要求存在 `repoledger.yaml`。
-- [ ] 配置 schema、CLI 帮助、README、skill 指令和自动化测试对字段名称及优先级描述一致。
+- [x] version 2 `repoledger.yaml` 接受可选的规范 BCP 47 `taskLanguage`，非法或非规范值产生明确且可操作的诊断。
+- [x] 未配置 `taskLanguage` 的现有项目配置继续有效，且无需迁移即可保持当前行为。
+- [x] 单次 `--language` override 优先于项目默认值，且不修改项目配置或用户偏好。
+- [x] 未提供单次 override 时，项目默认值优先于当前用户偏好。
+- [x] 未配置项目默认值时使用用户偏好；两者均未配置时稳定回退到 `en`。
+- [x] 有效语言解析的文本和 JSON 输出能够区分 override、项目、用户偏好和内置默认来源。
+- [x] `/repoledger new` 将解析后的规范语言写入新任务的 `Task.md`，之后恢复或移交仍以该记录为准。
+- [x] `/repoledger new` 的 agent 自然语言回复使用当次解析出的有效语言；`/repoledger exec` 和 `/repoledger complete` 的回复使用任务已记录的 `Language`，即使当前项目默认值或用户偏好不同。
+- [x] 全局用户偏好的读取、设置和仓库外解析场景保持兼容，不要求存在 `repoledger.yaml`。
+- [x] 配置 schema、CLI 帮助、README、skill 指令和自动化测试对字段名称及优先级描述一致。
 
 ## Constraints
 

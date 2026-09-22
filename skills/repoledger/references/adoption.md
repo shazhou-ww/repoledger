@@ -39,9 +39,14 @@ Repoledger creates a shared source branch when a task starts.
 # repoledger.yaml
 version: 2
 tasksDirectory: tasks
+taskLanguage: en
 primaryRepository: https://example.com/owner/repository.git
 primaryBranch: main
 ```
+
+`taskLanguage` is optional shared repository state. When present it is the
+canonical BCP 47 default for new tasks; when absent, creation falls back to the
+current user's global preference and then `en`.
 
 ```yaml
 # tasks/status.yaml

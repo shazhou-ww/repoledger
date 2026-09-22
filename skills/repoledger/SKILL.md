@@ -17,9 +17,9 @@ For an explicit `/repoledger` invocation, route by the first argument. Treat it
 as a verb, not as free-form task context:
 
 - `new [--language <tag>] [context]`: admit one accepted implementation
-  outcome and register it in backlog. `--language` overrides the user
-  preference for this task only. Stop after registration; do not start or
-  implement it.
+  outcome and register it in backlog. `--language` overrides the project
+  default and user preference for this task only. Stop after registration; do
+  not start or implement it.
 - `exec [task]`: resolve one existing task, start or resume it, and follow the
   lifecycle until it is terminal or genuinely blocked.
 - `status [task]`: list tasks when no task is supplied, or report and remotely
@@ -59,26 +59,34 @@ Every registered task has one stable language track recorded in `Task.md` as
 `zh-CN`. It controls narrative prose, not machine protocol.
 
 For `/repoledger new`, run
-`repoledger config resolve --global task-language [--language <tag>] --json`
+`repoledger config resolve task-language [--language <tag>] --json`
 before preparing `Task.md`. Pass `--language` only when the invocation includes
 the one-task override. Resolution is deterministic: invocation override, then
-the user preference, then `en`. Record the returned value in `Task.md`; never
-record the preference source or user configuration path. Manage the persistent
-user preference with `repoledger config get --global task-language` and
+the project default in `repoledger.yaml`, then the user preference, then `en`.
+Use the returned value for agent-authored user-facing narrative replies during
+task creation and record it in `Task.md`; never record the resolution source or
+configuration paths. The project default is optional shared repository state.
+Manage the persistent user fallback with
+`repoledger config get --global task-language` and
 `repoledger config set --global task-language <tag>`. User preferences stay
-outside repositories and never modify `repoledger.yaml`.
+outside repositories and never modify `repoledger.yaml`. Use
+`repoledger config resolve --global task-language` only when resolving outside
+a repository and intentionally skipping the project default.
 
 For every existing task, read its recorded `Language` from the authoritative
 `Task.md` or `repoledger status`; do not re-resolve the current user's
 preference. A legacy task without `Language` uses `en`. Never infer language
 from prose, translate existing artifacts, or change a task's language during
-resume or handoff.
+resume or handoff. During `/repoledger exec` and `/repoledger complete`, use
+the task's recorded language for agent-authored user-facing narrative replies,
+even when the current project default or user preference differs.
 
 Write narrative titles, goals, context, scope, criteria, decisions, validation,
 blockers, evidence, and user instructions in the task language. Keep required
 Markdown headings, checkpoint names, applicability and approval values,
 outcomes, acceptance statuses, commands, identifiers, and other validated
-protocol markers in English exactly as the templates define them.
+protocol markers in English exactly as the templates define them. Preserve
+quoted tool output in its original form.
 
 ## Prepare Task Work
 

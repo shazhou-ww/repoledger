@@ -16,10 +16,14 @@ export function validCanonicalLanguage(value) {
   return canonicalLanguage(value) === value;
 }
 
-export function resolveTaskLanguage({ override, preference } = {}) {
+export function resolveTaskLanguage({ override, project, preference } = {}) {
   if (override !== undefined) {
     const language = canonicalLanguage(override);
     return language ? { language, source: "override" } : null;
+  }
+  if (project !== undefined && project !== null) {
+    const language = canonicalLanguage(project);
+    return language ? { language, source: "project" } : null;
   }
   if (preference !== undefined && preference !== null) {
     const language = canonicalLanguage(preference);
