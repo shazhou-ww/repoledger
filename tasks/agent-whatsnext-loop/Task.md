@@ -7,8 +7,8 @@ Language: zh-CN
 
 Repoledger 提供只读的 `repoledger whatsnext [task]` 接手接口，把权威任务状态、
 当前所需任务上下文和项目可选的阶段 prompt 投影成一个完整且确定的下一步；
-Repoledger skill 据此运行可暂停、可恢复的 Agent loop，直到任务完成、放弃或遇到
-需要 human input 的 yield。
+Repoledger skill 据此运行可暂停、可恢复的 Agent loop，直到单条任务记录映射到终止
+disposition；Agent 在执行当前 instruction 时仍可为 human input 暂停和恢复。
 
 ## Context
 
@@ -28,19 +28,22 @@ hook 会混淆只读指导与外部副作用，也难以定义重试、审批和
 - 将任务状态、任务语言、稳定任务工件、review gate、manual acceptance、source ref、
   validation/blocker 以及当前适用的项目 prompt 解析为一个可执行 step，而不是要求
   Agent 分别读取和拼接生命周期上下文。
-- 定义确定性的 step identity、snapshot、disposition、完成条件和刷新边界，使相同权威
-  状态产生相同下一步，并禁止在没有新事实、human input 或外部证据时空转轮询。
-- 支持 `act`、`yield`、`blocked` 和 `terminal` 等封闭 disposition；human decision
-  必须绑定明确的 review artifact 或 commit，恢复后先确认目标未过期。
+- 执行时先盘清现有 task record schema、合法 lifecycle transition 和每种记录所允许的
+  下一步，再定义封闭的 disposition 集及其完整映射，不在任务创建阶段预设具体成员。
+- 使 disposition 严格成为 `tasks/status.yaml` 中单条 task record 的纯函数；Task、
+  Progress、prompt、human input、外部状态和 source ref 检查可以影响 instruction 与
+  evidence，但不得暗中改变 disposition。
+- 定义确定性的 step identity、snapshot、完成条件和刷新边界；human decision 必须绑定
+  明确的 review artifact 或 commit，恢复后先确认目标未过期。
 - 在项目配置中支持可选、具名、类型化且 phase 有限的 prompt extensions，只解析当前
   step 所需的 prompt；明确开始准备、交付准备、完成后 follow-up 和放弃准备等时机的
   适用边界。
 - 为完成后的发布、部署等 follow-up 定义可恢复且避免重复副作用的判定和回执语义，
-  区分 ledger terminal state 与 harness terminal disposition，并避免后续配置变化意外
-  重新激活历史终态任务。
+  并在数据模型评审中决定它们是否扩展 task record、因而参与 disposition 映射；若不
+  扩展记录，则 follow-up 不得让 completed/abandoned 记录变成非终止 disposition。
 - 更新 Repoledger skill，使 `exec`、`complete` 和 `abandon` 复用同一个 whatsnext
-  loop：执行当前 step、在产生新状态后重新查询、需要用户决定时 yield，并在 blocked
-  或 terminal 时停止；保留 `new` 只登记 backlog 后停止的现有边界。
+  loop：执行当前 step、在产生新状态后重新查询、需要用户决定时 yield，并按最终确定
+  的 disposition contract 继续或停止；保留 `new` 只登记 backlog 后停止的现有边界。
 - 更新配置 schema、CLI 帮助、README、adoption/task workflow 文档和自动化测试，说明
   prompt 信任边界、loop 语义、恢复规则和兼容行为。
 
@@ -71,27 +74,35 @@ hook 会混淆只读指导与外部副作用，也难以定义重试、审批和
 - [ ] JSON 输出包含版本化协议、task/language、primary/source snapshot、lifecycle、
   disposition、稳定 step id、instruction、done condition、decision target、evidence 要求
   和 refresh boundary；人类可读输出表达相同事实。
-- [ ] 相同权威状态与项目指导产生相同 step；step 或 snapshot 过期时明确要求刷新，且
-  无新状态时不会指示 Agent重复执行有副作用的动作或无界调用 `whatsnext`。
-- [ ] `yield` 明确描述等待的 human input、绑定的 artifact/commit 和恢复方式；调用本身
-  不把 invocation、沉默或普通 Git 授权当作批准。
+- [ ] 实现前记录完整的 task record 到 disposition 映射及其理由；具体 disposition 集由
+  该状态机分析产生，而不是由预先选定的 harness 术语反推 ledger 状态。
+- [ ] 对任何已注册任务，只有其单条 task record 改变时 disposition 才可能改变；任务
+  工件、项目 prompt、外部状态或同一轮 human input 的变化不得改变该纯函数结果。
+- [ ] 相同权威状态产生相同 disposition 和稳定 step identity；step 或 snapshot 过期时
+  明确要求刷新，且无新状态时不会指示 Agent 重复副作用或无界调用 `whatsnext`。
+- [ ] 需要 human input 的 instruction 明确描述等待内容、绑定的 artifact/commit 和恢复
+  方式；Agent 可以 yield，但调用本身不把 yield、沉默或普通 Git 授权当作 ledger 状态
+  或批准。
 - [ ] 项目 prompt 只在匹配 phase 时进入 instruction bundle，来源固定为 authoritative
   primary，并明确低于平台规则、skill 不变量和结构化 step contract 的优先级。
 - [ ] 交付前需要修改仓库的工作在 delivery preparation 中暴露；完成后的 npm release、
-  deployment 等 follow-up 可以幂等检查、跨 yield 恢复并最终收敛到 terminal，而不会
-  回滚或重开已完成任务。
+  deployment 等 follow-up 可以幂等检查、跨 human yield 恢复，且不会回滚或重开已
+  完成任务。
+- [ ] 若 post-completion follow-up 会影响 disposition，其 pending/satisfied/applicability
+  事实必须进入同一 task record 并有明确 transition；若不扩展 task record，则
+  completed/abandoned 的 disposition 不得依赖 follow-up、receipt 或当前项目配置。
 - [ ] Prompt 配置修改、重命名或删除对已有终态任务的适用规则确定且有测试，不会无意
   重新激活全部历史 completed/abandoned 任务。
 - [ ] Repoledger skill 对 `exec`、`complete` 和 `abandon` 使用统一 loop contract，在
-  `act` 后有可观察进展才刷新，在 `yield` 时向用户提出精确问题并结束当前轮，在
-  `blocked` 或 `terminal` 时停止。
+  可观察进展后才刷新，需要 human input 时提出精确问题并结束当前轮，并严格按最终
+  disposition 映射决定继续或停止。
 - [ ] `new` 仍只登记 backlog task 后停止；`status` 仍保持纯查询语义，不因引入 loop
   自动执行下一步。
 - [ ] `Task.md`、`Progress.md`、`UserAcceptance.md` 和 `tasks/status.yaml` 继续是可审计
   source of truth；`whatsnext` 只做确定性 projection，不生成不存在的批准或实现事实。
-- [ ] 自动化测试覆盖无扩展兼容性、配置与路径校验、各 lifecycle/disposition 分支、
-  human yield、stale snapshot、source divergence、post-completion follow-up、终态收敛、
-  文本/JSON 一致性以及 skill loop 指令。
+- [ ] 自动化测试覆盖无扩展兼容性、配置与路径校验、完整 record/disposition 映射、
+  disposition 纯函数约束、human yield、stale snapshot、source divergence、
+  post-completion follow-up、终态收敛、文本/JSON 一致性以及 skill loop 指令。
 
 ## Constraints
 
@@ -99,10 +110,12 @@ hook 会混淆只读指导与外部副作用，也难以定义重试、审批和
   工作流完成。
 - CLI 负责权威状态解析与结构化导航，skill 负责调用工具、执行 step 和处理当轮 human
   input；任何一方都不得伪造另一方无法证明的事实。
+- Disposition 的唯一输入是 `tasks/status.yaml` 中该任务的单条 record；从 Task、Progress、
+  prompt、Git reachability 或外部系统读取的事实只能进入 instruction、evidence 或诊断。
 - 项目 prompt 是 repository-owned guidance，不是可提升权限的指令层，也不得改变
   disposition、审批目标或合法生命周期转换。
-- Phase、kind、disposition 和机器协议字段使用封闭枚举并保持向后兼容；叙述文本遵循
-  task 记录的语言，命令、标识符和机器协议标记保持英文。
+- Phase、kind、执行时确定的 disposition 和机器协议字段使用封闭枚举并保持向后兼容；
+  叙述文本遵循 task 记录的语言，命令、标识符和机器协议标记保持英文。
 - Instruction bundle 只携带完成当前 step 所需的上下文，避免每轮重复完整任务历史或
   提前加载未来阶段 prompt。
 - Human yield 是正常暂停而非失败；没有新状态、外部证据或 human input 时不得立即重试
@@ -120,9 +133,9 @@ Task creation records this plan, not approval.
 | --- | --- | --- | --- | --- |
 | Scope | Required | User or accountable owner | 本文的目标、范围、非目标、约束和验收标准。 | Substantive implementation. |
 | Interface | Required | User or accountable owner | `repoledger.yaml` prompt contract、`repoledger whatsnext` 文本/JSON 协议、disposition、CLI 帮助与 skill loop 行为。 | Implementing the affected interface. |
-| Business and data model | Required | User or accountable owner | Phase/step 状态模型、terminal 与 follow-up 回执语义、历史终态任务适用规则及兼容策略。 | Implementing the affected model or persisted follow-up state. |
+| Business and data model | Required | User or accountable owner | 完整 task record/disposition 映射、纯函数边界、是否扩展 record 承载 follow-up 状态、历史终态任务适用规则及兼容策略。 | Implementing the affected model or persisted follow-up state. |
 | Architecture | Required | User or accountable owner | CLI 状态投影、prompt resolver、ledger/source ref 读取、skill harness 与外部副作用系统之间的职责边界。 | Implementing the affected module boundaries and control loop. |
-| Delivery acceptance | Required | User or accountable owner | 已发布实现、完整验证结果、代表性 act/yield/blocked/terminal 演示及兼容性证据。 | Running `task complete` for the exact approved primary commit. |
+| Delivery acceptance | Required | User or accountable owner | 已发布实现、完整验证结果、最终 disposition 映射、human yield 演示及兼容性证据。 | Running `task complete` for the exact approved primary commit. |
 
 ## References
 
