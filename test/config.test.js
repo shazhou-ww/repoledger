@@ -4,7 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, test } from "node:test";
 
-import { DEFAULT_CONFIG_NAME, loadConfig } from "../src/config.js";
+import {
+  DEFAULT_CONFIG_NAME,
+  loadConfig,
+  serializeConfig,
+} from "../src/config.js";
 import { validRepository } from "../src/repository.js";
 
 const temporaryDirectories = [];
@@ -27,6 +31,27 @@ async function writeConfig(source) {
 test("loads the strict versioned YAML configuration", async () => {
   const root = await writeConfig(`version: 2
 tasksDirectory: tasks
+taskLanguage: zh-CN
+primaryRepository: https://example.com/owner/repository.git
+primaryBranch: main
+`);
+
+  const loaded = await loadConfig({ root });
+
+  assert.deepEqual(loaded.diagnostics, []);
+  assert.deepEqual(loaded.config, {
+    version: 2,
+    tasksDirectory: "tasks",
+    taskLanguage: "zh-CN",
+    primaryRepository: "https://example.com/owner/repository.git",
+    primaryBranch: "main",
+  });
+  assert.equal(DEFAULT_CONFIG_NAME, "repoledger.yaml");
+});
+
+test("keeps project task language optional", async () => {
+  const root = await writeConfig(`version: 2
+tasksDirectory: tasks
 primaryRepository: https://example.com/owner/repository.git
 primaryBranch: main
 `);
@@ -40,7 +65,44 @@ primaryBranch: main
     primaryRepository: "https://example.com/owner/repository.git",
     primaryBranch: "main",
   });
-  assert.equal(DEFAULT_CONFIG_NAME, "repoledger.yaml");
+});
+
+test("rejects invalid and noncanonical project task languages", async () => {
+  for (const language of ["zh-cn", "en_US", "not a language"]) {
+    const root = await writeConfig(`version: 2
+tasksDirectory: tasks
+taskLanguage: ${language}
+primaryRepository: https://example.com/owner/repository.git
+primaryBranch: main
+`);
+
+    const loaded = await loadConfig({ root });
+
+    assert.equal(loaded.config, null, language);
+    assert.ok(
+      loaded.diagnostics.some(({ code }) => code === "config.invalid-task-language"),
+      language,
+    );
+  }
+});
+
+test("serializes only canonical project task languages", () => {
+  const config = {
+    version: 2,
+    tasksDirectory: "tasks",
+    taskLanguage: "zh-CN",
+    primaryRepository: "https://example.com/owner/repository.git",
+    primaryBranch: "main",
+  };
+
+  assert.equal(
+    serializeConfig(config),
+    "version: 2\ntasksDirectory: tasks\ntaskLanguage: zh-CN\nprimaryRepository: https://example.com/owner/repository.git\nprimaryBranch: main\n",
+  );
+  assert.throws(
+    () => serializeConfig({ ...config, taskLanguage: "zh-cn" }),
+    /Invalid canonical BCP 47 task language/,
+  );
 });
 
 test("requires every property and rejects unknown properties", async () => {
@@ -137,6 +199,14 @@ test("keeps schema repository URL constraints aligned with runtime validation", 
   const schema = JSON.parse(
     await readFile(new URL("../schema/v2.json", import.meta.url), "utf8"),
   );
+  assert.equal(schema.properties.taskLanguage.$ref, "#/$defs/language");
+  const languagePattern = new RegExp(schema.$defs.language.pattern);
+  for (const language of ["en", "zh-CN", "zh-Hans-CN", "sl-1994"]) {
+    assert.equal(languagePattern.test(language), true, language);
+  }
+  for (const language of ["zh-cn", "en_US", "not a language"]) {
+    assert.equal(languagePattern.test(language), false, language);
+  }
   const pattern = new RegExp(schema.$defs.repository.pattern);
   const accepted = [
     "https://example.com/owner/repository.git",

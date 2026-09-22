@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { Command, CommanderError, Option } from "commander";
 
+import { loadConfig } from "./config.js";
 import { checkRepository } from "./index.js";
 import { initRepository } from "./init.js";
 import { isTimestamp, TASK_STATES } from "./ledger.js";
@@ -258,7 +259,8 @@ export function createProgram(io = console, {
 Examples:
   $ repoledger config set --global task-language zh-CN
   $ repoledger config get --global task-language
-  $ repoledger config resolve --global task-language --language fr-FR
+  $ repoledger config resolve task-language --language fr-FR
+  $ repoledger config resolve --global task-language
   $ repoledger task list --state ongoing --sort updated
   $ repoledger status <task-name>
   $ repoledger check --commit HEAD
@@ -266,7 +268,9 @@ Examples:
   $ repoledger check --remote
   $ repoledger task start <task-name>`);
 
-  const config = program.command("config").description("manage user preferences");
+  const config = program
+    .command("config")
+    .description("manage task language settings and user preferences");
   config
     .command("get <key>")
     .description("read one user preference")
@@ -328,8 +332,9 @@ Examples:
 
   config
     .command("resolve <key>")
-    .description("resolve one effective user preference without changing it")
-    .requiredOption("--global", "read the per-user preference outside repositories")
+    .description("resolve the effective task language without changing it")
+    .option("--global", "resolve outside repositories without a project default")
+    .option("-r, --root <path>", "repository root", process.cwd())
     .option("--language <tag>", "one-command task language override")
     .option("--json", "emit the complete machine-readable report")
     .action(async (key, options) => {
@@ -339,11 +344,18 @@ Examples:
           code: "repoledger.invalid-preference",
         });
       }
-      const loaded = await loadUserPreferences({ path: preferencesPath });
-      if (loaded.diagnostics.length > 0) {
+      const loadedPreferences = await loadUserPreferences({ path: preferencesPath });
+      const loadedProject = options.global
+        ? null
+        : await loadConfig({ root: options.root });
+      const diagnostics = [
+        ...(loadedProject?.diagnostics ?? []),
+        ...loadedPreferences.diagnostics,
+      ];
+      if (diagnostics.length > 0) {
         const report = {
           command: "config resolve",
-          diagnostics: loaded.diagnostics,
+          diagnostics,
           ok: false,
           result: null,
         };
@@ -353,7 +365,8 @@ Examples:
       }
       const resolved = resolveTaskLanguage({
         override: options.language,
-        preference: loaded.preferences.taskLanguage,
+        project: loadedProject?.config.taskLanguage,
+        preference: loadedPreferences.preferences.taskLanguage,
       });
       if (!resolved) {
         program.error(`error: invalid BCP 47 task language: ${options.language}`, {
@@ -367,7 +380,12 @@ Examples:
         ok: true,
         result: {
           key,
-          path: preferencesPath,
+          ...(options.global
+            ? { path: preferencesPath }
+            : {
+              configPath: loadedProject.configPath,
+              preferencesPath,
+            }),
           source: resolved.source,
           value: resolved.language,
         },

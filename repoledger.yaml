@@ -1,4 +1,5 @@
 version: 2
 tasksDirectory: tasks
+taskLanguage: zh-CN
 primaryRepository: https://github.com/shazhou-ww/repoledger.git
 primaryBranch: main

@@ -1,12 +1,19 @@
 import { lstat, readFile } from "node:fs/promises";
 import { isAbsolute, posix, relative, resolve, sep } from "node:path";
 
+import { validCanonicalLanguage } from "./language.js";
 import { validBranchName, validRepository } from "./repository.js";
 import { parseStrictYaml, stringifyCanonicalYaml } from "./yaml.js";
 
 export const DEFAULT_CONFIG_NAME = "repoledger.yaml";
 
-const CONFIG_KEYS = ["version", "tasksDirectory", "primaryRepository", "primaryBranch"];
+const CONFIG_KEYS = [
+  "version",
+  "tasksDirectory",
+  "taskLanguage",
+  "primaryRepository",
+  "primaryBranch",
+];
 
 function configDiagnostic(code, path, message, remediation) {
   return { code, level: "error", path, message, remediation };
@@ -62,12 +69,24 @@ export function validPrimaryBranch(_root, value) {
 }
 
 export function serializeConfig(config) {
-  return stringifyCanonicalYaml({
+  if (
+    config.taskLanguage !== undefined &&
+    !validCanonicalLanguage(config.taskLanguage)
+  ) {
+    throw new Error(
+      `Invalid canonical BCP 47 task language: ${String(config.taskLanguage)}`,
+    );
+  }
+  const value = {
     version: config.version,
     tasksDirectory: config.tasksDirectory,
-    primaryRepository: config.primaryRepository,
-    primaryBranch: config.primaryBranch,
-  });
+  };
+  if (config.taskLanguage !== undefined) {
+    value.taskLanguage = config.taskLanguage;
+  }
+  value.primaryRepository = config.primaryRepository;
+  value.primaryBranch = config.primaryBranch;
+  return stringifyCanonicalYaml(value);
 }
 
 export async function loadConfig({ root, configPath = DEFAULT_CONFIG_NAME }) {
@@ -221,6 +240,19 @@ export async function loadConfig({ root, configPath = DEFAULT_CONFIG_NAME }) {
     );
   }
   if (
+    Object.hasOwn(value, "taskLanguage") &&
+    !validCanonicalLanguage(value.taskLanguage)
+  ) {
+    diagnostics.push(
+      configDiagnostic(
+        "config.invalid-task-language",
+        `${displayPath}#taskLanguage`,
+        `taskLanguage must be one canonical BCP 47 tag: ${String(value.taskLanguage)}`,
+        "Use a canonical language tag such as en or zh-CN.",
+      ),
+    );
+  }
+  if (
     Object.hasOwn(value, "primaryRepository") &&
     !validRepository(value.primaryRepository)
   ) {
@@ -253,7 +285,7 @@ export async function loadConfig({ root, configPath = DEFAULT_CONFIG_NAME }) {
         "config.noncanonical",
         displayPath,
         "The repoledger configuration is valid but not canonical.",
-        "Rewrite properties in version, tasksDirectory, primaryRepository, primaryBranch order with LF endings.",
+        "Rewrite properties in version, tasksDirectory, optional taskLanguage, primaryRepository, primaryBranch order with LF endings.",
       ),
     );
   }

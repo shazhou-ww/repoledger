@@ -61,7 +61,7 @@ test("renders the approved command surface without legacy commands", async () =>
 
   assert.equal(exitCode, 0);
   assert.match(help, /check \[options\] \[task-name\]/);
-  assert.match(help, /config\s+manage user preferences/);
+  assert.match(help, /config\s+manage task language settings and user\s+preferences/);
   assert.match(help, /init \[options\]/);
   assert.match(help, /status \[options\] <task-name>/);
   assert.match(help, /task\s+query or mutate task lifecycle state/);
@@ -151,6 +151,80 @@ test("reads and writes the global task language outside repositories", async () 
   assert.equal(
     await readFile(preferencesPath, "utf8"),
     "version: 1\ntaskLanguage: zh-CN\n",
+  );
+});
+
+test("resolves project task language before user preference", async () => {
+  const root = await mkdtemp(join(tmpdir(), "repoledger-cli-project-language-"));
+  temporaryDirectories.push(root);
+  const preferencesPath = join(root, "user", "preferences.yaml");
+  await mkdir(join(root, "user"), { recursive: true });
+  await writeFile(preferencesPath, "version: 1\ntaskLanguage: fr\n");
+  await writeFile(
+    join(root, "repoledger.yaml"),
+    "version: 2\ntasksDirectory: tasks\ntaskLanguage: zh-CN\nprimaryRepository: https://example.com/owner/repository.git\nprimaryBranch: main\n",
+  );
+  const project = captureIo();
+  const overridden = captureIo();
+  const preferred = captureIo();
+  const fallback = captureIo();
+
+  assert.equal(
+    await runCli(
+      ["config", "resolve", "task-language", "--root", root, "--json"],
+      project.io,
+      { preferencesPath },
+    ),
+    0,
+  );
+  assert.deepEqual(JSON.parse(project.output.join("\n")).result, {
+    configPath: join(root, "repoledger.yaml"),
+    key: "task-language",
+    preferencesPath,
+    source: "project",
+    value: "zh-CN",
+  });
+
+  assert.equal(
+    await runCli(
+      ["config", "resolve", "task-language", "--root", root, "--language", "de"],
+      overridden.io,
+      { preferencesPath },
+    ),
+    0,
+  );
+  assert.deepEqual(overridden.output, ["task-language  de (override)"]);
+  assert.equal(
+    await readFile(join(root, "repoledger.yaml"), "utf8"),
+    "version: 2\ntasksDirectory: tasks\ntaskLanguage: zh-CN\nprimaryRepository: https://example.com/owner/repository.git\nprimaryBranch: main\n",
+  );
+
+  await writeFile(
+    join(root, "repoledger.yaml"),
+    "version: 2\ntasksDirectory: tasks\nprimaryRepository: https://example.com/owner/repository.git\nprimaryBranch: main\n",
+  );
+  assert.equal(
+    await runCli(
+      ["config", "resolve", "task-language", "--root", root],
+      preferred.io,
+      { preferencesPath },
+    ),
+    0,
+  );
+  assert.deepEqual(preferred.output, ["task-language  fr (preference)"]);
+
+  assert.equal(
+    await runCli(
+      ["config", "resolve", "task-language", "--root", root],
+      fallback.io,
+      { preferencesPath: join(root, "missing", "preferences.yaml") },
+    ),
+    0,
+  );
+  assert.deepEqual(fallback.output, ["task-language  en (default)"]);
+  assert.equal(
+    await readFile(preferencesPath, "utf8"),
+    "version: 1\ntaskLanguage: fr\n",
   );
 });
 
