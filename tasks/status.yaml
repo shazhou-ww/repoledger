@@ -1,5 +1,9 @@
 version: 2
 tasks:
+  agent-whatsnext-loop:
+    state: backlog
+    createdAt: "2026-09-22T06:31:54Z"
+    updatedAt: "2026-09-22T06:31:54Z"
   current-commit-ci-check:
     state: completed
     createdAt: "2026-09-21T10:37:45Z"
