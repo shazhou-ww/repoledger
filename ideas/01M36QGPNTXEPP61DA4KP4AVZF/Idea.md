@@ -45,6 +45,8 @@ history 保留，不再约束实现。
   组织，folder 的任意变化都会生成新 revision 并使旧 acceptance 自然失效。
 - 更新 CLI、schema、checker、skill、README、adoption 文档、pack/smoke 和自动化测试，覆盖
   最终获批的接口、数据模型、迁移诊断与协作安全语义。
+- 将 `repoledger` package version 更新为 `0.9.0`，并通过受保护的 npm release workflow
+  发布该版本。
 
 ## Out of scope
 
@@ -85,6 +87,12 @@ history 保留，不再约束实现。
 - [ ] CLI、schema、checker、skill、README、adoption 文档和自动化测试覆盖状态矩阵、history
   binding、worktree 安全、breaking cutover、pack、installed-package smoke 与 skill validation。
 
+## Deployment acceptance criteria
+
+- [ ] Immutable tag `npm/repoledger/v0.9.0` 触发的 `Publish npm package` workflow 成功，且
+  `npm view repoledger@0.9.0 version --registry=https://registry.npmjs.org/` 返回 `0.9.0`，
+  `npm view repoledger dist-tags.latest --registry=https://registry.npmjs.org/` 也返回 `0.9.0`。
+
 ## Constraints
 
 - 未经 Interface、Business/data model 和 Architecture review，不开始生产实现或固定最终 schema
@@ -96,6 +104,8 @@ history 保留，不再约束实现。
   yield、报告 actionable error 或 no-progress。
 - Unknown changes、并发 primary work 与历史 acceptance 一律保留；不得 force-push、reset 或用
   stale decision 覆盖新 primary。
+- npm 发布只能由 `.github/workflows/publish-npm.yml` 的 protected tag 与 trusted publishing
+  完成；不得在开发机运行 `npm publish`，不得创建 npm token，也不得移动或重建 release tag。
 
 ## Human review checkpoints
 
@@ -107,7 +117,7 @@ Task creation records this plan, not approval.
 | Interface | Required | User or accountable owner | `whatsnext [idea]`、`check`、selector/output、普通 Git status mutation 与 migration-required diagnostics。 | Fixing command, JSON, diagnostics, or config interfaces. |
 | Business and data model | Required | User or accountable owner | Idea/status layout、ULID/alias、tree revision、acceptance facts 与纯状态推导。 | Adding or implementing vNext schema fields. |
 | Architecture | Required | User or accountable owner | Primary authority、single-primary worktree discipline、history validation、non-force CAS publication 与 breaking cutover。 | Implementing vNext observation, validation, rendering, or publication support. |
-| Delivery acceptance | Required | User or accountable owner | 已发布实现、完整验证结果及各状态、dirty/sync、history binding、cutover 和 no-progress 的代表性演示。 | Recording deployment acceptance for the approved idea revision. |
+| Delivery acceptance | Required | User or accountable owner | 已发布实现、完整验证结果、`npm/repoledger/v0.9.0` workflow 成功证据与 npmjs registry/version/dist-tag 查询结果。 | Recording deployment acceptance for the approved idea revision. |
 
 ## References
 
