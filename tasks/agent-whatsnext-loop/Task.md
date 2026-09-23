@@ -1,150 +1,101 @@
-# 以 whatsnext 驱动 Agent 任务循环
+# 以 whatsnext 驱动 idea 协作循环
 
 Created: 2026-09-22
 Language: zh-CN
 
 ## Goal
 
-Repoledger 提供只读的 `repoledger whatsnext [task]` 接手接口，观察 task lifecycle/phase、
-task artifacts、Git/worktree、项目与全局配置以及 remote refs，并以纯函数生成一段 Agent
-可执行的下一步提示。Agent 执行提示后推动可观察输入发生变化并重新查询，或在等待
-human/external input、可操作错误及 no-progress 边界安全停止。
+Repoledger vNext 以 remote primary 中长期存在的 idea 为协作单位，提供只读的
+`repoledger whatsnext [idea]` 导航接口。命令从 idea definition、最小 status、Git history、
+worktree 和 refreshed primary snapshot 纯推导当前状态与唯一优先的下一步；Agent 执行后通过
+普通 Git 产生可观察变化并重新查询，或在等待 human/external input、可操作错误及 no-progress
+边界安全停止。
 
 ## Context
 
-当前 skill 在接手任务时分别运行 task list、status 和 remote check，再读取多个 artifact
-自行解释下一步，增加工具往返、token 消耗和不同 Agent 之间的行为漂移。现有 `ongoing`
-还同时覆盖 planning、implementing 与 finalizing，无法直接决定当前允许的副作用和应加载
-的项目 prompt。
+现有 v2 使用中央 task ledger、持久 lifecycle、强制 source branch 和多组 lifecycle commands。
+在继续叠加 phase state 与 transition schema 前，本任务重新审视了产品边界，并决定采用更小的
+idea model：idea folder 保存共同期待，sibling status 只保存不可推导的 acceptance facts，
+state 由当前 idea tree revision 纯推导。
 
-此前设计又过早把 guidance output、transition edge 和软件工程领域的 review/test/deploy
-概念塞进 `State.yaml`。正确的 Moore machine 模型中，完整状态由 ledger、phase、artifacts、
-Git、配置和 remote 等多个分量组成；guidance 是输出，transition 是边。应先完整推导每个
-状态下“观察到 X，应指示 Agent 做 Y”，再反推哪些无法重建的事实需要最小持久状态。
+这是一项明确获批的 breaking redesign，不要求 vNext runtime 与 v2 双模式共存。现有 v2
+repository 在显式转换前继续使用 v2 release；vNext 不静默迁移或解释旧 storage。
 
-项目与本任务语言均为 `zh-CN`，但此前 Design.md 使用英文，说明 task language 虽已正确
-解析并记录，Agent 对普通 task narrative artifact 的执行范围与测试覆盖仍不完整。
-
-当前提示逻辑、状态图与待推导问题以 [提示逻辑设计](./Design.md) 为规范评审 artifact。
+规范评审 artifact 为 [Repoledger vNext 设计提案](../../docs/new-design.md)。旧
+[提示逻辑设计](./Design.md) 仅保留 superseded 说明，不再约束实现。
 
 ## Scope
 
-- 定义完整观察状态，包括 selected task 的 primary coarse lifecycle、ongoing phase、task
-  artifacts/history、worktree/index/HEAD、项目/全局配置及刷新后的 source/primary refs。
-- 明确 `repoledger whatsnext` 是独立命令：task selection 在 observation 前完成；外层
-  `/repoledger exec|complete|abandon`、当前 conversation request 和 selection 过程都不进入
-  prompt 计算，相同 selected task snapshot 必须产生相同 guidance。
-- 明确 `guidance = render(observedState)`；human/external/tool event 触发 transition，guidance
-  与 transition 均不作为当前状态字段持久化。
-- 保持 primary lifecycle 为 `backlog | ongoing | completed | abandoned`，并把
-  `planning | implementing | finalizing` 作为 ongoing 的内部 phase。
-- 使用 Mermaid 状态图表达 lifecycle/phase 关系，不再使用难以阅读的 ASCII 状态图。
-- 为 backlog、ongoing/planning、ongoing/implementing、ongoing/finalizing、completed 与
-  abandoned 分别定义领域无关的有序 predicate chain；每条规则统一写成
-  `conditionName: 提示目标`，按顺序只输出第一个命中分支，并以 `otherwise` 收束。
-- 把 phase history invariant 与当前 worktree changes 拆成不同 predicates：已提交历史违规
-  不能用 clean/stash 掩盖；planning/finalizing 当前产生的非 task 变化则应精确清理、用有
-  说明的 stash 暂存到合法 phase，或保留未知/用户已有工作并改用独立 worktree。
-- 把 human approval/rejection 作为 Guidance 输出后的执行事件处理，不定义
-  `planningDecisionApproved/Rejected`、`finalizingDecision*` 或 `completionDecision*` 等
-  snapshot predicates。
-- 把 selection、observation diagnostics、全局 conflict/worktree/ref reconciliation、
-  state-specific guidance、prompt execution event 和 loop advancement 拆成独立有序规则链。
-- 把 staged/unstaged/untracked/conflict、worktree binding 和 local/source/primary ancestry
-  纳入 observation，并为 clean fast-forward、dirty-behind、ahead 与 diverged 给出安全提示。
-- 要求 Agent 精确读取 dirty diff：保留并提交合法的必要 task work；只删除当前操作创建或
-  repository policy 可确定识别的临时产物；未知、用户已有或无关变更默认保留和隔离。
-- 允许项目按 phase 配置可选 prompts，以承载文档、软件、内容创作、发布等领域语义；
-  Repoledger core 不预设 UX、架构、criterion、test、deploy 或 smoke 等分类。
-- 明确没有配置 phase prompt 时仍可使用 core guidance，不把任何软件工程工作流当作必选项。
-- 在提示逻辑获得评审后，逐条判断条件能否从 Git/artifacts/config/remote 重建，再设计最小
-  持久 state detail；当前不固定 `State.yaml` schema、decision/receipt 字段或 event 格式。
-- 后续实现 phase-base 与累计 range checking 时，检查当前 phase 初始边界到 candidate 的
-  完整变更，而不是只看最近 commit；具体持久 marker 方案须由提示逻辑所需信息反推并评审。
-- 更新 Repoledger skill，使现有 task 的所有 Agent-authored narrative artifacts 都使用
-  `Task.md` 已记录语言，而不只覆盖 Task、Progress、UserAcceptance 或面向用户回复。
-- 更新 CLI、schema、checker、skill、README、adoption/task workflow 文档和自动化测试，
-  覆盖最终获批的状态输入、提示输出、循环与协作安全语义。
+- 定义 `ideas/<ULID>/` 与 sibling `ideas/<ULID>.status.yaml` layout、ULID identity、唯一 alias
+  和 Git subtree OID `ideaRevision`。
+- Status 只保存 `version`、`id`、`alias`、可选 `abandoned` 及三个 revision acceptance；不保存
+  派生 state、guidance、criteria mirror、source branch 或 transition edge。
+- 从当前 idea revision 与 status 纯推导
+  `preparing | implementing | deploying | completed | abandoned`。
+- 实现只读 `repoledger whatsnext [idea]`：先 refresh remote primary，再执行 selection、结构
+  诊断、worktree hygiene、primary reconciliation 与 state guidance 的有序规则链。
+- 实现 `repoledger check` 对 layout、schema、canonical serialization、alias、tree OID binding、
+  history evidence 和 repository-owned path 安全性的本地及完整历史校验。
+- `whatsnext` 输出 `observedPrimaryCommit` 与 `ideaRevision`，但不编辑文件、不 commit、不 merge、
+  不 push；approval/acceptance/abandonment 由普通文件编辑、`check`、commit 与 non-force push
+  表达。
+- vNext 协议只以 configured primary 为 authority；feature branch 是可选传输手段，不进入
+  status、state derivation 或 checker contract。
+- `Idea.md` 只要求存在，不规定固定章节；idea folder 中其他 narrative artifacts 由项目自由
+  组织，folder 的任意变化都会生成新 revision 并使旧 acceptance 自然失效。
+- 更新 CLI、schema、checker、skill、README、adoption 文档、pack/smoke 和自动化测试，覆盖
+  最终获批的接口、数据模型、迁移诊断与协作安全语义。
 
 ## Out of scope
 
-- 在提示逻辑评审前固定 `State.yaml` 的具体字段、guidance item、transition、closure、
-  reviewer、criterion、validation 或 receipt schema。
-- 把 guidance 文本、next action 或 transition edge 本身当作当前状态分量持久化。
-- 执行任意 shell hook、加载可执行插件，或把 Repoledger 建成通用 workflow engine、
-  scheduler 或事件总线。
-- 用 `whatsnext` 取代实现期间按需进行的 repository 调查、验证或领域工具调用。
-- 让项目 prompt 覆盖平台安全规则、工具权限、Repoledger lifecycle/phase、审批与发布不变量。
-- 从 Task/Progress 自由文本、沉默、普通 Git 活动、外层 skill verb 或 conversation intent
-  猜测 human decision。
+- vNext runtime 与 v2 task model 的双模式兼容层。
+- 首版 in-place migration command 或自动转换旧 `tasks/status.yaml`。
+- Approval、acceptance 或 abandonment mutation subcommands。
+- 强制每个 idea 使用 feature/source branch、commit trailer 或 repository 可证明的 work lock。
+- `Idea.md` 固定章节、criteria work-item tracking 或逐项 acceptance mirror。
+- 持续监控外部世界，或把一次 deployment acceptance 当作永久事实。
+- 执行任意 shell hook、加载可执行插件，或把 Repoledger 建成通用 workflow engine、scheduler
+  或事件总线。
 - 自动删除、reset、clean、checkout、覆盖或静默 stash 未知来源及用户已有 changes。
-- 用自然语言检测器判断任意文档是否“足够中文”；语言一致性通过 recorded language、skill
-  指令、模板和代表性测试约束。
-- Force-push、rebase、squash 或删除 shared source history 来简化状态推导。
+- Force-push、静默重放过期 acceptance，或重写 shared primary history。
 
 ## Acceptance criteria
 
-- [ ] [提示逻辑设计](./Design.md) 的叙述文本使用 `zh-CN`，命令、标识符、协议值与原样
-  工具输出保持其技术形式；Task/Progress/UserAcceptance 之外的 task narrative artifact
-  也被 skill 与测试明确纳入任务语言规则。
-- [ ] Lifecycle/phase 使用 Mermaid 图表达，并包含 backlog、ongoing/planning、
-  ongoing/implementing、ongoing/finalizing、completed、abandoned 与 reactivation。
-- [ ] 完整 observed state 明确覆盖 selected task 的 coarse ledger、phase、task
-  artifacts/history、worktree/Git、project/global config、remote source/primary；不把单个
-  `State.yaml` 当成全状态。
-- [ ] Command adapter 在 observation 前完成 task selection 或返回诊断；`render` 不接收
-  `/repoledger` verb、用户当前请求或 selection provenance，同一 snapshot 不因调用来源改变。
-- [ ] Guidance 明确是当前 observed state 的纯输出，transition 明确是 event 驱动的边；两者
-  不会被设计成 `State.yaml` 字段。
-- [ ] 每个 lifecycle/phase 都有完整、领域无关且可审计的有序规则链；每条规则采用
-  `conditionName: 提示目标`，从上到下等价于 `if / else if / ... / else`，并以
-  `otherwise` 结尾。
-- [ ] Planning chain 集中在 task folder 内与用户讨论清楚 Goal、设计、边界和完成条件；
-  发现当前非 task worktree changes 时精确清理、stash 或隔离，获得 human approval 后由
-  harness 直接执行 phase transition，而不是先写入 decision state。
-- [ ] Human approve/reject/adjust/abandon 均为 prompt 执行期事件，不是 `render` predicate；
-  事件只有在产生 observable delta 后才触发下一次 `whatsnext`。
-- [ ] 同一规则链一次只输出第一个 true condition 的提示目标；高层 selection/diagnostic/
-  safety/sync 规则返回后，不继续执行 state-specific 或低优先级副作用。
-- [ ] Selection diagnostics 与 observation/render 明确分层；通用规则覆盖 invalid
-  configuration/artifact、remote fetch failure、snapshot staleness、worktree binding、
-  conflict、yield、requery 与 no-progress。
-- [ ] Dirty changes 规则区分必要 task work、来源明确的临时产物、未知/用户已有工作、
-  phase-illegal task work 与 conflicts；未知/无关现有工作默认保留并使用独立 worktree 或
-  明确路径决定处理。
-- [ ] Local/source/primary 关系覆盖 equal、behind、ahead、diverged 与 unavailable；只有 clean、
-  matching 且 proven fast-forward 的显式 sync step 可自动执行 `ff-only`，其他情况不丢历史。
-- [ ] Planning/finalizing 不允许直接提交 repository deliverable 变化；implementing 允许合法
-  deliverable 变化；路径规则与累计 range checking 的最终设计须与提示逻辑一致。
-- [ ] 项目 phase prompts 完全可选且领域无关；文档项目不被要求提供 test/deploy，软件项目
-  也不由 core 自动获得固定 UX/架构/release checklist。
-- [ ] 进入下一 phase 或 terminal 所需的 human/external 事实先在提示逻辑中明确；只有不能
-  从既有状态分量重建且必须跨 session 保留的事实，才进入后续最小 state-detail 设计。
-- [ ] 后续 state-detail 评审能把每个拟新增字段追溯到至少一条已批准提示条件，并证明不存
-  guidance output、transition edge、condition name 或 Git 可推导 cache。
-- [ ] `whatsnext` 保持只读，可 fetch/observe 但不 checkout、merge、commit、stash、delete、
-  reset 或 fast-forward；副作用由输出的显式 step 和相应命令执行。
-- [ ] Agent loop 只在 expected delta 或未声明输入变化后重新观察；human/external wait 结束
-  当前 turn，无变化且无等待/错误时报告 no-progress，避免空转。
-- [ ] 最终实现与自动化测试覆盖获批的提示矩阵、状态输入、sync/dirty 安全、task language、
-  backward compatibility、pack、installed-package smoke 与 skill validation。
+- [ ] 当前 canonical Task、Progress 与设计 artifact 的 narrative 使用 `zh-CN`，命令、标识符、
+  协议值与原样工具输出保持技术形式。
+- [ ] vNext schema 表达 ULID folder、sibling status、唯一 alias、optional abandonment 与三个
+  revision acceptance 字段，且禁止显式 derived state、criteria mirror 和 source locator。
+- [ ] `ideaRevision` 使用当前 repository object format 的 idea subtree OID；checker 验证其为
+  tree object，并能在完整 primary history 中证明首次写入时与 candidate tree 一致。
+- [ ] 状态严格按 `abandoned`、`approvedRevision`、`implementationAcceptedRevision`、
+  `deploymentAcceptedRevision` 的有序纯函数推导为五个互斥值。
+- [ ] `repoledger whatsnext [idea]` 在一次不可变 `observedPrimaryCommit` 上完成 refresh、selection、
+  validation、worktree/primary reconciliation 与 state guidance，并一次只输出最高优先动作。
+- [ ] 无参数时对 active ideas 给出零个、一个或多个的确定性选择指导；显式 ULID 或唯一 alias
+  可查询 terminal idea。
+- [ ] Dirty/conflict/behind/ahead/diverged 规则保留未知或用户已有工作，不自动 reset、clean、
+  checkout、stash、merge、commit、push 或删除路径。
+- [ ] `whatsnext` 保持只读；所有 status mutation 使用普通文件编辑、candidate check、独立 commit
+  与 non-force push，并在 primary tip 变化后重新观察而不是重放过期判断。
+- [ ] vNext 仅实现 single-primary 协议；feature branch 不进入 status 或 state derivation。
+- [ ] `Idea.md` 仅要求存在，不校验固定章节；idea folder 的任意 tree change 都使旧 acceptance
+  对新 revision 自然失效。
+- [ ] vNext 对 v2 storage 返回明确 `migration-required`，不提供 runtime 双模式、静默转换或首版
+  in-place migration command。
+- [ ] CLI、schema、checker、skill、README、adoption 文档和自动化测试覆盖状态矩阵、history
+  binding、worktree 安全、breaking cutover、pack、installed-package smoke 与 skill validation。
 
 ## Constraints
 
-- 本轮 planning 只收敛提示逻辑；未经后续 Interface、Business/data model 和 Architecture
-  review，不开始实现或固化 State schema。
-- `whatsnext` 输出必须由当前 observation 决定，不读取未声明的 session memory 或猜测外部事实。
-- Project prompts 提供领域工作，Repoledger core 只提供 lifecycle、phase、Git、安全与协作
-  边界。
-- Human reply、外部系统结果和 Agent 执行中的语义发现是 transition input；只有后续证明
-  必须跨 session 保留时，才设计对应持久分量。
-- Human reply 由 harness 在 guidance 输出后处理；造成可观察 delta 时才重新调用
-  `whatsnext`，否则结束当前 turn。它不作为同一次 prompt 计算的隐藏输入。
-- Worktree/remote reconciliation 先于 phase work；高优先级 blocker 未处理前不输出低优先级
-  commit、transition 或外部副作用。
-- 同任务并发依靠 refreshed refs、expected-tip CAS 与非强推 publication；不同任务通过独立
-  worktree 隔离。
-- 不得回退、覆盖或重写其他人的 primary/source work；恢复只追加合法历史或重发既有 tip。
+- 未经 Interface、Business/data model 和 Architecture review，不开始生产实现或固定最终 schema
+  version/config field names。
+- `whatsnext` 只由 declared observation 决定，不读取隐藏 session memory 或猜测 human decision。
+- Remote primary snapshot 先于 local worktree 与 idea guidance；高优先级诊断返回后不输出低优先
+  status mutation 或外部副作用。
+- 同一 observation 一次只给出一个最高优先方向；只有可观察 delta 才触发下一次查询，无变化时
+  yield、报告 actionable error 或 no-progress。
+- Unknown changes、并发 primary work 与历史 acceptance 一律保留；不得 force-push、reset 或用
+  stale decision 覆盖新 primary。
 
 ## Human review checkpoints
 
@@ -152,15 +103,16 @@ Task creation records this plan, not approval.
 
 | Checkpoint | Applicability | Reviewer | Planned review artifact | Approval required before |
 | --- | --- | --- | --- | --- |
-| Scope | Required | User or accountable owner | 本文的 Goal、Context、Scope、Out of scope、Acceptance criteria 与 Constraints。 | Substantive implementation. |
-| Interface | Required | User or accountable owner | [提示逻辑设计](./Design.md) 的完整输入、六状态提示矩阵、输出优先级、项目 prompt contract 与 task language 范围。 | Designing concrete command/JSON/State interfaces. |
-| Business and data model | Required | User or accountable owner | 获批提示逻辑反推的最小持久事实、coarse lifecycle/phase 关系和 reactivation 语义。 | Adding or implementing State/status fields. |
-| Architecture | Required | User or accountable owner | `route/observe/render/advance` 边界、Git/worktree/remote observation、累计 range 与 sync/enforcement 职责。 | Implementing the control loop and repository mutations. |
-| Delivery acceptance | Required | User or accountable owner | 已发布实现、完整验证结果及各状态、dirty/sync、human yield、no-progress 和 reactivation 的代表性演示。 | Running `task complete` for the exact approved primary commit. |
+| Scope | Required | User or accountable owner | 本文与 [Repoledger vNext 设计提案](../../docs/new-design.md) 的 breaking redesign 边界。 | Substantive implementation. |
+| Interface | Required | User or accountable owner | `whatsnext [idea]`、`check`、selector/output、普通 Git status mutation 与 migration-required diagnostics。 | Fixing command, JSON, diagnostics, or config interfaces. |
+| Business and data model | Required | User or accountable owner | Idea/status layout、ULID/alias、tree revision、acceptance facts 与纯状态推导。 | Adding or implementing vNext schema fields. |
+| Architecture | Required | User or accountable owner | Primary authority、single-primary worktree discipline、history validation、non-force CAS publication 与 breaking cutover。 | Implementing vNext observation, validation, rendering, or publication support. |
+| Delivery acceptance | Required | User or accountable owner | 已发布实现、完整验证结果及各状态、dirty/sync、history binding、cutover 和 no-progress 的代表性演示。 | Running `task complete` for the exact approved primary commit. |
 
 ## References
 
-- [Guidance design](./Design.md)
+- [Repoledger vNext design](../../docs/new-design.md)
+- [Superseded guidance design](./Design.md)
 - [Repoledger skill](../../skills/repoledger/SKILL.md)
 - [Repository task profile](../../docs/repository-tasks.md)
 - [CLI implementation](../../src/cli.js)

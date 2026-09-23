@@ -1,8 +1,10 @@
-# Whatsnext 提示逻辑设计
+# 已替代的 Whatsnext 提示逻辑设计
 
-本文是 [Task.md](./Task.md) 的提示逻辑设计。本文只定义 Repoledger 能观察到什么，以及
-`repoledger whatsnext` 应输出什么。`State.yaml` 需要保存哪些字段、phase transition 如何
-编码、哪些外部结果需要持久化，都在提示逻辑获批后再反推。
+本文原先描述基于 task lifecycle、ongoing phase 与 mandatory source branch 的提示逻辑。
+Scope review 已决定由 [Repoledger vNext 设计提案](../../docs/new-design.md) 的 idea model 取代该
+方向，因此下文不再是实现规范；Git history 保留其设计演化记录。
+
+<!-- superseded content retained below for historical comparison -->
 
 ## 语言约束
 

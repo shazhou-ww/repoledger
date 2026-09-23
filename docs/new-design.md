@@ -51,6 +51,27 @@ vNext 希望进一步收敛这个模型：
 
 ## Repository 模型
 
+### Project configuration
+
+vNext 使用 project config version `3`。配置仍采用严格 YAML mapping，拒绝 unknown keys、重复
+keys、anchors、非 canonical path/URL/branch 与其他当前 parser 已禁止的 YAML features：
+
+```yaml
+version: 3
+ideasDirectory: ideas
+primaryRepository: https://example.com/owner/repository.git
+primaryBranch: main
+```
+
+- `version`、`primaryRepository` 与 `primaryBranch` 必填。
+- `ideasDirectory` 可选，缺省解析为 `ideas`；显式值必须是 normalized repository-relative
+  directory，不允许 absolute path、`..`、反斜杠或 trailing slash。
+- v3 不包含 `tasksDirectory`、`taskLanguage`、source repository 或 source branch 配置。
+- vNext 读到 version `1` 或 `2` 时返回 `config.migration-required`；其他未知版本返回
+  `config.unsupported-version`。
+- Repoledger 使用 credential-free canonical HTTPS repository URL 直接 fetch，不依赖 local
+  remote name 或 URL rewrite 作为 protocol state。
+
 ### Layout
 
 默认使用 `ideas` 目录；项目可在 `repoledger.yaml` 中覆盖该路径。
@@ -71,6 +92,8 @@ vNext 希望进一步收敛这个模型：
 Idea folder 与 status 文件是 sibling，而不是父子关系：
 
 - `ideas/<ULID>/` 只保存理想定义，包括 `Idea.md` 与其他共同期待文档。
+- `Idea.md` 必须存在，但首版不规定或校验固定章节；目标、边界与验收语义可以按项目需要
+  分布在 idea folder 的任意 narrative artifact 中。
 - `ideas/<ULID>.status.yaml` 保存不可从 idea 内容本身推导的最少事实。
 - `Progress.md` 不放在 idea folder 中。进展首先由 Git history 与 acceptance commits 表达；
   若未来确需独立日志，应放在不参与 idea revision 的位置。
@@ -133,6 +156,12 @@ deploymentAcceptedRevision: <git-tree-oid>
 - `approvedRevision` 表示用户认可过的 idea revision。
 - `implementationAcceptedRevision` 表示 Agent 或用户已针对该 idea revision 完成本体迭代验收。
 - `deploymentAcceptedRevision` 表示 Agent 或用户已针对该 idea revision 完成驱动客体验收。
+
+Status schema version 首版固定为 `1`。Canonical field order 是 `version`、`id`、`alias`、
+`abandoned`、`approvedRevision`、`implementationAcceptedRevision`、
+`deploymentAcceptedRevision`；缺省字段直接省略，unknown keys 与 YAML aliases/anchors 被拒绝。
+`abandoned` 只允许 canonical value `true`，不得显式写 `false`。三个 revision field 都使用
+repository 当前 object format 的 lowercase hexadecimal object ID。
 
 Criteria 可以写在 `Idea.md` 或 idea folder 的其他定义文档中，供 Agent 判断阶段是否完成；
 它们不是 work items，也不在 status 中逐项镜像。是否存在 implementation criteria 或
@@ -235,6 +264,9 @@ vNext 不要求每个 idea 拥有或发布专用 feature branch。默认协作�
 - Idea 绑定存在于当前 Agent session 上下文，不写入 status 或 worktree-local marker。
 - Commit 可以带 idea ULID trailer 以改善审计，但首版不强制。
 
+单 primary 是 vNext 的协议模型，而不只是默认建议。Status 不保存 source repository、source
+branch 或 branch ownership；state derivation、`whatsnext` 与 `check` 都不依赖 feature branch。
+
 这是一项主动取舍：没有 mandatory branch 或 trailer 时，CI 无法从历史 commit 证明每项
 deliverable change 属于哪个 idea，也无法硬性重建“该 commit 当时由哪个 idea 驱动”。
 Preparing/deploying 的路径限制因此主要是 `whatsnext` 对当前 worktree 的实时协作纪律，而
@@ -313,10 +345,80 @@ otherwise: state 为 completed；报告已完成 idea 和 acceptance 历史，�
 `whatsnext` 输出指导，不直接修改文件、commit、merge 或 push。Agent 执行提示造成 repository
 变化后，再次调用 `whatsnext` 获得下一方向。
 
+### Command contract
+
+```sh
+repoledger whatsnext [idea] [--json] [-r, --root <path>]
+```
+
+- `[idea]` 接受完整 ULID 或当前 observed primary 中唯一的 exact case-sensitive alias；不存在
+  返回 `idea.not-found`，alias 非唯一属于结构错误而不是交互式猜测。
+- `--json` 输出下面定义的完整 report；human output 使用相同 diagnostics 与 action code 渲染。
+- 成功产生 action 时 exit code 为 `0`，配置、refresh、结构或 observation 失败为 `1`，CLI
+  usage/option error 为 `2`。
+- 相同 remote primary commit、selected idea 与 local worktree observation 必须产生字节稳定的
+  JSON domain payload；timestamp、selection provenance 和当前 conversation 不进入 payload。
+
+```json
+{
+  "command": "whatsnext",
+  "ok": true,
+  "diagnostics": [],
+  "root": "/absolute/repository/path",
+  "result": {
+    "observedPrimaryCommit": "<git-commit-oid>",
+    "selectedIdea": {
+      "id": "01M36QGPNTXEPP61DA4KP4AVZF",
+      "alias": "publish-documentation",
+      "revision": "<git-tree-oid>",
+      "state": "implementing"
+    },
+    "action": {
+      "code": "implement-idea",
+      "message": "<deterministic human guidance>",
+      "details": {}
+    }
+  }
+}
+```
+
+`selectedIdea` 在尚需选择或创建 idea 时为 `null`；此时 `action.details.ideas` 按 ULID 排序提供
+候选 `{ id, alias, revision, state }`。失败时 `result` 为 `null`，diagnostics 沿用稳定的
+`severity/code/path/message/remediation` 结构。Action code 是 machine contract，不把整段自然
+语言 guidance 当成 protocol enum。
+
+首版 action codes 固定为：
+
+```text
+select-active-idea
+continue-active-idea
+create-idea
+switch-to-primary
+resolve-conflicts
+inspect-worktree-changes
+fast-forward-primary
+integrate-primary
+publish-primary
+review-abandoned
+prepare-idea
+implement-idea
+deploy-idea
+review-completed
+```
+
+Refresh、config、structure、history 与 snapshot stability 问题使用 diagnostics，不伪装成可继续
+执行的 action。
+
 ## Status mutation 与审计
 
-vNext 不要求公开大量 lifecycle 子命令。Agent 根据明确 human decision 或阶段检查结果修改
-对应 status 字段，并用普通 Git commit 发布。
+vNext 不提供 `approve`、`accept`、`abandon` 等 status mutation 子命令。Agent 根据明确 human
+decision 或阶段检查结果，使用普通文件编辑更新对应 status 字段，运行 `repoledger check`
+验证 candidate，再用普通 Git commit 与 non-force push 发布。`whatsnext` 只输出当前
+`ideaRevision`、`observedPrimaryCommit` 和下一步指导，不直接修改文件或 Git 状态。
+
+写入前必须确认 local primary 仍以 `observedPrimaryCommit` 为 base。普通 non-force push 被并发
+更新拒绝时，Agent 不得把旧判断 rebase 后直接重发；必须 refresh、重新计算 revision/state 与
+guidance，再判断该 status mutation 是否仍然成立。
 
 推荐每个 approval/acceptance/abandonment 变化使用只修改该 idea status 的独立 commit：
 
@@ -347,14 +449,39 @@ repoledger whatsnext [idea]
 Hook、CI 和高级自动化仍需要结构化校验：
 
 ```sh
-repoledger check
+repoledger check [--remote | --commit <revision> | --staged | --unstaged]
+                 [--json] [-r, --root <path>]
 ```
+
+四个 target options 互斥：default 检查当前 worktree snapshot；`--staged` 与 `--unstaged` 使用
+不修改 caller state 的临时 tree；`--commit` 检查指定 commit；`--remote` fetch configured
+primary 并检查 immutable remote snapshot。Exit code 与 report envelope 沿用 `whatsnext` 的
+`0/1/2` 约定，`command` 为 `check`，成功 result 至少包含 `target`、`commit` 与已检查的 idea
+summaries。
+
+Default、staged、unstaged 与 commit check 验证 snapshot 内部结构。Candidate 新增或改变 revision
+field 时，checker 要求该值等于 candidate snapshot 中对应 idea folder 的 tree OID。Remote
+check 还沿 fetched primary 的完整可达历史验证每个保留 revision 的首次合法写入；缺失必要
+objects 或 shallow boundary 时返回 `history.incomplete`，不得把“无法证明”降级成成功。
 
 内部实现保持可复用的四层职责：
 
 ```text
-observe -> derive -> validate -> render
+refresh -> observe -> derive/validate -> render
 ```
+
+- `refresh` 读取并验证 config，把 configured primary fetch 到 Repoledger-owned tracking ref，并
+  返回不可变 `observedPrimaryCommit`；不 checkout 或 fast-forward caller branch。
+- `observe` 从同一 commit 读取 idea/status pairs 与 history evidence，并单独观察 local HEAD、
+  branch、index、worktree 和 conflicts；读取期间 ref 改变会丢弃 candidate snapshot。
+- `derive/validate` 使用无副作用纯函数校验结构、计算 revision/state、解析 selector，并按优先级
+  形成 diagnostic 或 action input。
+- `render` 只把完整 snapshot 映射为 JSON report 与 human output，不读取 conversation、session
+  memory 或调用来源。
+
+`check` 复用 config、snapshot 与 validators，但不调用 guidance renderer；`whatsnext` 必须先通过
+与 `--remote` 等价的 authoritative snapshot/history validation，之后才观察 local worktree 并
+render action。所有模块接受显式 root/ref/commit 输入，不读取隐式 named remote。
 
 `check` 至少验证：
 
@@ -380,6 +507,13 @@ boundary。Repoledger 不依赖某个托管平台，但可以利用平台提供�
 `whatsnext` 是产品核心，`check` 是必要 plumbing。初始化、迁移或诊断辅助命令只有在无法用
 安全、明确的普通 Git 操作表达时才增加；不重新扩张成一组要求人记忆的 lifecycle commands。
 
+Status acceptance 和 abandonment 已可由普通文件编辑、`check`、commit 与 non-force push 安全
+表达，因此首版不增加对应 mutation commands。
+
+vNext public command surface 只保留 `whatsnext`、`check` 及标准 `--help`/`--version`。v2 的
+`init`、`config`、`status` 与 `task *` commands 不进入 vNext runtime；项目初始化与 v2 转换
+由文档化文件操作或后续独立工具完成。
+
 ## 一致性与明确取舍
 
 - State 是纯派生视图，不写入 status。
@@ -398,7 +532,10 @@ boundary。Repoledger 不依赖某个托管平台，但可以利用平台提供�
 ## 与当前版本的关系
 
 这是对现有 task/status/source-branch 模型的 breaking redesign，应使用新的 storage schema
-version，而不是把旧文件静默解释为新格式。
+version，而不是把旧文件静默解释为新格式。vNext runtime 直接切换到 idea model，不保留 v2
+task commands、storage 或 source publication 的双模式兼容层。现有 v2 repository 必须继续
+使用 v2 release，直到完成显式转换；vNext 遇到 v2 configuration/storage 时返回
+`migration-required` 诊断，不自动修改 repository。
 
 迁移至少需要：
 
@@ -408,4 +545,7 @@ version，而不是把旧文件静默解释为新格式。
 - 处理旧 source branch 中尚未进入 primary 的工作。
 - 在迁移前后分别运行结构校验，且保留旧 Git history。
 
-具体 schema 版本、Idea.md 的最小章节、迁移命令与 backward-compatibility 窗口留待实现设计。
+首版不提供 in-place migration command，也不承诺 backward-compatibility 窗口。转换工具或迁移
+runbook 可以独立设计，但必须显式生成 vNext layout、在新旧模型下分别校验，并保留旧 Git
+history。`Idea.md` 只要求存在，不规定固定章节；具体 schema version 与 configuration 字段名在
+后续 interface specification 中确定。
