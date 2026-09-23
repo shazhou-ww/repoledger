@@ -45,7 +45,7 @@ history 保留，不再约束实现。
   组织，folder 的任意变化都会生成新 revision 并使旧 acceptance 自然失效。
 - 更新 CLI、schema、checker、skill、README、adoption 文档、pack/smoke 和自动化测试，覆盖
   最终获批的接口、数据模型、迁移诊断与协作安全语义。
-- 将 `repoledger` package version 更新为 `0.9.0`，并通过受保护的 npm release workflow
+- 将 `repoledger` package version 更新为 `0.9.1`，并通过受保护的 npm release workflow
   发布该版本。
 
 ## Out of scope
@@ -89,9 +89,11 @@ history 保留，不再约束实现。
 
 ## Deployment acceptance criteria
 
-- [ ] Immutable tag `npm/repoledger/v0.9.0` 触发的 `Publish npm package` workflow 成功，且
-  `npm view repoledger@0.9.0 version --registry=https://registry.npmjs.org/` 返回 `0.9.0`，
-  `npm view repoledger dist-tags.latest --registry=https://registry.npmjs.org/` 也返回 `0.9.0`。
+- [ ] Immutable tag `npm/repoledger/v0.9.1` 触发的 `Publish npm package` workflow 成功，且
+  `npm view repoledger@0.9.1 version --registry=https://registry.npmjs.org/` 返回 `0.9.1`，
+  `npm view repoledger dist-tags.latest --registry=https://registry.npmjs.org/` 也返回 `0.9.1`。
+- `npm/repoledger/v0.9.0` 及 workflow run `35878855657` 保留为不可变失败审计记录，不移动、
+  删除、重建或作为本轮 deployment acceptance。
 
 ## Constraints
 
@@ -117,7 +119,7 @@ Task creation records this plan, not approval.
 | Interface | Required | User or accountable owner | `whatsnext [idea]`、`check`、selector/output、普通 Git status mutation 与 migration-required diagnostics。 | Fixing command, JSON, diagnostics, or config interfaces. |
 | Business and data model | Required | User or accountable owner | Idea/status layout、ULID/alias、tree revision、acceptance facts 与纯状态推导。 | Adding or implementing vNext schema fields. |
 | Architecture | Required | User or accountable owner | Primary authority、single-primary worktree discipline、history validation、non-force CAS publication 与 breaking cutover。 | Implementing vNext observation, validation, rendering, or publication support. |
-| Delivery acceptance | Required | User or accountable owner | 已发布实现、完整验证结果、`npm/repoledger/v0.9.0` workflow 成功证据与 npmjs registry/version/dist-tag 查询结果。 | Recording deployment acceptance for the approved idea revision. |
+| Delivery acceptance | Required | User or accountable owner | 已发布实现、完整验证结果、`npm/repoledger/v0.9.1` workflow 成功证据与 npmjs registry/version/dist-tag 查询结果。 | Recording deployment acceptance for the approved idea revision. |
 
 ## References
 
