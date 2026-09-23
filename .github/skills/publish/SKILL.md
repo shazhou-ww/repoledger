@@ -29,6 +29,10 @@ development machine.
   move, delete, or recreate a release tag to repair source or validation.
 - Preserve unrelated worktree changes. Stop if they prevent an isolated,
   reviewable release commit.
+- Before creating a tag, require the workflow to use a GitHub-hosted runner,
+  `id-token: write`, Node `22.14.0` or newer, npm CLI `11.5.1` or newer, and
+  `actions/setup-node` with `registry-url: https://registry.npmjs.org`. Treat
+  these as release source requirements, not npm account workarounds.
 
 ## Resolve the release
 

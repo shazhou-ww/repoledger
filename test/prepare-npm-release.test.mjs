@@ -239,6 +239,10 @@ test("uses a protected, least-privilege trusted-publishing workflow", async () =
   );
 
   const checkout = publish.steps.find(({ name }) => name === "Check out full history");
+  const setupNode = publish.steps.find(({ name }) => name === "Set up Node.js");
+  const setupNpm = publish.steps.find(
+    ({ name }) => name === "Install trusted-publishing npm",
+  );
   const ancestry = publish.steps.find(
     ({ name }) => name === "Refresh primary branch and verify ancestry",
   );
@@ -247,6 +251,13 @@ test("uses a protected, least-privilege trusted-publishing workflow", async () =
   const tarball = publish.steps.find(({ name }) => name === "Verify selected package tarball");
   const publication = publish.steps.find(({ name }) => name === "Publish selected package");
   assert.equal(checkout.with["fetch-depth"], 0);
+  assert.equal(checkout.uses, "actions/checkout@v6");
+  assert.equal(setupNode.uses, "actions/setup-node@v6");
+  assert.equal(setupNode.with["node-version"], 24);
+  assert.equal(setupNode.with["registry-url"], "https://registry.npmjs.org");
+  assert.equal(setupNode.with["package-manager-cache"], false);
+  assert.match(setupNpm.run, /npm install --global npm@11\.6\.2/);
+  assert.match(setupNpm.run, /npm --version/);
   assert.match(ancestry.run, /refs\/heads\/main:refs\/remotes\/origin\/main/);
   assert.match(ancestry.run, /git merge-base --is-ancestor/);
   assert.equal(install.run, "pnpm install --frozen-lockfile");
@@ -271,6 +282,7 @@ test("documents trusted-publisher setup and the protected release procedure", as
     "Repository: `repoledger`",
     "Workflow filename: `publish-npm.yml`",
     "Environment: `npm`",
+    "Allowed action: direct `npm publish`",
     "tag ruleset targeting `npm/**`",
     "git tag npm/repoledger/v0.1.1 origin/main",
     "RELEASE_PACKAGES",

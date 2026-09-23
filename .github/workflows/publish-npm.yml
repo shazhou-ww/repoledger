@@ -22,7 +22,7 @@ jobs:
       id-token: write
     steps:
       - name: Check out full history
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -37,10 +37,14 @@ jobs:
           run_install: false
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 24
-          cache: pnpm
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - name: Install trusted-publishing npm
+        run: npm install --global npm@11.6.2 && npm --version
 
       - name: Install frozen dependencies
         run: pnpm install --frozen-lockfile

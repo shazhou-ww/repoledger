@@ -1,6 +1,6 @@
 {
   "name": "repoledger",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "description": "Derive and validate Git-native repository idea state.",
   "packageManager": "pnpm@11.22.0",
   "type": "module",

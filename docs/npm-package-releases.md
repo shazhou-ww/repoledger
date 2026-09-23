@@ -27,6 +27,7 @@ exact values:
 - Repository: `repoledger`
 - Workflow filename: `publish-npm.yml`
 - Environment: `npm`
+- Allowed action: direct `npm publish`
 
 The workflow filename is identity-sensitive on npm. If it changes, update the
 npm trusted-publisher configuration before attempting another release. Do not
@@ -41,6 +42,11 @@ release approval; the workflow itself does not require a repository secret.
 
 The npm trusted publisher and the workflow environment name must remain the
 same. A mismatch prevents npm from accepting the OIDC identity.
+
+The workflow uses a GitHub-hosted runner, `id-token: write`, Node 24,
+`actions/setup-node` with `registry-url: https://registry.npmjs.org`, and a
+pinned npm CLI version at or above `11.5.1`. These are source-controlled OIDC
+preconditions; do not replace them with a write token.
 
 ### Tag ruleset
 
