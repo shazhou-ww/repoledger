@@ -5,160 +5,120 @@ Language: zh-CN
 
 ## Goal
 
-Repoledger 提供只读的 `repoledger whatsnext [task]` 接手接口，把 primary 上的粗粒度
-task lifecycle、task source branch 上的细粒度 phase、累计 Git 变更、结构化任务证据、
-项目/全局配置与当前 worktree 规范化成稳定 snapshot，再以纯函数生成一段 Agent 可执行
-的 prompt。Agent 执行 prompt 后推动声明输入发生变化，重新查询，或在 human/external
-input、可操作错误及 no-progress 边界安全停止。
+Repoledger 提供只读的 `repoledger whatsnext [task]` 接手接口，观察 task lifecycle/phase、
+task artifacts、Git/worktree、项目与全局配置以及 remote refs，并以纯函数生成一段 Agent
+可执行的下一步提示。Agent 执行提示后推动可观察输入发生变化并重新查询，或在等待
+human/external input、可操作错误及 no-progress 边界安全停止。
 
 ## Context
 
-当前 skill 在接手任务时分别调用 task list、status 和 remote check，再读取 Task、Progress
-等文件自行解释下一步，增加工具往返、token 消耗和不同 Agent 之间的行为漂移。现有
-`ongoing` 又同时覆盖规划、实现和交付收尾，无法直接决定当前允许修改的路径和应加载的
-项目 prompt。
+当前 skill 在接手任务时分别运行 task list、status 和 remote check，再读取多个 artifact
+自行解释下一步，增加工具往返、token 消耗和不同 Agent 之间的行为漂移。现有 `ongoing`
+还同时覆盖 planning、implementing 与 finalizing，无法直接决定当前允许的副作用和应加载
+的项目 prompt。
 
-Planning、implementing 和 finalizing 应是 `ongoing` 内部、只存在于 advertised task
-source branch 的 phase；primary `tasks/status.yaml` 在三者期间始终只记录 `ongoing`。Phase
-边界由 Repoledger 创建的独立 State transition commit 标记，检查约束针对该 phase base
-之后到 candidate 的全部累计变更，而不是只看最近一次 commit。
+此前设计又过早把 guidance output、transition edge 和软件工程领域的 review/test/deploy
+概念塞进 `State.yaml`。正确的 Moore machine 模型中，完整状态由 ledger、phase、artifacts、
+Git、配置和 remote 等多个分量组成；guidance 是输出，transition 是边。应先完整推导每个
+状态下“观察到 X，应指示 Agent 做 Y”，再反推哪些无法重建的事实需要最小持久状态。
 
-详细数据结构、Git history contract、phase-base 推导、累计 range 算法、事务协议与失败
-恢复以 [详细设计](./Design.md) 为规范来源。
+项目与本任务语言均为 `zh-CN`，但此前 Design.md 使用英文，说明 task language 虽已正确
+解析并记录，Agent 对普通 task narrative artifact 的执行范围与测试覆盖仍不完整。
+
+当前提示逻辑、状态图与待推导问题以 [提示逻辑设计](./Design.md) 为规范评审 artifact。
 
 ## Scope
 
-- 增加无子命令的只读 `repoledger whatsnext [task]`，提供面向 Agent 的文本输出和稳定
-  JSON 协议，并默认刷新 authoritative primary 与 active source ref。
-- 保持 primary lifecycle 为 `backlog`、`ongoing`、`completed` 和 `abandoned`；新增显式
-  terminal reactivation 与低频 generation identity，但不把 active phase 写入 status。
-- 在 task folder 中增加唯一的规范 `State.yaml`，保存当前 generation、phase、通用
-  project-defined guidance item results、phase transition decision 与 closure；核心不内建
-  reviewer、acceptance criterion、test、deployment 或其他领域分类。
-- 使 `State.yaml` 和 `tasks/status.yaml` 只能通过意图明确的 Repoledger 命令修改；每次
-  State mutation 使用 expected-tip CAS、规范序列化、独立 commit 和非强推 publication。
-- 用 task source first-parent history 中最近一个合法 `phase-entered` State commit 推导当前
-  phase base；commit title/trailer 只辅助定位，结构化 parent/child State 差异才是依据，
-  不使用 tag，也不持久化 base hash。
-- 让 validator 同时计算 phase base 到 candidate 的 cumulative changed-path union 与 net
-  tree delta，并支持 committed、staged synthetic、local worktree 和 fetched remote candidate。
-- 对完整 source history 重建并验证所有已关闭 phase interval、当前 interval 及每个独立
-  transition commit，避免跳过 hook 或后续 revert 掩盖历史违规。
-- Planning/finalizing range 硬性限制为当前 task folder；implementing range 允许项目变化，
-  并在 checkpoint、requery 和 phase close 边界累计验证 repository-declared journal、State
-  与通用 guidance requirements，不要求某一个 commit 同时包含 task folder 内外变化。
-- 支持项目配置按 planning、implementing、finalizing 注入可选 prompt；核心 lifecycle、
-  phase permissions、审批、发布和安全规则不可覆盖，finalization instructions 在进入 phase
-  时冻结。
-- 由当前 branch canonical push target 与 task source target 推导 worktree binding，不创建
-  worktree-local task metadata；一个 worktree 同时最多修改一个 active task。
-- 让 observation 输出 staged/unstaged/untracked/conflict facts、local/source/primary ancestry
-  和 phase path legality；Agent 分类必要工作、来源明确的临时产物与未知现有工作，未知或
-  无关变更默认保留隔离，`whatsnext` 不自动 reset、clean、stash 或覆盖。
-- 对 clean fast-forward gap 输出可由显式 Repoledger sync 自动执行的 step；dirty、ahead 或
-  diverged 状态分别进入安全 commit/publication/integration guidance，不从 stale refs 猜测。
-- 更新 Repoledger skill，使 `exec`、`complete` 和 `abandon` 复用 whatsnext loop；在声明
-  delta 后刷新，需要 human/external input 时 yield，在错误或 no-progress 时停止。
-- 更新存储 schema、CLI、checker、Git hooks/CI 指南、README、adoption/task workflow
-  文档和自动化测试，并为 legacy ongoing task 提供不依赖文本猜测的显式 phase migration。
+- 定义完整观察状态，包括 invocation/selection、primary coarse lifecycle、ongoing phase、
+  task artifacts/history、worktree/index/HEAD、项目/全局配置及刷新后的 source/primary refs。
+- 明确 `guidance = render(observedState)`；human/external/tool event 触发 transition，guidance
+  与 transition 均不作为当前状态字段持久化。
+- 保持 primary lifecycle 为 `backlog | ongoing | completed | abandoned`，并把
+  `planning | implementing | finalizing` 作为 ongoing 的内部 phase。
+- 使用 Mermaid 状态图表达 lifecycle/phase 关系，不再使用难以阅读的 ASCII 状态图。
+- 为 backlog、ongoing/planning、ongoing/implementing、ongoing/finalizing、completed 与
+  abandoned 分别列出领域无关的文字提示规则，统一采用“观察到 X，应做 Y”的形式。
+- 定义跨状态的确定性输出优先级：selection/protocol、conflict/worktree safety、ref sync、
+  lifecycle/phase、项目 prompts、yield/requery/no-progress。
+- 把 staged/unstaged/untracked/conflict、worktree binding 和 local/source/primary ancestry
+  纳入 observation，并为 clean fast-forward、dirty-behind、ahead 与 diverged 给出安全提示。
+- 要求 Agent 精确读取 dirty diff：保留并提交合法的必要 task work；只删除当前操作创建或
+  repository policy 可确定识别的临时产物；未知、用户已有或无关变更默认保留和隔离。
+- 允许项目按 phase 配置可选 prompts，以承载文档、软件、内容创作、发布等领域语义；
+  Repoledger core 不预设 UX、架构、criterion、test、deploy 或 smoke 等分类。
+- 明确没有配置 phase prompt 时仍可使用 core guidance，不把任何软件工程工作流当作必选项。
+- 在提示逻辑获得评审后，逐条判断条件能否从 Git/artifacts/config/remote 重建，再设计最小
+  持久 state detail；当前不固定 `State.yaml` schema、decision/receipt 字段或 event 格式。
+- 后续实现 phase-base 与累计 range checking 时，检查当前 phase 初始边界到 candidate 的
+  完整变更，而不是只看最近 commit；具体持久 marker 方案须由提示逻辑所需信息反推并评审。
+- 更新 Repoledger skill，使现有 task 的所有 Agent-authored narrative artifacts 都使用
+  `Task.md` 已记录语言，而不只覆盖 Task、Progress、UserAcceptance 或面向用户回复。
+- 更新 CLI、schema、checker、skill、README、adoption/task workflow 文档和自动化测试，
+  覆盖最终获批的状态输入、提示输出、循环与协作安全语义。
 
 ## Out of scope
 
+- 在提示逻辑评审前固定 `State.yaml` 的具体字段、guidance item、transition、closure、
+  reviewer、criterion、validation 或 receipt schema。
+- 把 guidance 文本、next action 或 transition edge 本身当作当前状态分量持久化。
 - 执行任意 shell hook、加载可执行插件，或把 Repoledger 建成通用 workflow engine、
   scheduler 或事件总线。
-- 用 `whatsnext` 取代实现期间按需进行的源码调查、测试、调试或领域工具调用。
-- 让项目 prompt 覆盖平台安全规则、工具权限、Repoledger lifecycle/phase 不变量或 human
-  approval 要求。
-- 从 Task/Progress 自由文本、沉默、普通 Git 活动或 invocation 本身推断 human decision。
-- 允许直接手工编辑 `State.yaml` 或 `tasks/status.yaml`，或提供绕过合法事件的通用 setter。
-- 用 tag、Git note、worktree-local marker 或 force-push 维护 phase identity。
-- 允许 squash/rebase 擦除已发布 source phase history，或删除旧 source branch 作为 lifecycle
-  副作用。
-- 在 `State.yaml` 中保存 secret、签名 URL、当前 transaction commit、future commit、phase
-  base 或只作为 cache 的 source/primary tip。
-- 证明 State transaction 是由特定二进制或真人身份创建；本任务保证结构与状态机合法性，
-  signed actor identity 属于独立 governance 能力。
+- 用 `whatsnext` 取代实现期间按需进行的 repository 调查、验证或领域工具调用。
+- 让项目 prompt 覆盖平台安全规则、工具权限、Repoledger lifecycle/phase、审批与发布不变量。
+- 从 Task/Progress 自由文本、沉默、普通 Git 活动或 invocation 本身猜测 human decision。
+- 自动删除、reset、clean、checkout、覆盖或静默 stash 未知来源及用户已有 changes。
+- 用自然语言检测器判断任意文档是否“足够中文”；语言一致性通过 recorded language、skill
+  指令、模板和代表性测试约束。
+- Force-push、rebase、squash 或删除 shared source history 来简化状态推导。
 
 ## Acceptance criteria
 
-- [ ] Primary `tasks/status.yaml` 在 planning、implementing 和 finalizing 期间始终记录
-  `state: ongoing`；coarse lifecycle、generation 和 source identity 与 phase state 职责清晰。
-- [ ] `State.yaml` 使用 strict canonical schema，在一个文件中保存当前 generation、phase
-  及通用 guidance item/transition/closure 状态；item ID 和语义由项目定义，未知字段、非法
-  stable ID、秘密内容和不允许的 hash 被拒绝。
-- [ ] Agent 和用户不直接编辑 State/status；Repoledger 的意图命令使用 expected source
-  tip 或 snapshot digest 做 CAS，并创建可恢复、非强推发布的独立机器状态 commit。
-- [ ] Start transaction 在 primary 创建 `backlog -> ongoing` status commit，并在 source
-  创建以它为 parent 的 `phase: planning` State commit；同仓库场景使用 atomic push。
-- [ ] Phase transition commit 是单父、State-only、generation 不变且 transition 合法的
-  Repoledger event；evidence-only State commit 不会被误认为 phase marker。
-- [ ] Current phase base 由 source first-parent history 中最近一个合法 transition commit
-  唯一推导；base 不写入任何文件，重复进入同一 phase 时最近 marker 生效。
-- [ ] Source history 禁止 force-push/rebase；同步 primary 时 source tip 保持 first parent；
-  primary integration 保留 source-tip ancestry，squash integration 被拒绝。
-- [ ] Checker 对 phase range 计算每个 first-parent commit 相对 parent 的 path union，并另算
-  base tree 到 candidate tree 的 net delta；禁止路径即使后来 revert 仍会被发现。
-- [ ] `check --commit`、`check --staged`、local worktree check 和 `check --remote` 使用同一
-  range engine；staged candidate 合并既有历史与 index overlay，remote fetch 失败不使用旧 ref。
-- [ ] CI 从 source history 重建全部 transition marker，逐一验证 closed phase intervals、
-  当前 interval 和 transition commit；手工伪造或跳过本地 hook 不能隐藏历史违规。
-- [ ] Planning/finalizing 的累计 path union 只能包含当前 task folder；任何 project path 或
-  `tasks/status.yaml` 变化均被拒绝，Repoledger lifecycle commit 按独立协议校验。
-- [ ] Implementing 的累计 range 可包含多个 code-only 或 task-only commits；checkpoint、
-  source publication、whatsnext requery 和 finalizing transition 检查累计 external delta、
-  repository-declared journal/State facts 与 generic item freshness，不再要求 same-commit pairing。
-- [ ] 所有持久 commit hash 在 State transaction 前已经存在，并解析为 transaction parent
-  或其祖先；current/self、descendant、future、phase-base 和 cache hash 被拒绝。
-- [ ] 实现进入 primary 后，以 source 为 first parent 同步 primary、冻结具体 finalization
-  instructions，再创建 finalizing marker；primary status 仍保持 ongoing。
-- [ ] Ongoing 时 source State 权威，terminal/backlog 时 primary State envelope 权威；
-  Completion/abandonment 使用独立 primary lifecycle commit 更新 coarse status 与 closure，
-  只引用已经存在的 ancestor，不夹带实现或无关 task changes。
-- [ ] Reactivation 明确绑定 terminal generation，递增 generation、返回 backlog，并在后续
-  start 使用新的 source identity；旧 generation 与 source history 保持可审计。
-- [ ] Worktree binding 只比较 canonical push target 与 effective task source target；remote
-  alias、detached HEAD、未知 URL identity 和多重匹配均得到确定的保守处理。
-- [ ] Snapshot 明确包含 dirty worktree 与 local/source/primary relation；必要 task changes
-  通过精确 staging 和累计检查提交，只有当前操作创建或 cleanup policy 明确识别的临时产物
-  可自动删除，未知/无关既有变更被保留并通过独立 worktree 或明确决定处理。
-- [ ] `whatsnext` 只 fetch/observe，不修改 checkout；clean behind source/primary 可由后续显式
-  sync step 做 `ff-only`，ahead 走 checkpoint publication，diverged 走非强推 integration，
-  dirty 状态在同步前先安全协调。
-- [ ] `repoledger.yaml` 可配置安全的 phase prompt paths；planning approval 绑定当前 Task 和
-  compiled planning bundle digest，finalization steps 在进入 phase 时冻结且不会被后续配置
-  变化隐式扩展。
-- [ ] Guidance pipeline 明确拆成 `route`、`observe`、`render` 和 `advance`；selection、I/O、
-  Git ancestry、human/external outcome 与 before/after 比较不会伪装成单 snapshot predicate。
-- [ ] `whatsnext` prompt 包含当前 macro-step、完成条件、expected delta、requery/yield/error
-  边界和 phase contingency；相同 snapshot 产生相同输出，无 delta 时不会空转。
-- [ ] Git hook、Repoledger mutation/publication command 和 required CI 复用共享 validator；
-  branch protection 是 primary enforcement boundary，本地 hook 不是信任边界。
-- [ ] Legacy ongoing task 缺少合法 phase marker 时返回 migration-required；只有显式 phase
-  选择能创建初始 marker，不从 Task/Progress 文本猜测。
-- [ ] 自动化测试覆盖 [详细设计](./Design.md) 的 required test matrix，且 `pnpm check`、
-  package check、installed-package smoke 与 skill validation 全部通过。
+- [ ] [提示逻辑设计](./Design.md) 的叙述文本使用 `zh-CN`，命令、标识符、协议值与原样
+  工具输出保持其技术形式；Task/Progress/UserAcceptance 之外的 task narrative artifact
+  也被 skill 与测试明确纳入任务语言规则。
+- [ ] Lifecycle/phase 使用 Mermaid 图表达，并包含 backlog、ongoing/planning、
+  ongoing/implementing、ongoing/finalizing、completed、abandoned 与 reactivation。
+- [ ] 完整 observed state 明确覆盖 invocation、coarse ledger、phase、task artifacts/history、
+  worktree/Git、project/global config、remote source/primary；不把单个 `State.yaml` 当成全状态。
+- [ ] Guidance 明确是当前 observed state 的纯输出，transition 明确是 event 驱动的边；两者
+  不会被设计成 `State.yaml` 字段。
+- [ ] 每个 lifecycle/phase 都有完整、领域无关且可审计的“观察到 X，应做 Y”规则，包含
+  进入、继续、human decision、返回前一 phase、abandon、completion 与 reactivation。
+- [ ] 通用规则覆盖 task selection、invalid configuration/artifact、remote fetch failure、
+  snapshot staleness、worktree binding、conflict、yield、requery 与 no-progress。
+- [ ] Dirty changes 规则区分必要 task work、来源明确的临时产物、未知/用户已有工作、
+  phase-illegal task work 与 conflicts；未知/无关现有工作默认保留并使用独立 worktree 或
+  明确路径决定处理。
+- [ ] Local/source/primary 关系覆盖 equal、behind、ahead、diverged 与 unavailable；只有 clean、
+  matching 且 proven fast-forward 的显式 sync step 可自动执行 `ff-only`，其他情况不丢历史。
+- [ ] Planning/finalizing 不允许直接提交 repository deliverable 变化；implementing 允许合法
+  deliverable 变化；路径规则与累计 range checking 的最终设计须与提示逻辑一致。
+- [ ] 项目 phase prompts 完全可选且领域无关；文档项目不被要求提供 test/deploy，软件项目
+  也不由 core 自动获得固定 UX/架构/release checklist。
+- [ ] 进入下一 phase 或 terminal 所需的 human/external 事实先在提示逻辑中明确；只有不能
+  从既有状态分量重建且必须跨 session 保留的事实，才进入后续最小 state-detail 设计。
+- [ ] 后续 state-detail 评审能把每个拟新增字段追溯到至少一条已批准提示条件，并证明不存
+  guidance output、transition edge 或 Git 可推导 cache。
+- [ ] `whatsnext` 保持只读，可 fetch/observe 但不 checkout、merge、commit、stash、delete、
+  reset 或 fast-forward；副作用由输出的显式 step 和相应命令执行。
+- [ ] Agent loop 只在 expected delta 或未声明输入变化后重新观察；human/external wait 结束
+  当前 turn，无变化且无等待/错误时报告 no-progress，避免空转。
+- [ ] 最终实现与自动化测试覆盖获批的提示矩阵、状态输入、sync/dirty 安全、task language、
+  backward compatibility、pack、installed-package smoke 与 skill validation。
 
 ## Constraints
 
-- `whatsnext` 本身只读；状态转换、State evidence、发布和外部副作用继续通过显式命令或
-  受控系统完成。
-- Active source `State.yaml` 的每次修改都是独立 Repoledger State-only transaction commit；
-  coarse completion/abandon/reactivate 可在独立 primary lifecycle commit 中原子修改 status
-  与当前 task State。其他 task artifact 先提交，State evidence 只能引用该 commit 或更早
-  祖先，避免自引用。
-- Phase transition commit 本身是新 phase base且不计入该 phase range；它由 checker 单独
-  验证，关闭前一个 phase 时先验证 parent 处的完整累计区间。
-- Cumulative path union 与 net tree delta 均为必要输入，不能用单 commit diff 或单一净 diff
-  替代。
-- Planning/finalizing 不同步带有 project changes 的 primary；implementing 可通过 source
-  first-parent merge 同步并承担对应累计 range。
-- Human reply、外部系统结果和 Agent 的语义发现是 execution outcome；只有写入结构化 State
-  transaction 后才影响下一次 deterministic guidance。
-- Repoledger 只判断 Git shape、phase path legality 和结构化 item 状态，不判断任意 dirty
-  content 的业务归属；未知现有工作不因 Agent 推断“无关”而自动丢弃。
-- Git history 已记录 transition commit identity，因此 State/status 不复制 phase base；任何
-  persisted hash 都必须通过 ancestor 与语义角色校验。
-- 同任务并发依靠 expected-tip CAS 和非强推 push 检测；不同任务通过独立 worktree 隔离。
+- 本轮 planning 只收敛提示逻辑；未经后续 Interface、Business/data model 和 Architecture
+  review，不开始实现或固化 State schema。
+- `whatsnext` 输出必须由当前 observation 决定，不读取未声明的 session memory 或猜测外部事实。
+- Project prompts 提供领域工作，Repoledger core 只提供 lifecycle、phase、Git、安全与协作
+  边界。
+- Human reply、外部系统结果和 Agent 执行中的语义发现是 transition input；只有后续证明
+  必须跨 session 保留时，才设计对应持久分量。
+- Worktree/remote reconciliation 先于 phase work；高优先级 blocker 未处理前不输出低优先级
+  commit、transition 或外部副作用。
+- 同任务并发依靠 refreshed refs、expected-tip CAS 与非强推 publication；不同任务通过独立
+  worktree 隔离。
 - 不得回退、覆盖或重写其他人的 primary/source work；恢复只追加合法历史或重发既有 tip。
 
 ## Human review checkpoints
@@ -168,14 +128,14 @@ Task creation records this plan, not approval.
 | Checkpoint | Applicability | Reviewer | Planned review artifact | Approval required before |
 | --- | --- | --- | --- | --- |
 | Scope | Required | User or accountable owner | 本文的 Goal、Context、Scope、Out of scope、Acceptance criteria 与 Constraints。 | Substantive implementation. |
-| Interface | Required | User or accountable owner | [详细设计](./Design.md) 中的 command/event、State schema、prompt extension、whatsnext text/JSON 与 migration contract。 | Implementing the affected interface. |
-| Business and data model | Required | User or accountable owner | [详细设计](./Design.md) 中的 coarse lifecycle、source phase graph、generation、State evidence、closure/reactivation 与 hash rules。 | Implementing the affected model. |
-| Architecture | Required | User or accountable owner | [详细设计](./Design.md) 中的 authority split、first-parent contract、phase-base derivation、range engine、worktree binding、validator 与 enforcement layers。 | Implementing the affected module boundaries and control loop. |
-| Delivery acceptance | Required | User or accountable owner | 已发布实现、完整验证结果及 start、phase range、State transaction、human yield、finalization、completion 与 reactivation 的代表性演示。 | Running `task complete` for the exact approved primary commit. |
+| Interface | Required | User or accountable owner | [提示逻辑设计](./Design.md) 的完整输入、六状态提示矩阵、输出优先级、项目 prompt contract 与 task language 范围。 | Designing concrete command/JSON/State interfaces. |
+| Business and data model | Required | User or accountable owner | 获批提示逻辑反推的最小持久事实、coarse lifecycle/phase 关系和 reactivation 语义。 | Adding or implementing State/status fields. |
+| Architecture | Required | User or accountable owner | `route/observe/render/advance` 边界、Git/worktree/remote observation、累计 range 与 sync/enforcement 职责。 | Implementing the control loop and repository mutations. |
+| Delivery acceptance | Required | User or accountable owner | 已发布实现、完整验证结果及各状态、dirty/sync、human yield、no-progress 和 reactivation 的代表性演示。 | Running `task complete` for the exact approved primary commit. |
 
 ## References
 
-- [Detailed design](./Design.md)
+- [Guidance design](./Design.md)
 - [Repoledger skill](../../skills/repoledger/SKILL.md)
 - [Repository task profile](../../docs/repository-tasks.md)
 - [CLI implementation](../../src/cli.js)
@@ -184,4 +144,3 @@ Task creation records this plan, not approval.
 - [Task publication](../../src/publication.js)
 - [Task ledger](../../src/ledger.js)
 - [Version 2 schema](../../schema/v2.json)
-- [npm package release workflow](../../docs/npm-package-releases.md)

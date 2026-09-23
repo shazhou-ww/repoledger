@@ -1,802 +1,374 @@
-# Whatsnext detailed design
+# Whatsnext 提示逻辑设计
 
-This document is the detailed design artifact for the outcome defined by
-[Task.md](./Task.md). Narrative prose follows the task language; protocol
-markers, field names, commands, and status values remain English.
+本文是 [Task.md](./Task.md) 的提示逻辑设计。本文先回答一个问题：在 Repoledger 能观察
+到的完整状态下，应该给 Agent 什么可执行提示。`State.yaml` 需要保存哪些字段、phase
+transition 如何编码、哪些外部结果需要持久化，都在提示逻辑稳定后再反推，不在本文预设。
 
-## Design principles
+## 语言约束
 
-1. `tasks/status.yaml` is the primary-branch coordination ledger. It records
-   only the coarse task lifecycle: `backlog`, `ongoing`, `completed`, or
-   `abandoned`.
-2. `planning`, `implementing`, and `finalizing` are phases inside `ongoing`.
-  While ongoing, their authoritative state and structured evidence live in
-  one task-owned `State.yaml` on the advertised source branch. After a
-  terminal primary transition, the primary copy owns terminal closure.
-3. `State.yaml` and `tasks/status.yaml` are Repoledger-owned machine protocol.
-   Agents and humans do not edit them directly.
-4. Every phase check evaluates the cumulative changes since the commit that
-   entered the current phase. It never infers phase validity from only the
-   latest commit.
-5. The phase base is derived from immutable Git history. It is not copied into
-   `State.yaml` or `tasks/status.yaml`.
-6. A persisted commit hash may identify only a commit that already exists and
-   is an ancestor of the transaction commit's parent. No file may refer to the
-   commit that contains that file revision.
-7. Git hooks provide early feedback. Repoledger commands and required CI use
-   the same validator and form the enforcement boundary.
+本项目的 `repoledger.yaml` 配置 `taskLanguage: zh-CN`，本任务的 `Task.md` 也已固定
+`Language: zh-CN`。因此 Agent 为本任务撰写的标题、设计、决策、验证、证据说明和用户
+指引都应使用中文；命令、标识符、协议字段、枚举值和原样工具输出保持英文。
 
-## Authority model
+此前 Design.md 使用英文不是语言解析优先级错误：项目默认值已经正确写入任务。它同时
+暴露了两个缺口：
 
-### Primary ledger
+1. Agent 没有把任务已记录的语言应用到新增的普通 task narrative artifact。
+2. 当前 skill 和测试重点点名 Task、Progress 与 UserAcceptance，checker 只校验
+   `Task.md` 的 `Language:` 元数据，不验证其他叙述性 task artifact 的语言。
 
-The primary branch owns the task record in `tasks/status.yaml`:
+后续实现应把“任务目录中由 Agent 撰写的所有叙述性 artifact”纳入 task language 规则。
+不应依赖不可靠的自然语言自动识别来强制内容语言，但 skill、模板和测试必须明确覆盖该
+范围。
 
-```yaml
-example-task:
-  state: ongoing
-  generation: 1
-  sourceBranch: task/example-task/g1
-  createdAt: "2026-09-22T00:00:00Z"
-  updatedAt: "2026-09-22T00:10:00Z"
+## 建模边界
+
+Repoledger 不是只根据一个 YAML 文件工作的状态机。一次 observation 得到的完整状态可
+抽象为：
+
+$$
+S = (I, L, P, A, G, C_p, C_g, R)
+$$
+
+其中：
+
+- $I$：调用意图与 task selection，例如 `exec`、`complete`、`abandon`。
+- $L$：primary `tasks/status.yaml` 中的 coarse lifecycle record。
+- $P$：ongoing task 当前的 `planning | implementing | finalizing` phase。
+- $A$：Task、Progress、其他 task artifacts 及其 Git history。
+- $G$：当前 worktree、index、HEAD、branch、push target、changes、conflicts 和 ancestry。
+- $C_p$：项目 `repoledger.yaml` 与当前 phase 的项目 prompts。
+- $C_g$：全局 Repoledger 配置。
+- $R$：刷新后的 remote primary 与 task source refs。
+
+未来的 `State.yaml` 只是 $S$ 中一个可能的持久化分量，不是整个状态节点。本文不规定它
+的字段。
+
+`whatsnext` 的输出是 Moore machine 的输出函数：
+
+$$
+Guidance = render(S)
+$$
+
+Agent 执行 Guidance，可能产生 Git、task artifact、remote、human input 或外部系统副作用，
+随后 observer 得到 $S'$。合法 transition 是 $S \rightarrow S'$ 的边，不是 $S$ 中的字段。
+
+因此：
+
+- guidance 不写进 `State.yaml`；它由完整 observation 计算。
+- transition 不写成“当前状态的一部分”；它是命令或 human/external event 触发的边。
+- human reply、外部结果和 Agent 执行中的语义发现是 transition input，不是预先存在的
+  snapshot predicate。
+- 只有无法从 Git、artifacts、config 与 remote 重建、但又必须跨会话保留的事实，才可能
+  在后续设计中成为持久 state detail。
+
+## 状态图
+
+Primary 只同步 coarse lifecycle；三个 active phase 都属于 `ongoing`。
+
+```mermaid
+stateDiagram-v2
+    [*] --> backlog: register
+  state "ongoing / planning" as planning
+  state "ongoing / implementing" as implementing
+  state "ongoing / finalizing" as finalizing
+
+  backlog --> planning: start
+    backlog --> abandoned: abandon
+  planning --> implementing: plan approved
+  planning --> abandoned: abandon
+  implementing --> planning: revise goal or plan
+  implementing --> finalizing: deliverable integrated
+  implementing --> abandoned: abandon
+  finalizing --> implementing: revise deliverable
+  finalizing --> planning: revise goal or plan
+  finalizing --> completed: finalization approved
+  finalizing --> abandoned: abandon
+    completed --> backlog: reactivate
+    abandoned --> backlog: reactivate
 ```
 
-`sourceRepository` remains optional when the source repository differs from
-the configured primary repository. `generation` is shared lifecycle identity,
-not a phase. It starts at 1 and increments only during reactivation.
+图中的 label 是 transition 含义，不是当前状态字段。是否已经具备某条边的条件，必须由
+observer 能证明的事实与本轮明确 human/external input 共同决定。
 
-The primary record never stores:
+## 输出优先级
 
-- `planning`, `implementing`, or `finalizing`;
-- a phase base or phase-transition commit;
-- phase guidance results;
-- prompt output or next action;
-- worktree, task-folder, source-tip, or primary-tip snapshots;
-- project-specific or external-operation receipts.
+同一 observation 可能同时命中多条规则。为使输出确定，`render` 按以下优先级选择当前
+macro-step：
 
-While a task is active, primary always reports `state: ongoing`. Phase changes
-on the source branch do not produce `tasks/status.yaml` commits and do not
-create primary coordination churn.
+1. task selection 与配置/协议错误。
+2. merge conflict、worktree binding 与未知本地变更保护。
+3. local/source/primary 同步与并发冲突。
+4. 当前 lifecycle/phase 的核心规则。
+5. 当前 phase 的项目 prompts。
+6. human/external yield、requery 和 no-progress 终止规则。
 
-### Task state
+高优先级 blocker 未处理前，不输出低优先级副作用。例如 worktree 中存在未知用户变更时，
+不得先输出 phase transition、commit 或部署操作。
 
-While primary reports `ongoing`, the advertised source branch owns the
-authoritative `tasks/<task>/State.yaml`. A copy may appear on primary after
-normal source integration, but `whatsnext` ignores that potentially lagging
-copy until the task becomes terminal. The file merges phase and evidence into
-one canonical document:
+## 通用观察与提示逻辑
 
-```yaml
-version: 1
-generation: 1
-phase: implementing
-guidance:
-  bundleDigest: sha256:...
-  items:
-    citation-audit:
-      status: satisfied
-      subject:
-        kind: commit
-        value: 0123456789abcdef0123456789abcdef01234567
-      receipt:
-        reference: docs/citation-audit.md
-transition:
-  status: pending
-  subject:
-    kind: artifact
-    digest: sha256:...
-closure: null
-```
+以下规则适用于所有 lifecycle/phase。
 
-The schema is strict and canonically serialized. Unknown fields, duplicate
-stable IDs, noncanonical ordering, invalid phase-specific fields, secrets, and
-hashes that do not resolve to permitted ancestors are errors.
+### 选择与协议
 
-Repoledger does not define domain categories such as reviewer, acceptance
-criterion, unit test, deployment, smoke test, editorial review, or publication.
-Project configuration supplies ordered guidance item IDs and prompts. Core
-State understands only:
+- 在 invocation 指定未知 task 的情况下，应返回 task-not-found 诊断并停止，不修改任何
+  repository 状态。
+- 在 invocation 未指定 task 且不能唯一选择一个非终态 task 的情况下，应要求用户明确
+  选择并停止。
+- 在 invocation 未指定 task 的情况下，应排除 `completed` 和 `abandoned`；终态 task 只在
+  被显式指定时进入后续提示逻辑。
+- 在项目配置、全局配置、task record、task artifact 或 phase prompt 无法解析的情况下，
+  应返回可操作诊断并停止。
+- 在 remote primary 或 active source ref 无法刷新时，应报告 fetch/authorization 诊断，
+  不使用 stale tracking ref 猜测下一步。
+- 在 observation 期间任一原始输入发生变化的情况下，应丢弃候选 prompt 并重新观察。
 
-- item identity and frozen bundle membership;
-- `pending | waiting | satisfied | failed | notApplicable` item status;
-- an optional commit or artifact subject;
-- a non-secret receipt reference or external ID;
-- phase-level transition decision and terminal closure.
+### 工作树绑定
 
-Transition decisions use `pending | approved | rejected` and bind the exact
-artifact digest or historical commit under decision. No `reviewer` field is
-required because Repoledger has no signed human-identity system. Git records
-who committed the State transaction, but that is not claimed to authenticate
-the human decision maker.
+- 在 ongoing task 的当前 branch canonical push target 与 advertised source target 匹配的
+  情况下，应继续检查 dirty state 与 ref relation。
+- 在 target 不匹配、detached HEAD、push destination 缺失或 source identity 有歧义的
+  情况下，应保留当前 worktree，指示建立或使用匹配 source target 的独立 worktree；修复
+  前不得产生该 task 的写入。
+- 在一个 worktree 已承载另一 active task 的可变工作时，应保留现状并使用独立 worktree；
+  list/status/check 等只读操作不受限制。
 
-`State.yaml` stores only the current generation. Earlier generations and
-superseded evidence remain available through Git history. A completion,
-abandonment, or reactivation transaction writes the primary copy together
-with the coarse status transition. From that terminal or backlog commit until
-the next start, primary owns the current closure or reset envelope.
+### 工作区变更
 
-### Human-readable artifacts
+Repoledger 只能判断 Git shape 与 phase path legality，不能自动判断任意内容的业务归属。
+观察到 changes 时，prompt 应要求 Agent 读取精确 diff，并按下表处理：
 
-- `Task.md` is the durable outcome contract.
-- `Progress.md` is the implementation journal.
-- `UserAcceptance.md` contains manual test instructions when needed.
-- Other task-folder files may hold non-secret logs, reports, or screenshots.
-
-Facts that change `whatsnext` output must also be represented structurally in
-`State.yaml`. Free-form prose is evidence for a human, not implicit machine
-state. Task acceptance prose is evaluated under current project guidance; it
-is not mechanically mirrored as one State item per checkbox.
-
-## Lifecycle and phase graph
-
-The primary lifecycle remains:
-
-```text
-absent -> backlog -> ongoing -> completed
-                    |       \
-                    |        -> abandoned
-                    -> abandoned
-
-completed|abandoned -> backlog  # explicit reactivation
-```
-
-The source-branch phase graph exists only while primary says `ongoing`:
-
-```text
-planning -> implementing -> finalizing
-    ^            ^             |
-    |            +-------------+
-    +--------------------------+
-```
-
-The reverse transitions mean:
-
-- `implementing -> planning`: the contract or approved plan needs revision;
-- `finalizing -> implementing`: finalization found a required project change;
-- `finalizing -> planning`: finalization found a goal or scope change.
-
-Abandonment and completion are coarse primary lifecycle operations, not source
-phase values.
-
-## State ownership and mutation
-
-All `State.yaml` writes use intent-specific Repoledger commands. There is no
-generic `set-state` or arbitrary YAML patch command.
-
-Conceptual events include:
-
-- `phase-entered`;
-- `guidance-item-recorded`;
-- `transition-decision-recorded`.
-
-Exact public command names remain an interface-review decision. Each event
-executes the same transaction protocol:
-
-1. Fetch primary and the advertised source ref.
-2. Resolve the task record and canonical source identity.
-3. Require the caller's expected source tip or snapshot digest to equal the
-   fetched source tip.
-4. Validate the event against the current generation, lifecycle, phase, and
-   cumulative phase range.
-5. Serialize the new `State.yaml` canonically.
-6. Create a one-parent commit that changes only
-   `tasks/<task>/State.yaml`.
-7. Add canonical commit trailers describing the event.
-8. Push the source ref non-force and verify the published result.
-
-This State-only protocol applies while the task is ongoing. Coarse completion,
-abandonment, and reactivation are primary lifecycle transactions and may
-atomically modify exactly `tasks/status.yaml` and the current task's
-`State.yaml`; they still contain no implementation or unrelated task paths.
-
-A representative commit is:
-
-```text
-task: enter implementing example-task
-
-Repoledger-Task: example-task
-Repoledger-Generation: 1
-Repoledger-State-Event: phase-entered
-Repoledger-Phase: implementing
-```
-
-The checker cannot prove which executable created a structurally identical
-commit. It guarantees transaction shape and state-machine validity. Signed
-actor identity is a separate governance feature and is not required here.
-
-## Start transaction
-
-Starting a backlog task creates two commits from one fetched primary baseline:
-
-```text
-P0 -- S  primary
-       \
-        P  source
-```
-
-- `S` is a primary commit that changes only `tasks/status.yaml` from
-  `backlog` to `ongoing` and records the generation-specific source identity.
-- `P` is a source commit whose parent is `S`. It creates or resets
-  `State.yaml` for the same generation with `phase: planning`.
-- When the source repository is primary, one `git push --atomic` updates
-  primary from expected `P0` to `S` and creates source at `P`. If the server
-  lacks atomic-push support or either lease fails, neither ref may advance;
-  Repoledger does not fall back to sequential same-repository pushes.
-- For a cross-repository source, Repoledger pushes `P` to the new source ref
-  first, then publishes `S` to primary. If primary publication fails, retry
-  recognizes the exact `S`/`P` topology, unchanged primary baseline, source
-  identity, and State content, then rolls forward by publishing the existing
-  `S`; it never creates a second phase base or overwrites a different source.
-- `P`, not `S`, is the first planning phase base.
-
-## Phase-transition commits
-
-A phase transition is an isolated `phase-entered` State transaction. Before
-creating it, Repoledger validates the complete range for the phase being
-closed.
-
-For a transition commit `T`:
-
-- `T` has exactly one parent;
-- `T` is on the advertised source first-parent lineage;
-- only `tasks/<task>/State.yaml` changes;
-- parent and child parse as canonical state documents;
-- `generation` is unchanged and matches the primary record;
-- parent phase to child phase is a legal edge;
-- event trailers match the parsed task, generation, and child phase;
-- newly persisted hashes resolve to the parent or an earlier ancestor;
-- no field contains `T` itself, a descendant, or a future primary commit.
-
-The transition commit is the base for the phase it enters. It is excluded from
-that phase's cumulative change range and is validated separately.
-
-Evidence-only State transactions also touch `State.yaml`, but keep `phase`
-unchanged and therefore never become a phase base.
-
-## Deriving the phase base
-
-Given advertised source candidate `C`, task `N`, and generation `G`:
-
-1. Enumerate only `C`'s first-parent chain, newest to oldest.
-2. For each chain commit that modifies `tasks/N/State.yaml`, parse that tree
-  and its first-parent tree.
-3. A marker is a structurally valid `phase-entered` commit where `phase`
-  changed, or where generation `G` first introduced `phase: planning`.
-4. Reject every malformed State-changing commit before considering later
-  markers; an evidence commit may change State only with phase unchanged.
-5. Keep markers whose parsed generation is `G`. Their first-parent order is a
-  total order by construction.
-6. The current phase base is the first marker in newest-to-oldest order. Its
-  child phase must equal the candidate State phase.
-7. Reject a missing marker, generation discontinuity, illegal edge, or any
-  merge commit that changes State outside the event protocol.
-
-The result is `phaseBase(C)`. No phase-base hash is persisted. A canonical
-title or trailer accelerates lookup and improves diagnostics, but is never
-sufficient without structural validation.
-
-Repeated phases are separate intervals keyed by marker commit, not coalesced
-by phase name. For example:
-
-```text
-P(planning) -- p -- I1(implementing) -- i -- F1(finalizing)
-                                           \
-                                            -- f -- I2(implementing) -- C
-```
-
-The intervals are `P..parent(I1)`, `I1..parent(F1)`,
-`F1..parent(I2)`, and current `I2..C`. `I2`, not `I1`, is the current
-implementing base.
-
-Tags are not used. They would add a mutable global ref namespace, separate
-fetch and permission behavior, and a second publication transaction without
-adding evidence that the immutable source commit does not already provide.
-
-## Source first-parent contract
-
-Phase derivation requires a stable task first-parent lineage:
-
-- source refs are never force-pushed or rebased after publication;
-- task commits and Repoledger State transactions extend the source tip;
-- when primary must be synchronized into source, the current source tip is the
-  merge commit's first parent and refreshed primary is its second parent;
-- phase transitions are never merge commits;
-- primary integration must preserve source-tip ancestry; squash integration
-  does not satisfy delivery or phase-history validation.
-
-This contract lets the checker treat a merge commit as one task-lineage commit
-and inspect its diff against its first parent. It does not enumerate the merged
-second-parent commits as though the task authored them individually.
-
-For example, if `M` synchronizes primary while implementing, source history is:
-
-```text
-I -- task commits -- M -- more task commits
-                    \
-                     primary tip   # second parent
-```
-
-`M` remains one node on the source first-parent chain. Its changed paths are
-the tree difference from its task-source first parent. A merge whose first
-parent is not the previous source tip violates the source-lineage contract.
-
-Planning and finalizing normally do not merge primary because imported project
-paths would violate their task-folder-only range. Implementing may synchronize
-primary when necessary.
-
-## Cumulative phase changes
-
-For phase base `B` and candidate `C`, the checker derives two complementary
-views.
-
-### Path union
-
-Walk first-parent commits after `B` through `C`. For every commit, collect the
-paths changed against its first parent. For a merge, compare the merge tree to
-its first parent. Union those paths with candidate overlay paths.
-
-This catches a forbidden path even when a later commit reverts it.
-
-### Net tree delta
-
-Compare the tree at `B` with the candidate tree. This determines the resulting
-content delta and supports freshness checks for recorded evidence.
-
-Checks must not substitute one view for the other:
-
-- path permissions use the cumulative path union;
-- resulting contract and evidence consistency use the net tree delta;
-- hash freshness uses ancestry plus path-scoped tree comparison.
-
-## Candidate forms
-
-The same range validator accepts these candidate forms:
-
-### Committed candidate
-
-For `check --commit C`, `C` is the candidate commit. The checker derives the
-phase base and all closed phase intervals from its reachable source history.
-
-### Remote candidate
-
-For `check --remote`, the fetched advertised source tip is `C`. Stale local
-tracking refs are never substituted for a failed fetch.
-
-### Staged candidate
-
-For `check --staged`, history through `HEAD` is committed history and the
-index tree is a synthetic candidate overlay. The checker combines:
-
-- first-parent changed paths in `B..HEAD`;
-- staged paths in `HEAD..index`;
-- net tree delta from `B` to the index tree.
-
-An unstaged worktree does not alter the staged candidate. A path with staged
-and unstaged edits uses only the index blob for this candidate. Renames are
-normalized to deleted and added paths for path-union checks while tree content
-comes from the index result.
-
-### Local worktree candidate
-
-When a local command explicitly checks working changes, candidate content is
-constructed in this order:
-
-1. committed `HEAD` tree;
-2. index overlay, including staged additions and deletions;
-3. tracked worktree overlay, which wins over index content for the same path;
-4. nonignored untracked files as additions.
-
-Ignored untracked files are excluded; tracked ignored files remain tracked.
-Submodules contribute their gitlink path and object ID, not the nested
-worktree's files. Symlinks use Git's symlink blob semantics. Path union keeps
-every normalized add/delete path observed in committed history and overlays,
-even when the final net tree no longer contains it.
-
-## Closed phase validation
-
-Required CI cannot trust that a local transition command ran its closing
-check. It reconstructs the complete phase history.
-
-For first-parent-ordered transition markers `T1 ... Tn`:
-
-- phase `i` begins at `Ti`;
-- a closed phase ends at the parent of `T(i+1)`;
-- the current open phase ends at candidate `C`;
-- intervals are keyed by marker identity and may repeat the same phase name;
-- a first-parent sync merge is an ordinary node inside its containing interval;
-- every transition commit is validated separately;
-- every closed interval and the current interval are revalidated from Git.
-
-No phase-transition commit belongs to either adjacent phase interval. The
-previous interval stops at its parent, and the next interval starts after the
-transition commit. Evidence-only State commits are ordinary commits inside the
-current interval because they do not change phase.
-
-Thus bypassing a hook or manually imitating a transition cannot hide an
-earlier invalid phase range.
-
-## Phase range rules
-
-### Planning
-
-For `planningBase..candidate`:
-
-- cumulative changed paths must stay under `tasks/<task>/`;
-- `tasks/status.yaml` and all project paths are forbidden;
-- the current Task contract, frozen planning guidance bundle, item results,
-  and transition-decision binding must be structurally consistent;
-- entering implementing requires every required project-defined item to be
-  `satisfied` or `notApplicable`, plus an approved transition decision bound
-  to the current Task and bundle digests.
-
-### Implementing
-
-For `implementingBase..candidate`:
-
-- project paths and the current task folder may change;
-- changes to other task folders and `tasks/status.yaml` are forbidden;
-- intermediate commits may be code-only or task-only;
-- readiness checks evaluate the complete cumulative range, not the latest
-  commit;
-- before a source checkpoint, `whatsnext` requery, or finalizing transition,
-  the range must include an external project delta and all State/journal facts
-  required by the repository profile and frozen implementing bundle;
-- a task-only latest commit is valid when the cumulative implementing range
-  contains the corresponding project delta;
-- an item bound to a commit remains fresh only when no path relevant to that
-  item's frozen instruction differs between its subject and candidate.
-
-There is no requirement that one individual commit contain both implementation
-and Progress changes.
-
-### Finalizing
-
-For `finalizingBase..candidate`:
-
-- cumulative changed paths must stay under `tasks/<task>/`;
-- `tasks/status.yaml` and all project paths are forbidden;
-- finalization guidance items are frozen when entering the phase;
-- `phase-entered: finalizing` stores the compiled bundle digest, ordered stable
-  item IDs, and source digest for each compiled item in State; executable text
-  remains recoverable from the immutable phase-base tree;
-- later project configuration is never re-read to add, remove, or rewrite a
-  guidance item for that generation;
-- `targetCommit`, bundle digest, item order, item IDs, and each item source
-  digest are immutable throughout one finalizing interval;
-- item transactions may change only the selected item's status, non-secret
-  external ID, evidence reference, attempt metadata, and timestamps according
-  to the legal item-state graph;
-- every receipt binds the frozen item ID, bundle digest, and `targetCommit`;
-  a mismatch is corrupt/stale State and blocks further external side effects;
-- a changed project configuration does not stale a frozen finalization plan;
-  a changed desired target requires returning to implementing, and a changed
-  contract requires returning to planning;
-- project-defined and external results are recorded through generic guidance
-  item transactions using non-secret stable IDs;
-- a required project change forces a tool-owned transition to implementing;
-- a goal or contract change forces a tool-owned transition to planning.
-
-## Check profiles
-
-The range engine supports increasingly strong profiles:
-
-- `structural`: State schema, transition commits, ancestry, binding, and phase
-  path permissions;
-- `checkpoint`: structural rules plus cumulative implementing journal and
-  generic guidance requirements before source publication or `whatsnext`
-  requery;
-- `close-phase`: checkpoint rules plus all conditions required to enter the
-  requested next phase;
-- `delivery`: all closed phases, finalization receipts, source containment in
-  primary, and exact human-approved primary target.
-
-Hooks may run a cheaper profile for feedback. Repoledger publication and
-transition commands always run the required stronger profile themselves.
-
-## Hash safety
-
-`State.yaml` may persist a full commit hash only when all of these hold:
-
-1. the referenced commit existed before the State transaction began;
-2. it is the transaction parent or an ancestor of that parent;
-3. its semantic role is explicit, such as `subjectCommit`,
-   `artifactCommit`, or `targetCommit`;
-4. freshness can be recomputed from Git and the current state.
-
-The following hashes are never persisted:
-
-- the current State transaction commit;
-- a phase base or phase-transition commit merely for navigation;
-- a future integration or completion commit;
-- the current source or primary tip merely as a cache;
-- a synthetic staged or worktree candidate identity.
-
-Examples:
-
-- A guidance-item State commit may refer to the already committed repository
-  revision or artifact it evaluated.
-- A finalizing transition may refer to a primary commit only after source has
-  synchronized that commit into its ancestry.
-- A completion commit may record its already approved primary parent, never
-  itself.
-
-## Primary integration and finalizing
-
-To enter finalizing:
-
-1. Validate the implementing range at the advertised source tip.
-2. Integrate that source tip into primary without squash and fetch commit `M`,
-  which must equal current remote primary and contain the source tip.
-3. Synchronize `M` back into source with the old source tip as first parent and
-  `M` as second parent.
-4. Execute every implementing guidance item that must bind exact integrated
-  target `M`.
-5. Record those generic item results against the now-historical target commit.
-6. Freeze concrete finalization instructions in State.
-7. Create the isolated `phase-entered: finalizing` commit.
-
-If primary changes before the finalizing transition publishes, expected-tip
-CAS fails and the integration/validation sequence restarts against the new
-primary. Once published, `M` is immutable `targetCommit` for that finalizing
-interval. The finalizing transition commit becomes the new phase base. Primary
-still reports `ongoing`.
-
-Before completion, finalization task commits are integrated into primary while
-preserving source ancestry. The human approves the exact resulting primary
-commit. Repoledger then creates an independent primary lifecycle commit that:
-
-- changes `tasks/status.yaml` from `ongoing` to `completed`;
-- removes the source locator;
-- records terminal closure in the primary copy of `State.yaml`;
-- refers only to the approved parent commit;
-- contains no implementation or unrelated task changes.
-
-Abandonment uses the same independent primary-transaction rule and preserves
-the source branch for audit and recovery. If the source contains unintegrated
-work, the primary closure records the decision, generation, primary parent,
-and source identity but never persists a nonancestor source-tip hash. Detailed
-abandoned phase evidence remains on the retained source branch.
-
-After either terminal transition, the primary lifecycle commit owns the
-terminal State envelope. The former source State remains immutable audit
-history and is no longer consulted by default guidance.
-
-CI validating a terminal lifecycle commit reads its first-parent task record,
-which is still `ongoing`, to recover the generation and advertised source
-identity. It verifies the fetched source tip is contained in the approved
-parent and validates that source first-parent phase history before accepting
-the terminal status commit. The source branch remains retained after terminal
-transition, so later remote audit does not depend on a deleted ref.
-
-## Reactivation
-
-Explicit reactivation is a primary lifecycle transaction:
-
-1. Require an explicit human decision bound to the terminal task and current
-   generation.
-2. Increment `generation` in the primary task record.
-3. Change terminal status to `backlog` and keep source fields absent.
-4. Reset the current-generation State envelope while retaining old evidence in
-   Git history.
-5. Publish an independent primary commit.
-
-A later start creates a new generation-specific source identity and planning
-base. Old source branches are not deleted or reused.
-
-## Lifecycle and generation transition table
-
-| Event | Primary before | Primary after | Generation | Source identity | State authority |
-| --- | --- | --- | --- | --- | --- |
-| `register` | absent | backlog | initialize 1 | absent | primary reset envelope or absent legacy State |
-| `start` | backlog | ongoing | unchanged | create `task/<name>/g<generation>` or explicit equivalent | source planning commit |
-| `complete` | ongoing | completed | unchanged | remove from status | primary terminal envelope |
-| `abandon` | backlog/ongoing | abandoned | unchanged | remove from status when present | primary terminal envelope; retained source is audit |
-| `reactivate` | completed/abandoned | backlog | increment exactly once | absent | primary reset envelope |
-
-`start` rejects reuse of any prior generation's source identity. Reactivation
-does not create a source branch; the later start transaction does.
-
-## Worktree binding
-
-No worktree-local task marker exists. Observer derives binding by comparing:
-
-```text
-canonicalPushTarget(currentBranch)
-    == effectiveSourceTarget(primaryTaskRecord)
-```
-
-Remote aliases are resolved to canonical credential-free repository URLs and
-short branch names. Detached HEAD, missing push destination, unknown URL
-identity, or multiple matching active records is ambiguous and blocks task
-writes. A matching target with diverged history remains bound but requires
-normal non-force integration.
-
-One worktree may mutate at most one active task. Other tasks remain available
-for read-only list, status, and check operations.
-
-## Repository observation and reconciliation
-
-`whatsnext` observes repository state before producing task work. The snapshot
-contains at least:
-
-- current branch, HEAD, canonical push target, index tree, tracked worktree
-  delta, nonignored untracked paths, and unresolved conflicts;
-- relation of local HEAD to fetched task source tip:
-  `equal | behind | ahead | diverged`;
-- ancestry relation between fetched source and primary tips;
-- phase path classification for every staged, unstaged, and untracked path.
-
-Fetches may occur during observation because they do not alter checked-out
-files or task history. `whatsnext` itself never checkout, merge, reset, stash,
-delete, commit, or fast-forward a worktree. It emits an explicit reconciliation
-step; the harness may execute a separate Repoledger sync command when that step
-is mechanically safe.
-
-### Dirty worktree classification
-
-Repoledger can classify Git shape and phase legality, but cannot determine the
-business relevance or ownership of arbitrary content. When candidate changes
-exist, the prompt requires the Agent to inspect exact diffs and classify them:
-
-| Classification | Required handling |
+| 观察结果 | 应指示 Agent |
 | --- | --- |
-| Required task work | Retain it, ensure the current phase permits its paths, stage exact intended paths, validate the cumulative range, then commit through the normal task workflow. |
-| Known temporary output | Remove only when the Agent created it during the current operation or a repository-owned cleanup rule identifies it deterministically. |
-| Unrelated or unknown existing work | Preserve it. Do not reset, clean, checkout, overwrite, or silently stash it; continue the task in a separate worktree or request an explicit path-specific decision. |
-| Phase-illegal but task-relevant work | Preserve it and perform the legal phase transition before committing, or move task execution to a clean matching worktree. |
-| Unresolved conflict | Stop normal guidance and resolve the conflict without discarding either side before any State or source publication. |
+| 变更是当前 task 必要工作，且当前 phase 允许这些路径 | 保留变更，精确 stage 预期路径，运行累计检查，再按 task workflow commit。 |
+| 变更是当前操作刚创建的临时产物，或 repository cleanup policy 可确定识别 | 可以删除该精确产物，然后重新观察。 |
+| 变更是未知来源、用户已有或与当前 task 无关 | 保留，不 reset、clean、checkout、覆盖或静默 stash；改用独立 worktree，或请求用户对精确路径做决定。 |
+| 变更属于当前 task，但当前 phase 不允许该路径 | 保留，先走合法 phase transition，或在干净且匹配的 worktree 中继续；不得伪装成当前 phase 变更。 |
+| 存在 unresolved conflict | 停止正常 guidance，要求在不丢弃任一侧的前提下处理冲突，再重新观察。 |
 
-A broad `git clean`, `reset --hard`, or path restoration based only on an
-Agent's “unrelated” judgment is never an automatic step. An explicit user
-instruction may authorize disposal of named paths after a fresh diff review.
+- 在 Agent 只能主观判断某项变更“无关”的情况下，不应自动删除。
+- 在用户明确授权丢弃某些具体路径的情况下，应先刷新 diff，再只处理被点名路径。
+- 不应输出宽泛的 `git clean`、`git reset --hard` 或覆盖整个 worktree 的命令。
 
-### Local/source synchronization
+### 本地与 source ref
 
-| Local HEAD vs fetched source | Worktree | Guidance |
+- 在 local HEAD 等于 fetched source tip 的情况下，应在 dirty-state 处理完成后进入当前
+  phase guidance。
+- 在 local HEAD 落后 source、worktree clean 且关系可 fast-forward 的情况下，应输出
+  source sync step；显式 Repoledger sync 命令可以自动执行 `ff-only`，随后重新观察。
+- 在 local HEAD 落后 source 且 worktree dirty 的情况下，应先分类并安全 commit、删除
+  来源明确的临时产物，或保留并隔离未知工作；不得直接 pull/merge 覆盖本地内容。
+- 在 local HEAD 领先 source 的情况下，应先运行当前 phase 所需累计检查，再以 expected-tip
+  CAS 非强推发布；检查失败时继续当前 phase，不发布。
+- 在 local 与 source diverged 的情况下，应保留双方历史并输出正常非强推 integration
+  step；不得 force-push、reset 或静默选择一侧。冲突交还 Agent 处理。
+
+### 远端 source 与 primary 关系
+
+- 在 primary 是 source 的 ancestor 时，应视为 source 含 active task work，根据 local/source
+  关系继续工作或发布。
+- 在 source 是 primary 的 ancestor 时，应视为 task work 已进入 primary；只有当前 phase
+  的下一步需要时，才明确把 primary 同步回 source，并保持旧 source tip 为 first parent。
+- 在 source 与 primary diverged 且当前 phase 为 `implementing` 时，应在 dirty-state 协调后
+  输出显式 primary-to-source integration step，并保持 source first-parent lineage。
+- 在 source 与 primary diverged 且当前 phase 为 `planning` 或 `finalizing` 时，不应自动
+  导入 project changes；应报告 gap，并根据具体 task-folder/phase 条件选择等待、先转 phase
+  或请求人工协调。
+- 在 relation 无法计算的情况下，应返回 ancestry 诊断，不从 stale refs 猜测。
+- 在 checked-out primary worktree clean 且仅落后 fetched primary 时，显式 sync step 可
+  `ff-only`；dirty 或 diverged primary worktree 必须保留并报告。
+
+### 项目 prompts
+
+- 在当前 phase 没有配置项目 prompt 的情况下，应只输出 core phase guidance，不报错也不
+  补造领域 checklist。
+- 在当前 phase 配置多个项目 prompts 的情况下，应按配置中的稳定顺序编译；当前 prompt
+  产生 blocker 或 yield 时，不提前执行后续 prompt。
+- 在项目 prompt 与 core lifecycle、安全、权限、phase path 或 publication 规则冲突的
+  情况下，应报告 configuration conflict 并停止，不通过“后写覆盖前写”降低核心约束。
+- 在项目 prompt path 不安全、文件缺失、内容无法读取或 observation 期间发生变化的情况下，
+  应丢弃候选 bundle，返回可操作诊断或重新观察。
+- 在项目 prompts 变化后旧 prompt 仍在执行的情况下，应在任何新副作用前比较 snapshot，
+  放弃旧输出并重新编译；prompt 文本本身不作为持久 state。
+
+## `backlog` 提示逻辑
+
+`backlog` 表示 task 已登记，但尚未建立 active source execution。
+
+- 在用户通过 `exec` 明确开始 backlog task，配置有效且没有更高优先级 blocker 的情况下，
+  应指示 Repoledger 创建/确认 generation-specific source identity，执行 `backlog -> ongoing`
+  并进入 `planning`，然后重新观察。
+- 在开始前当前 worktree 含未知或用户已有 changes 的情况下，应先保护这些 changes，并在
+  独立 worktree 中开始 task，而不是搬运或删除它们。
+- 在开始所需 source branch 已存在但不能证明是同一个可恢复 start publication 的情况下，
+  应报告 source conflict，不复用或覆盖该 branch。
+- 在用户请求 abandon 但尚未给出明确决定的情况下，应说明被放弃的 task/目标并请求确认，
+  然后 yield。
+- 在收到绑定当前 backlog task 的明确 abandon 决定后，应指示执行合法 coarse transition
+  到 `abandoned`，再重新观察。
+- 在仅查询 status 的情况下，应只报告 backlog 与可用操作，不自动 start。
+
+## `ongoing / planning` 提示逻辑
+
+`planning` 的目标是形成可执行的任务契约并取得进入实现阶段的明确决定。该 phase 只允许
+修改当前 task folder。
+
+- 在累计 planning range 出现 task folder 外路径的情况下，应停止发布并保留变更；如果它
+  是当前 task 必要工作，则在计划获准后先 transition 到 `implementing`，否则隔离处理。
+- 在 Task contract 缺失、不完整，或当前项目 planning prompts 尚未执行的情况下，应输出
+  core planning prompt 与项目 planning prompts，指示 Agent 只修改 task folder，完善 Goal、
+  scope、out-of-scope、constraints、可观察完成条件与适用领域计划。
+- 在 repository 没有配置 planning prompt 的情况下，不应报错；应仅使用 core planning
+  prompt，而不是假设必须有 UX、架构、数据模型或软件测试章节。
+- 在 planning task artifacts 有未提交变化的情况下，应先检查精确 diff、task links 和
+  contract 一致性，再 commit 并非强推发布 source；不得制造无意义的 task-only 日志提交。
+- 在 local/source 有 gap 的情况下，应先执行通用同步逻辑，再继续请求 review。
+- 在计划产物已发布，但当前 observation 中没有可验证的“允许进入 implementing”决定事实
+  时，应展示权威 planning artifact，向用户请求明确决定并 yield。
+- 在用户要求修改计划或目标的情况下，应继续留在 planning，更新 task artifacts；此前
+  针对旧 artifact 的决定不得被当成当前决定。
+- 在用户明确批准当前 planning artifact 后，应指示执行 `planning -> implementing` 边，
+  然后重新观察；具体如何持久证明该决定留待 state-detail 设计。
+- 在用户要求直接修改 task folder 外内容但 planning 尚未批准的情况下，应拒绝跨 gate，
+  先请求 planning 决定。
+- 在用户明确请求 abandon 的情况下，应请求绑定当前 task/generation 的确认；确认后执行
+  coarse transition 到 `abandoned`。
+
+## `ongoing / implementing` 提示逻辑
+
+`implementing` 允许修改当前 task folder 和 repository deliverable，但不允许改其他 task
+folder 或手工修改 `tasks/status.yaml`。
+
+- 在当前 Goal 或项目 implementing prompts 仍有未处理工作时，应指示 Agent 调查 repository、
+  修改 deliverable、运行适合该 repository 的验证或质量检查，并形成可观察结果；核心不
+  假设项目一定有代码、unit test、build 或 deployment。
+- 在 worktree 有未提交 changes 时，应先走通用 dirty 分类；必要 task work 精确 stage，
+  检查从当前 implementing base 到 candidate 的累计 range，再 commit。
+- 在累计 range 修改其他 task folder 或 `tasks/status.yaml` 的情况下，应阻止 checkpoint/
+  publication，保留并协调这些变更。
+- 在最新 commit 只修改 task folder、但当前 implementing 累计 range 已包含对应 deliverable
+  delta 的情况下，不应仅因 latest commit 是 task-only 就失败；检查对象是累计 range。
+- 在 deliverable 变化尚未形成 repository profile 要求的 journal、证据或项目 guidance
+  结果时，应输出相应 implementing prompt，继续当前 macro-step，不进入 finalizing。
+- 在 local HEAD 领先 source 且累计 checkpoint 合法的情况下，应指示非强推发布 source；
+  不合法时给出具体缺口。
+- 在 source work 尚未进入 primary 的情况下，应指示通过 repository 正常 integration path
+  推进，并验证 primary 包含 source tip；不得用 squash 擦除 task history。
+- 在 primary 集成后发生新 primary 变化，导致当前结果需要重新协调的情况下，应重新同步、
+  检查受影响范围并运行项目 prompts 所需验证，而不是复用过期结论。
+- 在 Agent 执行中发现 Goal、scope 或计划需要变化的情况下，应保留已有工作，指示先执行
+  `implementing -> planning`，不得静默扩大 contract。
+- 在 deliverable 已进入 primary，当前 implementing prompts 的要求已处理，但没有可验证的
+  “允许进入 finalizing”决定事实时，应汇总实现、集成与验证结果，请求明确决定并 yield。
+- 在用户明确批准进入 finalizing 后，应指示执行 `implementing -> finalizing` 并重新观察；
+  该 transition 的持久 state detail 后续再设计。
+- 在用户明确请求 abandon 的情况下，应请求确认并在确认后执行 coarse transition。
+
+## `ongoing / finalizing` 提示逻辑
+
+`finalizing` 只允许修改当前 task folder 和操作外部工具；任何 repository deliverable 变化
+都必须先返回 implementing。
+
+- 在累计 finalizing range 出现 task folder 外路径的情况下，应阻止 commit/publication，
+  保留变化并指示 `finalizing -> implementing` 后再处理。
+- 在 Agent 发现 Goal、scope 或计划需要变化的情况下，应指示 `finalizing -> planning`。
+- 在当前项目 finalizing prompts 尚未执行的情况下，应输出下一项适用 prompt，指示 Agent
+  执行文档发布、外部审批、部署、人工检查或其他项目自定义动作；核心不预设其中任何一项。
+- 在 repository 未配置 finalizing prompt 的情况下，不应凭空要求 deployment、smoke test
+  或 manual acceptance；应直接进入 final completion readiness 判断。
+- 在外部操作已经启动、当前只能等待 human/external input 的情况下，应说明精确等待对象
+  和恢复条件，然后 yield；不立即用相同 snapshot 轮询。
+- 在外部结果已返回的情况下，应先把可观察结果写入适当 task artifact 或后续确定的持久
+  state component，再重新观察；本文不预设其 schema。
+- 在 finalizing task artifacts 有未提交变化的情况下，应检查 task-folder-only range，
+  commit 并非强推发布 source。
+- 在 finalizing prompts 均已处理，但没有可验证的最终完成决定事实时，应汇总 deliverable
+  target 和 finalization 结果，请求明确 completion decision 并 yield。
+- 在用户要求调整 deliverable 的情况下，应 transition 回 implementing；在用户要求调整
+  Goal/plan 的情况下，应 transition 回 planning。
+- 在用户明确确认完成，且 source/primary/dirty-state 条件满足的情况下，应指示执行 coarse
+  `ongoing -> completed`，随后重新观察。
+- 在用户明确请求 abandon 的情况下，应请求确认并在确认后执行 coarse transition。
+
+## `completed` 提示逻辑
+
+`completed` 是用户已确认没有剩余工作的终态，不参与默认 active task selection。
+
+- 在 completed task 未被显式指定的情况下，不应自动输出调整问题或重新激活建议。
+- 在用户显式查询 completed task 的情况下，应报告已完成目标、当前 generation 和可用
+  artifact，并询问用户是否要调整目标或开启新一轮计划。
+- 在用户明确表示无需调整的情况下，应停止，不要求状态变化，也不重复询问。
+- 在用户明确要求调整同一目标的情况下，应先形成清晰的修订意图，指示执行合法
+  `completed -> backlog` reactivation，再由后续 `exec` 进入 planning；具体 generation 与
+  artifact mutation 方式留待 state-detail 设计。
+- 在 terminal task 后出现本地 deliverable changes 的情况下，不应静默附着到已完成
+  generation；应保留并要求用户选择 reactivate、创建新 task 或明确处理这些变化。
+- 在用户仅要求查看历史的情况下，应保持只读，不创建 task artifact 或 lifecycle commit。
+
+## `abandoned` 提示逻辑
+
+`abandoned` 表示当前 generation 的目标被明确终止，同样不参与默认 active task selection。
+
+- 在 abandoned task 未被显式指定的情况下，不应自动选择它。
+- 在用户显式查询 abandoned task 的情况下，应报告原目标、可用 artifact 和停止点，并询问
+  是否基于调整后的目标重新计划。
+- 在用户明确表示保持 abandoned 的情况下，应停止，不修改状态。
+- 在用户明确要求恢复或调整目标的情况下，应形成清晰的修订意图，指示执行合法
+  `abandoned -> backlog` reactivation，再从 planning 重新开始。
+- 在 retained source branch 存在未集成工作时，应把它作为只读历史证据报告；不得自动
+  merge、删除 branch 或把旧 source 当作新 generation source 复用。
+- 在用户请求查看放弃原因或历史 diff 时，应保持只读。
+
+## 循环推进提示逻辑
+
+- 在执行任何副作用前，当前 snapshot 已不同于 prompt 绑定 snapshot 的情况下，应放弃
+  剩余 prompt 并重新观察。
+- 在执行结果满足 prompt 声明的 expected delta 的情况下，应重新调用 `whatsnext`。
+- 在输入发生未声明变化的情况下，应丢弃剩余 prompt，重新观察并生成新输出。
+- 在 execution outcome 为 human/external wait 且没有输入变化的情况下，应结束当前 Agent
+  turn；收到对应 input 后再重新观察。
+- 在 prompt 已执行完但 observation 没有变化、也没有 yield 或可操作错误的情况下，应报告
+  no-progress 并停止，禁止相同 snapshot 空转。
+- 在发生可操作错误的情况下，应报告具体 blocker 与恢复条件；错误消除前不重复副作用。
+
+## 从提示逻辑反推 state detail
+
+本文暂不定义 `State.yaml`。下一轮只针对上述规则提出信息需求：
+
+1. 哪些条件可从 Git、task artifacts、project/global config 与 remote refs 直接重建？
+2. 哪些 human decision 必须跨 session 保留？
+3. 哪些 external wait/result 无法从外部系统稳定重查，必须持久化？
+4. 哪些 phase completion 事实仅是 guidance 输出，哪些确实是未来 observation 的必要输入？
+5. 每个持久事实最小需要绑定哪个已有 artifact digest 或 ancestor commit，才能避免 stale 与
+   self-reference？
+
+只有无法由现有状态分量重建、又确实影响未来 `render(S)` 的事实，才进入最小 state detail。
+guidance 文本、next action、transition edge 本身和可从 Git 推导的 phase base 都不应持久化。
+
+当前提示条件的信息来源需求如下。标记为“待推导”的行只声明 observation 必须能证明该
+事实，不决定由哪个文件或字段保存。
+
+| 提示条件 | 已知或候选来源 | 当前结论 |
 | --- | --- | --- |
-| equal | any legal state | Continue phase guidance after dirty-state handling. |
-| behind | clean | Instruct an explicit source sync; a Repoledger sync command may perform `ff-only`, then reobserve. |
-| behind | dirty | Classify and safely commit, remove known temporary output, or preserve/isolate existing work before sync. |
-| ahead | clean or legal task delta | Run the required cumulative checkpoint profile and publish non-force with expected-tip CAS. |
-| diverged | any | Never force or auto-reset. Preserve work and instruct normal non-force integration; conflicts return to the Agent. |
+| Coarse lifecycle、source identity | primary `tasks/status.yaml` | 已可观察。 |
+| 当前 ongoing phase | task source history 与未来最小 task-state 分量 | 待推导持久化方式。 |
+| Task/artifact 是否为当前版本 | Git tree、content digest、source history | 可推导，不缓存 tip。 |
+| Worktree dirty/path legality | index、worktree、phase base 到 candidate 的累计 Git 变更 | 可推导。 |
+| Local/source/primary relation | refreshed refs 与 commit graph | 可推导。 |
+| 当前 phase 项目 prompts | `repoledger.yaml` 和引用文件的当前 revision | 可推导；输出不持久化。 |
+| 某个 phase prompt 是否已处理完 | repository/task artifacts、可重查外部结果，或最小持久事实 | 待逐 prompt 判断，不能统一假设。 |
+| Human transition/completion decision | 当前 human input；跨 session 时可能需要绑定当前 artifact 的持久事实 | 待推导。 |
+| External operation 正在等待或已经完成 | 可重查 external system；无法稳定重查时可能需要非秘密持久事实 | 待推导。 |
+| Prompt 是否 stale | prompt 绑定 snapshot 与最新 observation 的比较 | 可推导，不持久化。 |
+| No-progress | before/after observation 与 execution outcome | 可推导，不持久化。 |
 
-An auto-sync operation is allowed only for a clean worktree, matching source
-target, fetched remote tip, and proven fast-forward. Any merge, source-first
-primary synchronization, or conflict resolution is an explicit task step.
+## 当前待评审结论
 
-### Source/primary synchronization
-
-| Relation | Guidance |
-| --- | --- |
-| primary is ancestor of source | Source contains active task work; continue or publish according to local/source relation. |
-| source is ancestor of primary | Implementation is integrated; when the next phase requires it, explicitly synchronize primary back into source with old source tip as first parent. |
-| source and primary diverged | Planning/finalizing must not import project changes; implementing may explicitly merge primary with source as first parent after dirty-state reconciliation. |
-| relation unavailable | Return a fetch/ancestry diagnostic; never guess from stale tracking refs. |
-
-For a checked-out primary branch, a separate sync command may fast-forward a
-clean worktree when local primary is an ancestor of fetched primary. Dirty or
-diverged primary worktrees are preserved and reported, never changed by
-`whatsnext`.
-
-## Guidance pipeline
-
-The command separates four concerns:
-
-```text
-route(invocation, ledgerIndex)
-observe(selectedTask, repository, worktree, configuration)
-render(snapshot)
-advance(before, expectedDelta, executionOutcome, after)
-```
-
-- `route`, `render`, and `advance` are pure functions.
-- `observe` performs I/O and normalizes all Git and file facts.
-- `render` receives phase base, cumulative path union, net delta, evidence
-  freshness, dirty-worktree shape, ref ancestry, worktree binding, and phase
-  guidance as explicit snapshot facts.
-- human replies, external-system results, and semantic discoveries are
-  execution outcomes, not hidden snapshot predicates.
-- `advance` re-runs guidance only after the declared input delta occurs; yield,
-  actionable error, and no-progress outcomes stop the current turn.
-
-## Prompt extensions
-
-Project configuration may add phase-specific prompt files for planning,
-implementing, and finalizing. Repoledger validates paths and compiles only the
-current phase bundle.
-
-Each configured entry has a stable project-defined ID, phase, prompt path, and
-whether it is required. Repoledger preserves config order and tracks only the
-generic item state. For example, a documentation repository may configure
-`outline-review`, `citation-audit`, and `publish-site`; a software repository
-may independently choose build, test, release, or deployment items. None of
-those names or semantics exist in core State schema.
-
-- Core lifecycle, path, security, approval, and publication rules cannot be
-  overridden.
-- Planning transition decision binds both the Task contract digest and compiled
-  planning bundle digest.
-- A changed planning bundle makes that decision stale.
-- Concrete finalization item IDs and source digests are frozen into State when
-  entering finalizing; later configuration changes do not mutate an active or
-  terminal generation.
-
-## Enforcement layers
-
-1. `whatsnext` emits the legal next macro-step and expected delta.
-2. Optional Git hooks call the shared range validator for early feedback.
-3. Repoledger State, phase, source-publication, and lifecycle commands call the
-   validator before writing or pushing.
-4. Required CI reconstructs all phase intervals and rejects invalid history.
-5. Branch protection prevents failed candidates from entering primary.
-
-No local hook or prompt is treated as the trust boundary.
-
-## Legacy migration
-
-Existing version 2 ongoing records have a source branch but no canonical
-`State.yaml` phase marker. Repoledger must not infer a phase from Task or
-Progress prose.
-
-For reads, a record without `generation` has effective generation 1. An
-ongoing legacy task is migration-required when its fetched source first-parent
-history has no valid generation-1 phase marker. Migration requires an explicit
-human-selected phase; Repoledger never chooses from prose or changed paths.
-
-The migration transaction first publishes generation 1 to the still-ongoing
-primary record when absent, then creates one isolated State transition commit
-on the existing source branch using expected-tip CAS. Same-repository updates
-use atomic multi-ref publication when the topology permits it; cross-repository
-failure uses explicit roll-forward recovery. The State commit becomes the
-selected phase base. Backlog and terminal records persist generation lazily
-during their next lifecycle mutation or through explicit repository migration.
-
-| Legacy observable shape | Deterministic action |
-| --- | --- |
-| backlog/completed/abandoned without generation | Read as effective generation 1; persist 1 on the next lifecycle mutation or explicit migration. |
-| ongoing without generation and without State | Require explicit human choice of planning, implementing, or finalizing; publish generation 1 and one initial marker. |
-| ongoing without generation with one valid generation-1 marker chain | Validate the chain, persist generation 1 in primary, and retain its current phase without creating a second marker. |
-| ongoing with malformed, multiple-lineage, or generation-conflicting State history | Return migration-conflict; do not write either ref until the history is explicitly repaired. |
-| ongoing whose chosen finalizing phase lacks an ancestor integrated target and frozen guidance items | Reject finalizing migration; choose planning/implementing or first create valid historical evidence. |
-
-The explicit phase choice is a human decision bound to the task, source tip,
-and primary tip. It is never inferred from changed paths, filenames, Task
-checkboxes, Progress prose, or the presence of deployment tooling.
-
-## Failure and recovery
-
-- Every State and primary lifecycle mutation uses expected-tip compare-and-set.
-- A source push that succeeds before a primary start push uses the existing
-  recoverable partial-publication protocol.
-- An invalid or missing phase marker blocks writes; Repoledger never silently
-  creates a replacement base in the middle of history.
-- Ambiguous first-parent history, direct State edits, nonancestor hash
-  references, and squash integration are hard errors.
-- Recovery always adds valid history or republishes an existing valid tip;
-  it never force-pushes or rewrites shared commits.
-
-## Required test matrix
-
-- canonical State parsing and serialization;
-- tool-owned State event shapes and stale-tip CAS;
-- start transaction with primary status commit and source planning commit;
-- repeated phase transitions and nearest-base derivation;
-- evidence-only State commits ignored as phase markers;
-- path-union detection when a forbidden change is later reverted;
-- net-delta and generic item-freshness checks;
-- staged synthetic candidate, commit candidate, and fetched remote candidate;
-- first-parent merge handling and ambiguous history rejection;
-- planning/finalizing task-folder-only enforcement;
-- implementing cumulative journal/State requirements without same-commit
-  pairing;
-- closed-phase reconstruction in CI;
-- persisted-hash ancestor validation and self-reference rejection;
-- non-squash primary integration and source containment;
-- finalization bundle freeze, generic external wait, and completion;
-- abandonment and generation-based reactivation;
-- legacy ongoing migration without heuristic phase inference;
-- worktree binding from canonical push target without local metadata;
-- dirty worktree classification without automatic disposal of unknown changes;
-- safe fast-forward sync, dirty-behind handling, ahead publication, and
-  diverged-ref reconciliation;
-- deterministic guidance output and no-progress loop termination.
+- Coarse lifecycle 仍为 `backlog | ongoing | completed | abandoned`。
+- `planning | implementing | finalizing` 是 `ongoing` 的 active phases。
+- 状态图使用 Mermaid；不再用 ASCII art 表达状态关系。
+- 提示逻辑必须对文档、软件、配置、内容创作等 repository 类型都成立。
+- 项目 prompts 提供领域语义，Repoledger core 只提供 lifecycle、安全、Git 与协作约束。
+- Worktree/remote reconciliation 先于 phase work，未知本地变更默认保留。
+- 先批准本提示逻辑，再设计最小 `State.yaml`；当前不采纳任何具体 State schema 示例。
