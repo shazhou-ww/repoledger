@@ -27,12 +27,11 @@ Repoledger 不是只根据一个 YAML 文件工作的状态机。一次 observat
 抽象为：
 
 $$
-S = (I, L, P, A, G, C_p, C_g, R)
+S = (L, P, A, G, C_p, C_g, R)
 $$
 
 其中：
 
-- $I$：调用意图与 task selection，例如 `exec`、`complete`、`abandon`。
 - $L$：primary `tasks/status.yaml` 中的 coarse lifecycle record。
 - $P$：ongoing task 当前的 `planning | implementing | finalizing` phase。
 - $A$：Task、Progress、其他 task artifacts 及其 Git history。
@@ -40,6 +39,22 @@ $$
 - $C_p$：项目 `repoledger.yaml` 与当前 phase 的项目 prompts。
 - $C_g$：全局 Repoledger 配置。
 - $R$：刷新后的 remote primary 与 task source refs。
+
+`repoledger whatsnext` 是独立命令。命令适配层在 observation 之前根据可选 task 参数和
+ledger index 选定一个 task，或返回 selection 诊断：
+
+$$
+selectedTask = select(taskArgument, ledgerIndex)
+$$
+
+$$
+S = observe(selectedTask)
+$$
+
+Task selection 决定“观察哪个 task”，但不进入 $S$，也不改变 `render(S)`。外层 skill
+是通过 `/repoledger exec`、`/repoledger complete`、`/repoledger abandon`，还是其他方式
+调用 `whatsnext`，都不会传入 prompt 计算。相同 selected task 与相同 observation 必须产生
+相同 guidance。
 
 未来的 `State.yaml` 只是 $S$ 中一个可能的持久化分量，不是整个状态节点。本文不规定它
 的字段。
@@ -59,6 +74,8 @@ Agent 执行 Guidance，可能产生 Git、task artifact、remote、human input 
 - transition 不写成“当前状态的一部分”；它是命令或 human/external event 触发的边。
 - human reply、外部结果和 Agent 执行中的语义发现是 transition input，不是预先存在的
   snapshot predicate。
+- `/repoledger` verb、当前用户请求和 conversation intent 不属于 `render` 输入；需要它们
+  触发的 abandon 等操作由独立命令/harness 处理。
 - 只有无法从 Git、artifacts、config 与 remote 重建、但又必须跨会话保留的事实，才可能
   在后续设计中成为持久 state detail。
 
@@ -96,12 +113,13 @@ observer 能证明的事实与本轮明确 human/external input 共同决定。
 同一 observation 可能同时命中多条规则。为使输出确定，`render` 按以下优先级选择当前
 macro-step：
 
-1. task selection 与配置/协议错误。
-2. merge conflict、worktree binding 与未知本地变更保护。
-3. local/source/primary 同步与并发冲突。
-4. 当前 lifecycle/phase 的核心规则。
-5. 当前 phase 的项目 prompts。
-6. human/external yield、requery 和 no-progress 终止规则。
+1. merge conflict、worktree binding 与未知本地变更保护。
+2. local/source/primary 同步与并发冲突。
+3. 当前 lifecycle/phase 的核心规则。
+4. 当前 phase 的项目 prompts。
+5. human/external yield、requery 和 no-progress 终止规则。
+
+Selection 与 observation 诊断发生在 `render` 之前，不参与这套优先级。
 
 高优先级 blocker 未处理前，不输出低优先级副作用。例如 worktree 中存在未知用户变更时，
 不得先输出 phase transition、commit 或部署操作。
@@ -110,18 +128,19 @@ macro-step：
 
 以下规则适用于所有 lifecycle/phase。
 
-### 选择与协议
+### 命令入口与 observation 诊断
 
-- 在 invocation 指定未知 task 的情况下，应返回 task-not-found 诊断并停止，不修改任何
-  repository 状态。
-- 在 invocation 未指定 task 且不能唯一选择一个非终态 task 的情况下，应要求用户明确
-  选择并停止。
-- 在 invocation 未指定 task 的情况下，应排除 `completed` 和 `abandoned`；终态 task 只在
-  被显式指定时进入后续提示逻辑。
+以下行为发生在 guidance 计算之前，不是 `render(S)` 的条件：
+
+- 在 task 参数指向未知 task 的情况下，命令应返回 task-not-found 诊断，不生成 prompt。
+- 在未提供 task 参数且 ledger index 不能按确定规则唯一选择 task 的情况下，命令应返回
+  selection-required 诊断，不生成 prompt。
+- 命令的自动选择规则可以排除 terminal task；一旦 task 已选定，`render` 只观察其状态，
+  不知道它是由参数指定还是自动选择。
 - 在项目配置、全局配置、task record、task artifact 或 phase prompt 无法解析的情况下，
-  应返回可操作诊断并停止。
+  observer 应返回可操作诊断，不调用 `render`。
 - 在 remote primary 或 active source ref 无法刷新时，应报告 fetch/authorization 诊断，
-  不使用 stale tracking ref 猜测下一步。
+  不使用 stale tracking ref 生成 prompt。
 - 在 observation 期间任一原始输入发生变化的情况下，应丢弃候选 prompt 并重新观察。
 
 ### 工作树绑定
@@ -196,18 +215,16 @@ Repoledger 只能判断 Git shape 与 phase path legality，不能自动判断�
 
 `backlog` 表示 task 已登记，但尚未建立 active source execution。
 
-- 在用户通过 `exec` 明确开始 backlog task，配置有效且没有更高优先级 blocker 的情况下，
-  应指示 Repoledger 创建/确认 generation-specific source identity，执行 `backlog -> ongoing`
-  并进入 `planning`，然后重新观察。
+- 在 selected task 的 coarse lifecycle 为 `backlog`、配置有效且没有更高优先级 blocker 的
+  情况下，应固定指示 Repoledger 创建/确认 generation-specific source identity，执行
+  `backlog -> ongoing` 并进入 `planning`，然后重新观察。
 - 在开始前当前 worktree 含未知或用户已有 changes 的情况下，应先保护这些 changes，并在
   独立 worktree 中开始 task，而不是搬运或删除它们。
 - 在开始所需 source branch 已存在但不能证明是同一个可恢复 start publication 的情况下，
   应报告 source conflict，不复用或覆盖该 branch。
-- 在用户请求 abandon 但尚未给出明确决定的情况下，应说明被放弃的 task/目标并请求确认，
-  然后 yield。
-- 在收到绑定当前 backlog task 的明确 abandon 决定后，应指示执行合法 coarse transition
-  到 `abandoned`，再重新观察。
-- 在仅查询 status 的情况下，应只报告 backlog 与可用操作，不自动 start。
+
+`whatsnext` 不因外层调用来自 `exec`、`status` 或 `abandon` 而改变 backlog 输出。显式
+abandon 请求由独立 abandon workflow 取得 human decision 并执行 coarse transition。
 
 ## `ongoing / planning` 提示逻辑
 
@@ -226,14 +243,13 @@ Repoledger 只能判断 Git shape 与 phase path legality，不能自动判断�
 - 在 local/source 有 gap 的情况下，应先执行通用同步逻辑，再继续请求 review。
 - 在计划产物已发布，但当前 observation 中没有可验证的“允许进入 implementing”决定事实
   时，应展示权威 planning artifact，向用户请求明确决定并 yield。
-- 在用户要求修改计划或目标的情况下，应继续留在 planning，更新 task artifacts；此前
-  针对旧 artifact 的决定不得被当成当前决定。
-- 在用户明确批准当前 planning artifact 后，应指示执行 `planning -> implementing` 边，
-  然后重新观察；具体如何持久证明该决定留待 state-detail 设计。
-- 在用户要求直接修改 task folder 外内容但 planning 尚未批准的情况下，应拒绝跨 gate，
-  先请求 planning 决定。
-- 在用户明确请求 abandon 的情况下，应请求绑定当前 task/generation 的确认；确认后执行
-  coarse transition 到 `abandoned`。
+- 在 observation 能证明当前 planning artifact 的有效批准事实后，应指示执行
+  `planning -> implementing` 边，然后重新观察；如何跨 session 证明该事实留待
+  state-detail 设计。
+
+Planning guidance 必须携带执行期分支：human 要求修改时继续 planning 并更新 artifact；
+human 批准时调用 phase transition 命令；human 请求 abandon 时交给独立 abandon workflow。
+这些分支是 prompt 执行方式，不是 `render` 的输入条件。
 
 ## `ongoing / implementing` 提示逻辑
 
@@ -257,13 +273,15 @@ folder 或手工修改 `tasks/status.yaml`。
   推进，并验证 primary 包含 source tip；不得用 squash 擦除 task history。
 - 在 primary 集成后发生新 primary 变化，导致当前结果需要重新协调的情况下，应重新同步、
   检查受影响范围并运行项目 prompts 所需验证，而不是复用过期结论。
-- 在 Agent 执行中发现 Goal、scope 或计划需要变化的情况下，应保留已有工作，指示先执行
-  `implementing -> planning`，不得静默扩大 contract。
+- Implementing guidance 应始终包含执行期 contingency：Agent 发现 Goal、scope 或计划需要
+  变化时，保留已有工作并调用 `implementing -> planning`，不得静默扩大 contract。
 - 在 deliverable 已进入 primary，当前 implementing prompts 的要求已处理，但没有可验证的
   “允许进入 finalizing”决定事实时，应汇总实现、集成与验证结果，请求明确决定并 yield。
-- 在用户明确批准进入 finalizing 后，应指示执行 `implementing -> finalizing` 并重新观察；
-  该 transition 的持久 state detail 后续再设计。
-- 在用户明确请求 abandon 的情况下，应请求确认并在确认后执行 coarse transition。
+- 在 observation 能证明当前 deliverable target 的有效 finalizing 批准事实后，应指示执行
+  `implementing -> finalizing` 并重新观察；持久证明方式后续再设计。
+
+Implementing guidance 中的 human abandon 请求同样交给独立 abandon workflow，不作为
+`whatsnext` 的输入。
 
 ## `ongoing / finalizing` 提示逻辑
 
@@ -272,7 +290,8 @@ folder 或手工修改 `tasks/status.yaml`。
 
 - 在累计 finalizing range 出现 task folder 外路径的情况下，应阻止 commit/publication，
   保留变化并指示 `finalizing -> implementing` 后再处理。
-- 在 Agent 发现 Goal、scope 或计划需要变化的情况下，应指示 `finalizing -> planning`。
+- Finalizing guidance 应始终包含执行期 contingencies：发现 deliverable 需要变化时返回
+  implementing；发现 Goal、scope 或计划需要变化时返回 planning。
 - 在当前项目 finalizing prompts 尚未执行的情况下，应输出下一项适用 prompt，指示 Agent
   执行文档发布、外部审批、部署、人工检查或其他项目自定义动作；核心不预设其中任何一项。
 - 在 repository 未配置 finalizing prompt 的情况下，不应凭空要求 deployment、smoke test
@@ -285,40 +304,41 @@ folder 或手工修改 `tasks/status.yaml`。
   commit 并非强推发布 source。
 - 在 finalizing prompts 均已处理，但没有可验证的最终完成决定事实时，应汇总 deliverable
   target 和 finalization 结果，请求明确 completion decision 并 yield。
-- 在用户要求调整 deliverable 的情况下，应 transition 回 implementing；在用户要求调整
-  Goal/plan 的情况下，应 transition 回 planning。
-- 在用户明确确认完成，且 source/primary/dirty-state 条件满足的情况下，应指示执行 coarse
+- 在 observation 能证明当前 deliverable/finalization artifact 的有效 completion decision，
+  且 source/primary/dirty-state 条件满足的情况下，应指示执行 coarse
   `ongoing -> completed`，随后重新观察。
-- 在用户明确请求 abandon 的情况下，应请求确认并在确认后执行 coarse transition。
+
+Finalizing guidance 中的 human abandon 请求交给独立 abandon workflow，不作为
+`whatsnext` 的输入。
 
 ## `completed` 提示逻辑
 
-`completed` 是用户已确认没有剩余工作的终态，不参与默认 active task selection。
+`completed` 是用户已确认没有剩余工作的终态。Task selection 是否默认排除终态发生在
+命令适配层；一旦 selected task 为 completed，输出不再区分“显式查询”或调用来源。
 
-- 在 completed task 未被显式指定的情况下，不应自动输出调整问题或重新激活建议。
-- 在用户显式查询 completed task 的情况下，应报告已完成目标、当前 generation 和可用
-  artifact，并询问用户是否要调整目标或开启新一轮计划。
-- 在用户明确表示无需调整的情况下，应停止，不要求状态变化，也不重复询问。
-- 在用户明确要求调整同一目标的情况下，应先形成清晰的修订意图，指示执行合法
-  `completed -> backlog` reactivation，再由后续 `exec` 进入 planning；具体 generation 与
-  artifact mutation 方式留待 state-detail 设计。
+- 在 selected task 的 coarse lifecycle 为 `completed` 的情况下，应报告已完成目标、当前
+  generation 和可用 artifact，并要求 Agent 询问用户是否要调整目标或开启新一轮计划，
+  然后 yield。
 - 在 terminal task 后出现本地 deliverable changes 的情况下，不应静默附着到已完成
   generation；应保留并要求用户选择 reactivate、创建新 task 或明确处理这些变化。
-- 在用户仅要求查看历史的情况下，应保持只读，不创建 task artifact 或 lifecycle commit。
+
+Completed guidance 的执行期分支为：human 无需调整时结束当前 turn，不重新调用
+`whatsnext`；human 要求调整时形成修订意图并调用 `completed -> backlog` reactivation。
+Human reply 不是本次 `render` 的输入。
 
 ## `abandoned` 提示逻辑
 
-`abandoned` 表示当前 generation 的目标被明确终止，同样不参与默认 active task selection。
+`abandoned` 表示当前 generation 的目标被明确终止。Task selection 可以默认排除它；一旦
+selected task 为 abandoned，输出不再区分调用来源。
 
-- 在 abandoned task 未被显式指定的情况下，不应自动选择它。
-- 在用户显式查询 abandoned task 的情况下，应报告原目标、可用 artifact 和停止点，并询问
-  是否基于调整后的目标重新计划。
-- 在用户明确表示保持 abandoned 的情况下，应停止，不修改状态。
-- 在用户明确要求恢复或调整目标的情况下，应形成清晰的修订意图，指示执行合法
-  `abandoned -> backlog` reactivation，再从 planning 重新开始。
+- 在 selected task 的 coarse lifecycle 为 `abandoned` 的情况下，应报告原目标、可用
+  artifact 和停止点，并要求 Agent 询问是否基于调整后的目标重新计划，然后 yield。
 - 在 retained source branch 存在未集成工作时，应把它作为只读历史证据报告；不得自动
   merge、删除 branch 或把旧 source 当作新 generation source 复用。
-- 在用户请求查看放弃原因或历史 diff 时，应保持只读。
+
+Abandoned guidance 的执行期分支为：human 保持 abandoned 时结束当前 turn；human 要求恢复
+或调整目标时形成修订意图并调用 `abandoned -> backlog` reactivation。Human reply 不是
+本次 `render` 的输入。
 
 ## 循环推进提示逻辑
 
@@ -362,6 +382,10 @@ guidance 文本、next action、transition edge 本身和可从 Git 推导的 ph
 | External operation 正在等待或已经完成 | 可重查 external system；无法稳定重查时可能需要非秘密持久事实 | 待推导。 |
 | Prompt 是否 stale | prompt 绑定 snapshot 与最新 observation 的比较 | 可推导，不持久化。 |
 | No-progress | before/after observation 与 execution outcome | 可推导，不持久化。 |
+
+外层 `/repoledger` verb、当前 conversation request 与 task selection 过程不属于上表，因为
+它们不是 `render(S)` 的输入。Selection 在 observation 前完成；human reply 在 guidance
+输出后由 harness 处理。
 
 ## 当前待评审结论
 

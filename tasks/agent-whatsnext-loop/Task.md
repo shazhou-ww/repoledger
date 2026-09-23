@@ -29,8 +29,11 @@ Git、配置和 remote 等多个分量组成；guidance 是输出，transition �
 
 ## Scope
 
-- 定义完整观察状态，包括 invocation/selection、primary coarse lifecycle、ongoing phase、
-  task artifacts/history、worktree/index/HEAD、项目/全局配置及刷新后的 source/primary refs。
+- 定义完整观察状态，包括 selected task 的 primary coarse lifecycle、ongoing phase、task
+  artifacts/history、worktree/index/HEAD、项目/全局配置及刷新后的 source/primary refs。
+- 明确 `repoledger whatsnext` 是独立命令：task selection 在 observation 前完成；外层
+  `/repoledger exec|complete|abandon`、当前 conversation request 和 selection 过程都不进入
+  prompt 计算，相同 selected task snapshot 必须产生相同 guidance。
 - 明确 `guidance = render(observedState)`；human/external/tool event 触发 transition，guidance
   与 transition 均不作为当前状态字段持久化。
 - 保持 primary lifecycle 为 `backlog | ongoing | completed | abandoned`，并把
@@ -65,7 +68,8 @@ Git、配置和 remote 等多个分量组成；guidance 是输出，transition �
   scheduler 或事件总线。
 - 用 `whatsnext` 取代实现期间按需进行的 repository 调查、验证或领域工具调用。
 - 让项目 prompt 覆盖平台安全规则、工具权限、Repoledger lifecycle/phase、审批与发布不变量。
-- 从 Task/Progress 自由文本、沉默、普通 Git 活动或 invocation 本身猜测 human decision。
+- 从 Task/Progress 自由文本、沉默、普通 Git 活动、外层 skill verb 或 conversation intent
+  猜测 human decision。
 - 自动删除、reset、clean、checkout、覆盖或静默 stash 未知来源及用户已有 changes。
 - 用自然语言检测器判断任意文档是否“足够中文”；语言一致性通过 recorded language、skill
   指令、模板和代表性测试约束。
@@ -78,14 +82,18 @@ Git、配置和 remote 等多个分量组成；guidance 是输出，transition �
   也被 skill 与测试明确纳入任务语言规则。
 - [ ] Lifecycle/phase 使用 Mermaid 图表达，并包含 backlog、ongoing/planning、
   ongoing/implementing、ongoing/finalizing、completed、abandoned 与 reactivation。
-- [ ] 完整 observed state 明确覆盖 invocation、coarse ledger、phase、task artifacts/history、
-  worktree/Git、project/global config、remote source/primary；不把单个 `State.yaml` 当成全状态。
+- [ ] 完整 observed state 明确覆盖 selected task 的 coarse ledger、phase、task
+  artifacts/history、worktree/Git、project/global config、remote source/primary；不把单个
+  `State.yaml` 当成全状态。
+- [ ] Command adapter 在 observation 前完成 task selection 或返回诊断；`render` 不接收
+  `/repoledger` verb、用户当前请求或 selection provenance，同一 snapshot 不因调用来源改变。
 - [ ] Guidance 明确是当前 observed state 的纯输出，transition 明确是 event 驱动的边；两者
   不会被设计成 `State.yaml` 字段。
 - [ ] 每个 lifecycle/phase 都有完整、领域无关且可审计的“观察到 X，应做 Y”规则，包含
   进入、继续、human decision、返回前一 phase、abandon、completion 与 reactivation。
-- [ ] 通用规则覆盖 task selection、invalid configuration/artifact、remote fetch failure、
-  snapshot staleness、worktree binding、conflict、yield、requery 与 no-progress。
+- [ ] Selection diagnostics 与 observation/render 明确分层；通用规则覆盖 invalid
+  configuration/artifact、remote fetch failure、snapshot staleness、worktree binding、
+  conflict、yield、requery 与 no-progress。
 - [ ] Dirty changes 规则区分必要 task work、来源明确的临时产物、未知/用户已有工作、
   phase-illegal task work 与 conflicts；未知/无关现有工作默认保留并使用独立 worktree 或
   明确路径决定处理。
@@ -115,6 +123,8 @@ Git、配置和 remote 等多个分量组成；guidance 是输出，transition �
   边界。
 - Human reply、外部系统结果和 Agent 执行中的语义发现是 transition input；只有后续证明
   必须跨 session 保留时，才设计对应持久分量。
+- Human reply 由 harness 在 guidance 输出后处理；造成可观察 delta 时才重新调用
+  `whatsnext`，否则结束当前 turn。它不作为同一次 prompt 计算的隐藏输入。
 - Worktree/remote reconciliation 先于 phase work；高优先级 blocker 未处理前不输出低优先级
   commit、transition 或外部副作用。
 - 同任务并发依靠 refreshed refs、expected-tip CAS 与非强推 publication；不同任务通过独立
