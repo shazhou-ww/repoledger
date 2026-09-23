@@ -40,9 +40,10 @@ Git、配置和 remote 等多个分量组成；guidance 是输出，transition �
   `planning | implementing | finalizing` 作为 ongoing 的内部 phase。
 - 使用 Mermaid 状态图表达 lifecycle/phase 关系，不再使用难以阅读的 ASCII 状态图。
 - 为 backlog、ongoing/planning、ongoing/implementing、ongoing/finalizing、completed 与
-  abandoned 分别列出领域无关的文字提示规则，统一采用“观察到 X，应做 Y”的形式。
-- 定义跨状态的确定性输出优先级：selection/protocol、conflict/worktree safety、ref sync、
-  lifecycle/phase、项目 prompts、yield/requery/no-progress。
+  abandoned 分别定义领域无关的有序 predicate chain；每条规则统一写成
+  `conditionName: 提示目标`，按顺序只输出第一个命中分支，并以 `otherwise` 收束。
+- 把 selection、observation diagnostics、全局 conflict/worktree/ref reconciliation、
+  state-specific guidance、prompt execution event 和 loop advancement 拆成独立有序规则链。
 - 把 staged/unstaged/untracked/conflict、worktree binding 和 local/source/primary ancestry
   纳入 observation，并为 clean fast-forward、dirty-behind、ahead 与 diverged 给出安全提示。
 - 要求 Agent 精确读取 dirty diff：保留并提交合法的必要 task work；只删除当前操作创建或
@@ -89,8 +90,11 @@ Git、配置和 remote 等多个分量组成；guidance 是输出，transition �
   `/repoledger` verb、用户当前请求或 selection provenance，同一 snapshot 不因调用来源改变。
 - [ ] Guidance 明确是当前 observed state 的纯输出，transition 明确是 event 驱动的边；两者
   不会被设计成 `State.yaml` 字段。
-- [ ] 每个 lifecycle/phase 都有完整、领域无关且可审计的“观察到 X，应做 Y”规则，包含
-  进入、继续、human decision、返回前一 phase、abandon、completion 与 reactivation。
+- [ ] 每个 lifecycle/phase 都有完整、领域无关且可审计的有序规则链；每条规则采用
+  `conditionName: 提示目标`，从上到下等价于 `if / else if / ... / else`，并以
+  `otherwise` 结尾。
+- [ ] 同一规则链一次只输出第一个 true condition 的提示目标；高层 selection/diagnostic/
+  safety/sync 规则返回后，不继续执行 state-specific 或低优先级副作用。
 - [ ] Selection diagnostics 与 observation/render 明确分层；通用规则覆盖 invalid
   configuration/artifact、remote fetch failure、snapshot staleness、worktree binding、
   conflict、yield、requery 与 no-progress。
@@ -106,7 +110,7 @@ Git、配置和 remote 等多个分量组成；guidance 是输出，transition �
 - [ ] 进入下一 phase 或 terminal 所需的 human/external 事实先在提示逻辑中明确；只有不能
   从既有状态分量重建且必须跨 session 保留的事实，才进入后续最小 state-detail 设计。
 - [ ] 后续 state-detail 评审能把每个拟新增字段追溯到至少一条已批准提示条件，并证明不存
-  guidance output、transition edge 或 Git 可推导 cache。
+  guidance output、transition edge、condition name 或 Git 可推导 cache。
 - [ ] `whatsnext` 保持只读，可 fetch/observe 但不 checkout、merge、commit、stash、delete、
   reset 或 fast-forward；副作用由输出的显式 step 和相应命令执行。
 - [ ] Agent loop 只在 expected delta 或未声明输入变化后重新观察；human/external wait 结束
