@@ -49,6 +49,51 @@ test("renders deterministic whatsnext human and JSON output", () => {
   assert.deepEqual(JSON.parse(json.logs[0]), report);
 });
 
+test("renders active idea options in human whatsnext output", () => {
+  const report = {
+    command: "whatsnext",
+    ok: true,
+    root: "C:/repository",
+    diagnostics: [],
+    result: {
+      observedPrimaryCommit: "a".repeat(40),
+      selectedIdea: null,
+      action: {
+        code: "select-active-idea",
+        message: "Select one active idea.",
+        details: {
+          ideas: [
+            {
+              id: "01M36QGPNTXEPP61DA4KP4AVG0",
+              alias: "first-idea",
+              revision: "b".repeat(40),
+              state: "preparing",
+            },
+            {
+              id: "01M36QGPNTXEPP61DA4KP4AVZF",
+              alias: "second-idea",
+              revision: "c".repeat(40),
+              state: "implementing",
+            },
+          ],
+        },
+      },
+    },
+  };
+  const human = capture();
+
+  render(report, false, human.io);
+
+  assert.match(
+    human.logs.join("\n"),
+    /option   01M36QGPNTXEPP61DA4KP4AVG0 \(first-idea\)  preparing/,
+  );
+  assert.match(
+    human.logs.join("\n"),
+    /option   01M36QGPNTXEPP61DA4KP4AVZF \(second-idea\)  implementing/,
+  );
+});
+
 test("returns usage exit code 2 for conflicting check targets", async () => {
   const { io } = capture();
   assert.equal(await runCli(["check", "--remote", "--staged"], io), 2);

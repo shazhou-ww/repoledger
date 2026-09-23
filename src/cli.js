@@ -36,6 +36,9 @@ function renderWhatsNext(result, io) {
     io.log(`  state    ${result.selectedIdea.state}`);
     io.log(`  revision ${result.selectedIdea.revision}`);
   }
+  for (const idea of result.action.details?.ideas ?? []) {
+    io.log(`  option   ${idea.id} (${idea.alias})  ${idea.state}`);
+  }
 }
 
 export function render(report, json, io) {
