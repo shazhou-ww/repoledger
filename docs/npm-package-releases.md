@@ -61,8 +61,13 @@ the release namespace.
    package's `pack:check` script.
 3. Merge the version change to `main`; do not tag an unmerged branch or local
    working tree.
-4. Fetch the current primary branch and tags.
-5. Create the package-specific tag at `origin/main` and push that exact tag.
+4. When the release is a deployment criterion of an active Repoledger idea,
+   record implementation acceptance for the approved current idea revision,
+   publish that status-only commit, and require `repoledger whatsnext <idea>` to
+   return `deploy-idea`. Never create the release tag while the idea still
+   derives `implementing`.
+5. Fetch the current primary branch and tags.
+6. Create the package-specific tag at `origin/main` and push that exact tag.
 
 For `repoledger@0.1.1`:
 

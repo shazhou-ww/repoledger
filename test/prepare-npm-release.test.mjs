@@ -305,6 +305,9 @@ test("provides an explicit project publish skill with immutable release safeguar
     "pnpm install --frozen-lockfile",
     "npm run pack:check",
     "git tag npm/<release-key>/v<version> origin/main",
+    "Repoledger phase handoff",
+    "implementationAcceptedRevision",
+    "require `deploy-idea` before creating the release",
     "Require the workflow conclusion to be `success`",
   ]) {
     assert.ok(source.includes(required), `publish skill is missing: ${required}`);

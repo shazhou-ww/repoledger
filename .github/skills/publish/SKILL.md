@@ -69,6 +69,28 @@ development machine.
    non-force path, refresh `origin/main`, and verify the full commit is reachable
    from that branch. Do not tag an unpublished local commit or side branch.
 
+## Repoledger phase handoff
+
+Apply this section when the release is a deployment criterion of an active
+Repoledger idea. Independent package releases skip it.
+
+1. Run `repoledger whatsnext <idea> --json` after the validated release commit
+   is published to primary.
+2. Require the selected idea to be the approved current revision and the action
+   to be `implement-idea`. If guidance reports worktree, sync, or another higher
+   priority action, resolve that first and reobserve.
+3. When the release commit and repository validation satisfy the idea's
+   implementation expectations, record `implementationAcceptedRevision` for
+   that exact idea revision in a separate status-only commit. Validate and
+   publish it through ordinary non-force Git.
+4. Requery the exact idea and require `deploy-idea` before creating the release
+   tag. Never create the tag while the release idea still derives
+   `implementing`.
+
+The package version commit remains the release candidate. The later status-only
+acceptance commit advances Repoledger state and may become the tagged primary
+commit because it leaves package contents unchanged.
+
 ## Create the release instruction
 
 1. Fetch `origin/main` and tags again immediately before tagging.
