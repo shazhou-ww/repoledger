@@ -42,6 +42,12 @@ Git、配置和 remote 等多个分量组成；guidance 是输出，transition �
 - 为 backlog、ongoing/planning、ongoing/implementing、ongoing/finalizing、completed 与
   abandoned 分别定义领域无关的有序 predicate chain；每条规则统一写成
   `conditionName: 提示目标`，按顺序只输出第一个命中分支，并以 `otherwise` 收束。
+- 把 phase history invariant 与当前 worktree changes 拆成不同 predicates：已提交历史违规
+  不能用 clean/stash 掩盖；planning/finalizing 当前产生的非 task 变化则应精确清理、用有
+  说明的 stash 暂存到合法 phase，或保留未知/用户已有工作并改用独立 worktree。
+- 把 human approval/rejection 作为 Guidance 输出后的执行事件处理，不定义
+  `planningDecisionApproved/Rejected`、`finalizingDecision*` 或 `completionDecision*` 等
+  snapshot predicates。
 - 把 selection、observation diagnostics、全局 conflict/worktree/ref reconciliation、
   state-specific guidance、prompt execution event 和 loop advancement 拆成独立有序规则链。
 - 把 staged/unstaged/untracked/conflict、worktree binding 和 local/source/primary ancestry
@@ -93,6 +99,11 @@ Git、配置和 remote 等多个分量组成；guidance 是输出，transition �
 - [ ] 每个 lifecycle/phase 都有完整、领域无关且可审计的有序规则链；每条规则采用
   `conditionName: 提示目标`，从上到下等价于 `if / else if / ... / else`，并以
   `otherwise` 结尾。
+- [ ] Planning chain 集中在 task folder 内与用户讨论清楚 Goal、设计、边界和完成条件；
+  发现当前非 task worktree changes 时精确清理、stash 或隔离，获得 human approval 后由
+  harness 直接执行 phase transition，而不是先写入 decision state。
+- [ ] Human approve/reject/adjust/abandon 均为 prompt 执行期事件，不是 `render` predicate；
+  事件只有在产生 observable delta 后才触发下一次 `whatsnext`。
 - [ ] 同一规则链一次只输出第一个 true condition 的提示目标；高层 selection/diagnostic/
   safety/sync 规则返回后，不继续执行 state-specific 或低优先级副作用。
 - [ ] Selection diagnostics 与 observation/render 明确分层；通用规则覆盖 invalid

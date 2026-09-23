@@ -138,23 +138,24 @@ Repoledger 只判断 Git shape 与 phase path legality，不自动判断任意�
 hasUnresolvedConflicts: 停止正常工作；提示 Agent 在不丢弃任一侧的前提下处理冲突，然后重新观察。
 worktreeBoundToOtherTask: 保留当前 worktree；提示使用匹配 selected task source target 的独立 worktree。
 worktreeBindingInvalid: 保留当前 worktree；提示修复 detached HEAD、缺失/错误 push target 或 source identity 歧义，修复前不写 selected task。
-worktreeHasChanges: 提示 Agent 读取精确 diff；必要且 phase-legal 的 task work 应精确 stage、累计检查并 commit；当前操作创建或 policy 可确定识别的临时产物可精确删除；未知、用户已有或无关工作必须保留并隔离或请求路径级决定；phase-illegal task work 必须先转到合法 phase；处理后重新观察。
-localBehindSource: 提示执行显式 source sync；仅当 worktree clean、binding matching 且 proven fast-forward 时允许 Repoledger 自动执行 ff-only，随后重新观察。
-localAheadSource: 提示运行当前 phase 的累计检查；通过后以 expected-tip CAS 非强推发布 source，失败则报告具体缺口。
-localDivergedFromSource: 提示保留双方历史并执行正常非强推 integration；禁止 force-push、reset 或静默选择一侧，冲突交给 Agent。
+cleanLocalBehindSource: 提示执行显式 source sync；允许 Repoledger 自动执行 ff-only，随后重新观察。
+cleanLocalAheadSource: 提示运行当前 phase 的累计检查；通过后以 expected-tip CAS 非强推发布 source，失败则报告具体缺口。
+cleanLocalDivergedFromSource: 提示保留双方历史并执行正常非强推 integration；禁止 force-push、reset 或静默选择一侧，冲突交给 Agent。
 sourcePrimaryRelationUnavailable: 返回 ancestry 诊断，不从 stale refs 猜测。
-sourcePrimaryDivergedOutsideImplementing: 报告 primary gap；planning/finalizing 不导入 project changes，提示等待、先合法转 phase 或请求人工协调。
-sourcePrimaryDivergedInImplementing: 提示在 dirty state 已处理后把 primary 显式合入 source，并保持旧 source tip 为 first parent，然后重新观察。
+cleanSourcePrimaryDivergedOutsideImplementing: 报告 primary gap；planning/finalizing 不导入 project changes，提示等待、先合法转 phase 或请求人工协调。
+cleanSourcePrimaryDivergedInImplementing: 提示把 primary 显式合入 source，并保持旧 source tip 为 first parent，然后重新观察。
 otherwise: 根据 coarse lifecycle 与 active phase 进入唯一 state-specific 规则链。
 ```
 
-删除 changes 的安全边界属于 `worktreeHasChanges` 的固定提示目标：不得输出宽泛的
+`clean*` predicates 都包含 worktree clean 前提。存在未提交 changes 时，全局链落入当前
+state-specific 链，由该 phase 的规则决定如何处理。删除 changes 时不得输出宽泛的
 `git clean`、`git reset --hard` 或覆盖整个 worktree 的命令；只有当前操作创建、repository
 policy 可确定识别，或用户在刷新 diff 后明确点名的路径可以删除。
 
 ## `backlog` 规则链
 
 ```text
+backlogHasWorktreeChanges: 提示读取精确 diff；当前操作创建的临时产物可精确清理，需要保留的变化应使用有说明的 stash 或独立 worktree，未知/用户已有变化不得静默处理；worktree 可安全开始 task 后重新观察。
 hasConflictingSourceBranch: 报告 source conflict；不复用、不删除也不覆盖无法证明属于同一 recoverable start 的 branch。
 hasRecoverablePartialStart: 提示按已验证的既有 start candidate 完成 roll-forward，不创建第二个 source identity。
 otherwise: 提示 Repoledger 创建或确认 generation-specific source identity，执行 backlog -> ongoing 并进入 planning，然后重新观察。
@@ -166,13 +167,12 @@ Backlog 输出不因外层调用来自 `exec`、`status` 或 `abandon` 而改变
 ## `ongoing / planning` 规则链
 
 ```text
-planningRangeHasForbiddenPaths: 停止发布并保留变更；提示隔离非 task-folder 工作，或在当前计划获准后先进入 implementing 再处理 task deliverable。
+planningHistoryHasForbiddenPaths: 报告已提交 planning history 违反 task-folder-only invariant；停止 publication 和 phase transition，保留历史并要求显式 repair/abandon 方案，不用 clean、stash 或 revert 假装该历史未发生。
+planningHasNonTaskWorktreeChanges: 提示 Agent 把注意力收回 task folder；本轮 planning 误产生且无需保留的精确路径应清理，需要留待 implementing 的 task work 应用有说明的 stash 保存，未知/用户已有变化应保留并改用独立 worktree；处理后重新观察。
 taskContractMissingOrIncomplete: 输出 core planning prompt；提示只修改 task folder，完善 Goal、scope、out-of-scope、constraints 和可观察完成条件。
 hasUnprocessedPlanningPrompt: 按项目配置顺序输出第一个尚未处理的 planning prompt；当前 prompt blocker/yield 未解除前不提前执行后续 prompt。
-planningDecisionMissingOrStale: 展示当前权威 planning artifact，向用户请求绑定该 artifact 的明确决定，然后 yield。
-planningDecisionRejected: 提示根据拒绝反馈修订 task artifacts，继续停留在 planning；旧决定不适用于新 artifact。
-planningDecisionApproved: 提示调用 planning -> implementing phase transition 命令，然后重新观察。
-otherwise: 报告 planning observation 不一致，列出无法归入上述条件的事实并停止副作用。
+planningHasTaskWorktreeChanges: 提示检查 Goal/design 与 task links，只 stage 当前 task folder 的预期变化，commit 并非强推发布 source，然后重新观察。
+otherwise: 展示当前权威 planning artifacts，与用户讨论并确认 Goal、设计、边界和完成条件，请求是否进入 implementing，然后 yield。
 ```
 
 没有配置 planning prompt 时，`hasUnprocessedPlanningPrompt` 为 false；Repoledger 不补造 UX、
@@ -181,16 +181,14 @@ otherwise: 报告 planning observation 不一致，列出无法归入上述条�
 ## `ongoing / implementing` 规则链
 
 ```text
-implementingRangeHasForbiddenPaths: 阻止 checkpoint 和 publication；保留对其他 task folder 或 tasks/status.yaml 的修改并提示协调。
+implementingHistoryHasForbiddenPaths: 报告已提交 implementing history 修改了其他 task folder 或 tasks/status.yaml；停止 checkpoint/publication 并要求显式协调修复。
+implementingHasWorktreeChanges: 提示读取精确 diff；phase-legal task work 应精确 stage、累计检查并 commit；当前操作创建的临时产物可精确清理；未知/用户已有工作保留并隔离；处理后重新观察。
 implementingRangeHasNoDeliverableDelta: 输出 Task Goal 与当前项目 implementing prompts；提示调查 repository、修改 deliverable 并形成可观察结果。
 hasUnprocessedImplementingPrompt: 按项目配置顺序输出第一个尚未处理的 implementing prompt；核心不假设项目一定有代码、unit test、build 或 deployment。
 sourceTipNotContainedInPrimary: 提示通过 repository 正常 integration path 推进 source tip，并验证 primary 保留 source-tip ancestry；禁止 squash 擦除 task history。
 integratedPrimaryNotContainedInSource: 提示把已集成 primary 明确同步回 source，并保持旧 source tip 为 first parent，然后重新观察。
 implementingResultStale: 提示根据 primary/config/artifact 变化重新协调受影响范围，并重新执行相应项目 prompt；不得复用过期结论。
-finalizingDecisionMissingOrStale: 汇总当前 deliverable、integration 与项目 prompt 结果，请求绑定当前 target 的 finalizing 决定，然后 yield。
-finalizingDecisionRejected: 提示继续 implementing 并处理拒绝反馈；若反馈改变 Goal/plan，则按执行期 contingency 返回 planning。
-finalizingDecisionApproved: 提示调用 implementing -> finalizing phase transition 命令，然后重新观察。
-otherwise: 报告 implementing observation 不一致，列出无法归入上述条件的事实并停止副作用。
+otherwise: 汇总当前 deliverable、integration 与项目 prompt 结果，询问用户是否进入 finalizing，然后 yield。
 ```
 
 Implementing guidance 始终携带执行期 contingency：Agent 发现 Goal、scope 或计划需要改变时，
@@ -199,16 +197,15 @@ Implementing guidance 始终携带执行期 contingency：Agent 发现 Goal、sc
 ## `ongoing / finalizing` 规则链
 
 ```text
-finalizingRangeHasForbiddenPaths: 阻止 commit 和 publication；保留 deliverable 变化并提示先返回 implementing。
+finalizingHistoryHasForbiddenPaths: 报告已提交 finalizing history 违反 task-folder-only invariant；停止 publication/completion 并要求显式 repair/abandon 方案。
+finalizingHasNonTaskWorktreeChanges: 提示 Agent 把注意力收回 task folder；本轮误产生且无需保留的精确路径应清理，需要修改 deliverable 的 task work 应用有说明的 stash 保存并返回 implementing，未知/用户已有变化应保留并隔离；处理后重新观察。
 taskContractChangedDuringFinalizing: 提示返回 planning，重新确认 Goal 与计划后再继续。
 deliverableTargetChangedDuringFinalizing: 提示返回 implementing，重新形成并集成 deliverable target。
 externalResultAvailable: 提示先把可观察结果写入适当 task artifact 或后续确定的最小持久状态，再重新观察。
 externalOperationWaiting: 说明精确等待对象和恢复条件，然后 yield；不以相同 snapshot 轮询。
 hasUnprocessedFinalizingPrompt: 按项目配置顺序输出第一个尚未处理的 finalizing prompt；核心不预设文档发布、审批、部署、人工检查或其他领域动作。
-completionDecisionMissingOrStale: 汇总 deliverable target 与 finalization 结果，请求绑定当前 artifact 的 completion decision，然后 yield。
-completionDecisionRejected: 提示处理拒绝反馈；deliverable 变化返回 implementing，Goal/plan 变化返回 planning，否则继续 finalizing。
-completionDecisionApproved: 提示执行 coarse ongoing -> completed transition，然后重新观察。
-otherwise: 报告 finalizing observation 不一致，列出无法归入上述条件的事实并停止副作用。
+finalizingHasTaskWorktreeChanges: 提示只 stage 当前 task folder 的预期变化，检查 task-folder-only 约束，commit 并非强推发布 source，然后重新观察。
+otherwise: 汇总 deliverable target 与 finalization 结果，询问用户是否确认完成，然后 yield。
 ```
 
 没有配置 finalizing prompt 时，`hasUnprocessedFinalizingPrompt` 为 false；Repoledger 不凭空
@@ -237,6 +234,7 @@ otherwise: 报告原目标、当前 generation、可用 artifacts 与停止点�
 ```text
 humanRequestedArtifactRevision: 保持当前 phase，修改对应 task artifact；旧 decision 变为 stale，产生可观察 delta 后再调用 whatsnext。
 humanApprovedSuggestedTransition: 调用 Guidance 指定的精确 Repoledger transition 命令；transition 成功并产生可观察 delta 后再调用 whatsnext。
+humanRejectedSuggestedTransition: 保持当前 phase，根据反馈继续讨论或修改 artifacts；产生可观察 delta 后再调用 whatsnext，没有修改要求时结束当前 turn。
 humanRequestedAbandon: 进入独立 abandon workflow，取得绑定当前 task/generation 的确认；不要把请求本身传入 render。
 humanDeclinedTerminalAdjustment: 结束当前 turn，不修改状态，也不再次调用 whatsnext。
 humanRequestedTerminalAdjustment: 形成清晰修订意图，调用 completed/abandoned -> backlog reactivation；成功后再调用 whatsnext。
@@ -264,12 +262,15 @@ Condition name 是设计期派生谓词，不预设持久字段。下一轮逐�
 | --- | --- | --- |
 | Coarse lifecycle、source identity | primary `tasks/status.yaml` | 已可观察。 |
 | 当前 ongoing phase | task source history 与未来最小 task-state 分量 | 待推导持久化方式。 |
-| `*RangeHasForbiddenPaths`、deliverable delta | phase base 到 candidate 的累计 Git 变更 | 可推导。 |
+| `*HistoryHasForbiddenPaths`、deliverable delta | phase base 到 candidate 的累计 Git 变更 | 可推导。 |
+| `*Has*WorktreeChanges` | index 与 worktree diff，加当前 phase path policy | 可推导；业务归属由 Agent 在执行 Guidance 时判断。 |
 | Worktree/ref relation predicates | index、worktree、refreshed refs 与 commit graph | 可推导。 |
 | `hasUnprocessed*Prompt` | 项目配置、prompt revision、artifacts、可重查结果或最小持久事实 | 待逐 prompt 判断。 |
-| `*DecisionMissingOrStale`、`*DecisionApproved/Rejected` | 当前 human input；跨 session 时可能需要绑定 artifact 的持久事实 | 待推导。 |
 | `externalOperationWaiting`、`externalResultAvailable` | 可重查 external system；无法稳定重查时可能需要非秘密持久事实 | 待推导。 |
 | Snapshot stale 与 loop delta predicates | before/after observation 与 execution outcome | 可推导，不持久化。 |
+
+Human approve/reject 不属于 snapshot predicate。它们是 Guidance 输出后的 execution events，
+由 Prompt 执行期事件规则链立即转换成 phase transition、artifact revision 或 turn 结束。
 
 只有无法从 Git、task artifacts、project/global config 与 remote refs 重建、又确实影响未来
 predicate 的事实，才进入最小 state detail。Guidance、next action、transition edge、condition
