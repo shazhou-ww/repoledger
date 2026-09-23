@@ -1,6 +1,6 @@
 version: 1
 id: 01M36QGPNTXEPP61DA4KP4AVZF
 alias: agent-whatsnext-loop
-approvedRevision: cb37c1b9671ea3c85add7898c930aef1ed5282d6
+approvedRevision: 55a5f934605f1aa7c0f4e76c521490e10f798573
 implementationAcceptedRevision: cb37c1b9671ea3c85add7898c930aef1ed5282d6
 deploymentAcceptedRevision: de0fbe7856a71126a46286fe85cfc8736ab83a9d
