@@ -1,25 +1,23 @@
 # Repoledger repository instructions
 
-## Task workflow
+## Idea workflow
 
-Load and follow [`repoledger`](skills/repoledger/SKILL.md) only when the user
-explicitly invokes `/repoledger`, or asks to manage an existing registered
-repository task. Apply the repository profile in
-[`docs/repository-tasks.md`](docs/repository-tasks.md). Ordinary implementation
-requests remain task-free.
+Load and follow [`repoledger`](skills/repoledger/SKILL.md) when the user invokes
+`/repoledger` or asks to navigate or continue a repository idea. Apply the
+repository profile in [`docs/repository-tasks.md`](docs/repository-tasks.md).
 
-- Create a task only through an explicit `/repoledger new` invocation.
-- Use `repoledger task list`, `status`, and `check --remote` before task work.
-- Publish routine task state and source refs non-force; never discard unrelated
-  or concurrent work.
-- Update `Progress.md` only with an implementation change outside `tasks/**`.
-- Require explicit human decisions at applicable review gates and exact-commit
-  delivery approval before completion.
-- Keep terminal task paths stable and never force-push.
+- Start with `repoledger whatsnext [idea] --json` and execute only its
+  highest-priority action.
+- Preserve unknown work and both sides of concurrent history; never force-push,
+  reset, clean, or silently replay a stale decision.
+- Record approval, acceptance, and abandonment only as explicit status facts,
+  validate the exact candidate, and publish through ordinary non-force Git.
+- Requery only after an observable delta. Yield on human/external waits and stop
+  on actionable errors or no progress.
 
 ## Validation
 
-- Run `pnpm check` after CLI, schema, release, or skill changes.
+- Run `pnpm check` after CLI, schema, repository model, release, or skill changes.
 - Run `pnpm check:skills` after changing skill frontmatter or structure.
 - Do not commit secrets, credentials, tokens, or private customer data.
 

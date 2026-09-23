@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/shazhou-ww/repoledger/raw/refs/heads/main/schema/v3.json",
+  "title": "repoledger storage contracts v3",
+  "$defs": {
+    "branch": {
+      "type": "string",
+      "pattern": "^(?!-)(?!/)(?!@$)(?!refs/)(?!remotes/)(?!.*\\.\\.)(?!.*@\\{)(?!.*[ ~^:?*\\[\\\\])(?!.*(?:^|/)\\.)(?!.*(?:^|/)[^/]*\\.lock(?:/|$))(?!.*//$)(?!.*//)(?!.*\\.$)(?!.*\/$).+$"
+    },
+    "repository": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https://(?:[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?|\\[[0-9a-f:.]+\\])(?::(?!443(?:/|$))[0-9]+)?/(?!/)(?!.*//)(?!.*\\\\)(?!.*(?:/\\.{1,2})(?:/|$))(?!.*%(?:2[eEfF]|5[cC]))(?!.*[?#])[^/](?:.*[^/])?$"
+    },
+    "ideasDirectory": {
+      "type": "string",
+      "pattern": "^(?![A-Za-z]:)(?!/)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))(?!\\.$)(?!.*//)(?!.*\/$).+$"
+    },
+    "ulid": {
+      "type": "string",
+      "pattern": "^[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+    },
+    "objectId": {
+      "type": "string",
+      "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+    },
+    "ideaStatus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "id", "alias"],
+      "properties": {
+        "version": { "const": 1 },
+        "id": { "$ref": "#/$defs/ulid" },
+        "alias": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "pattern": "^(?!\\s)(?!.*\\s$)[^\\u0000-\\u001f\\u007f-\\u009f]+$"
+        },
+        "abandoned": { "const": true },
+        "approvedRevision": { "$ref": "#/$defs/objectId" },
+        "implementationAcceptedRevision": { "$ref": "#/$defs/objectId" },
+        "deploymentAcceptedRevision": { "$ref": "#/$defs/objectId" }
+      }
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "primaryRepository", "primaryBranch"],
+  "properties": {
+    "version": { "const": 3 },
+    "ideasDirectory": { "$ref": "#/$defs/ideasDirectory" },
+    "primaryRepository": { "$ref": "#/$defs/repository" },
+    "primaryBranch": { "$ref": "#/$defs/branch" }
+  }
+}

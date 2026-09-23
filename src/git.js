@@ -1,13 +1,15 @@
 import { spawnSync } from "node:child_process";
 import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { repositoryNamespace } from "./repository.js";
 
-export function runGit(root, args) {
+export function runGit(root, args, { env } = {}) {
   const result = spawnSync("git", ["-C", root, ...args], {
     encoding: "utf8",
+    env,
     windowsHide: true,
   });
   return {
@@ -32,8 +34,8 @@ export function sanitizeGitMessage(value) {
     .replace(/\bgh[pousr]_[A-Za-z0-9_]{20,}\b/g, "[redacted]");
 }
 
-function requireGit(root, args, label) {
-  const result = runGit(root, args);
+function requireGit(root, args, label, options) {
+  const result = runGit(root, args, options);
   if (!result.ok) {
     const safeResult = {
       ...result,
@@ -44,6 +46,61 @@ function requireGit(root, args, label) {
     throw error;
   }
   return result.stdout;
+}
+
+export function gitObjectIdLength(root) {
+  const format = requireGit(
+    root,
+    ["rev-parse", "--show-object-format"],
+    "Cannot determine Git object format",
+  );
+  if (format === "sha1") return 40;
+  if (format === "sha256") return 64;
+  throw new Error(`Unsupported Git object format: ${format}`);
+}
+
+export function worktreePathTree(root, path) {
+  const directory = mkdtempSync(join(tmpdir(), "repoledger-index-"));
+  const env = { ...process.env, GIT_INDEX_FILE: join(directory, "index") };
+  try {
+    const populated = runGit(root, ["read-tree", "HEAD"], { env });
+    if (!populated.ok) {
+      requireGit(root, ["read-tree", "--empty"], "Cannot initialize snapshot index", { env });
+    }
+    requireGit(
+      root,
+      ["add", "--all", "--", path],
+      `Cannot snapshot ${path}`,
+      { env },
+    );
+    const tree = requireGit(root, ["write-tree"], "Cannot write snapshot tree", { env });
+    const object = requireGit(
+      root,
+      ["rev-parse", `${tree}:${path}`],
+      `Cannot resolve tree for ${path}`,
+    );
+    const type = requireGit(root, ["cat-file", "-t", object], `Cannot inspect ${path}`);
+    if (type !== "tree") throw new Error(`${path} does not resolve to a Git tree`);
+    return object;
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+}
+export function worktreeSnapshot(root) {
+  const directory = mkdtempSync(join(tmpdir(), "repoledger-index-"));
+  const env = { ...process.env, GIT_INDEX_FILE: join(directory, "index") };
+  try {
+    const populated = runGit(root, ["read-tree", "HEAD"], { env });
+    if (!populated.ok) {
+      requireGit(root, ["read-tree", "--empty"], "Cannot initialize snapshot index", { env });
+    }
+    requireGit(root, ["add", "--all"], "Cannot snapshot worktree", { env });
+    return {
+      tree: requireGit(root, ["write-tree"], "Cannot write worktree snapshot", { env }),
+    };
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
 }
 
 function paths(stdout) {
@@ -77,26 +134,6 @@ export function indexSnapshot(root) {
   };
 }
 
-export function unstagedSnapshot(root) {
-  const snapshot = requireGit(
-    root,
-    [
-      "-c",
-      "user.name=repoledger",
-      "-c",
-      "user.email=repoledger@example.invalid",
-      "stash",
-      "create",
-      "repoledger check --unstaged",
-    ],
-    "Cannot snapshot unstaged changes",
-  );
-  return {
-    commit: snapshot || requireGit(root, ["rev-parse", "HEAD"], "Cannot resolve HEAD"),
-    paths: paths(requireGit(root, ["diff", "--name-only", "--"], "Cannot inspect unstaged changes")),
-  };
-}
-
 export function repositoryTrackingRef(repository, branch) {
   return `refs/repoledger/remotes/${repositoryNamespace(repository)}/heads/${branch}`;
 }
@@ -122,21 +159,6 @@ export function fetchPrimary(root, config) {
     config.primaryRepository,
     config.primaryBranch,
   );
-}
-
-export function readRemoteBranch(root, repository, branch) {
-  const reference = `refs/heads/${branch}`;
-  const result = runGit(root, ["ls-remote", "--exit-code", "--heads", repository, reference]);
-  if (result.status === 2) return null;
-  if (!result.ok) {
-    const error = new Error(
-      `Cannot inspect ${branch}: ${sanitizeGitMessage(result.stderr) || result.error?.message || "Git failed"}`,
-    );
-    error.git = { ...result, stderr: sanitizeGitMessage(result.stderr) };
-    throw error;
-  }
-  const [commit] = result.stdout.split(/\s+/, 1);
-  return commit || null;
 }
 
 export async function withTemporaryWorktree(root, commit, callback) {
@@ -168,78 +190,4 @@ export async function withTemporaryTree(root, tree, callback) {
     await rm(directory, { recursive: true, force: true });
     runGit(root, ["worktree", "prune"]);
   }
-}
-
-export function commitPaths(worktree, paths, message) {
-  requireGit(worktree, ["add", "--all", "--", ...paths], "Cannot stage operation-owned paths");
-  const staged = runGit(worktree, ["diff", "--cached", "--quiet", "--", ...paths]);
-  if (staged.ok) return requireGit(worktree, ["rev-parse", "HEAD"], "Cannot resolve unchanged commit");
-  requireGit(worktree, ["commit", "-m", message, "--", ...paths], "Cannot create publication commit");
-  return requireGit(worktree, ["rev-parse", "HEAD"], "Cannot resolve publication commit");
-}
-
-export function pushPrimary(worktree, config, expectedCommit, commit = "HEAD") {
-  const primaryRef = `refs/heads/${config.primaryBranch}`;
-  const lease = expectedCommit
-    ? [`--force-with-lease=${primaryRef}:${expectedCommit}`]
-    : [];
-  return requireGit(
-    worktree,
-    ["push", ...lease, config.primaryRepository, `${commit}:${primaryRef}`],
-    "Cannot publish primary",
-  );
-}
-
-export function pushSourceCreate(worktree, repository, branch, commit = "HEAD") {
-  const sourceRef = `refs/heads/${branch}`;
-  return requireGit(
-    worktree,
-    [
-      "push",
-      `--force-with-lease=${sourceRef}:`,
-      repository,
-      `${commit}:${sourceRef}`,
-    ],
-    "Cannot create source branch",
-  );
-}
-
-export function pushStartAtomic(
-  worktree,
-  config,
-  { commit = "HEAD", primaryBefore, sourceBranch },
-) {
-  const primaryRef = `refs/heads/${config.primaryBranch}`;
-  const sourceRef = `refs/heads/${sourceBranch}`;
-  return requireGit(
-    worktree,
-    [
-      "push",
-      "--atomic",
-      `--force-with-lease=${primaryRef}:${primaryBefore}`,
-      `--force-with-lease=${sourceRef}:`,
-      config.primaryRepository,
-      `${commit}:${primaryRef}`,
-      `${commit}:${sourceRef}`,
-    ],
-    "Cannot publish task start",
-  );
-}
-
-export function verifyPrimary(root, config, expectedCommit) {
-  const actual = fetchPrimary(root, config);
-  if (!runGit(root, ["merge-base", "--is-ancestor", expectedCommit, actual]).ok) {
-    throw new Error(`Published commit ${expectedCommit} is not reachable from primary ${actual}`);
-  }
-  return actual;
-}
-
-export function verifySource(root, repository, branch, expectedCommit) {
-  const actual = fetchRepositoryBranch(root, repository, branch);
-  if (actual !== expectedCommit) {
-    throw new Error(
-      `Source ${repository} ${branch} is ${actual}, expected ${expectedCommit}`,
-    );
-  }
-  return actual;
 }

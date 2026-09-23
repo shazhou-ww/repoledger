@@ -8,18 +8,14 @@ import { afterEach, test } from "node:test";
 
 import {
   commitChangedPaths,
-  commitPaths,
   fetchPrimary,
   indexSnapshot,
-  pushPrimary,
-  pushStartAtomic,
   repositoryTrackingRef,
   resolveCommit,
   sanitizeGitMessage,
-  unstagedSnapshot,
-  verifySource,
+  worktreePathTree,
+  worktreeSnapshot,
   withTemporaryTree,
-  withTemporaryWorktree,
 } from "../src/git.js";
 
 const temporaryDirectories = [];
@@ -65,8 +61,8 @@ async function createRepository() {
   );
   return {
     config: {
-      version: 2,
-      tasksDirectory: "tasks",
+      version: 3,
+      ideasDirectory: "ideas",
       primaryRepository: repository,
       primaryBranch: "main",
     },
@@ -74,7 +70,7 @@ async function createRepository() {
   };
 }
 
-test("fetches and publishes by URL without a named Git remote", async () => {
+test("fetches primary by URL without a named Git remote", async () => {
   const { config, root } = await createRepository();
   assert.equal(git(root, "remote"), "");
 
@@ -82,37 +78,6 @@ test("fetches and publishes by URL without a named Git remote", async () => {
   assert.equal(
     git(root, "rev-parse", repositoryTrackingRef(repository, "main")),
     primary,
-  );
-
-  const published = await withTemporaryWorktree(root, primary, async (worktree) => {
-    await writeFile(join(worktree, "published.txt"), "published\n");
-    const commit = commitPaths(worktree, ["published.txt"], "Publish by URL");
-    pushPrimary(worktree, config, primary);
-    return commit;
-  });
-
-  assert.equal(fetchPrimary(root, config), published);
-});
-
-test("atomically creates a source branch while advancing primary", async () => {
-  const { config, root } = await createRepository();
-  const primary = fetchPrimary(root, config);
-
-  const published = await withTemporaryWorktree(root, primary, async (worktree) => {
-    await writeFile(join(worktree, "started.txt"), "started\n");
-    const commit = commitPaths(worktree, ["started.txt"], "Start task");
-    pushStartAtomic(worktree, config, {
-      commit,
-      primaryBefore: primary,
-      sourceBranch: "task/example",
-    });
-    return commit;
-  });
-
-  assert.equal(fetchPrimary(root, config), published);
-  assert.equal(
-    verifySource(root, repository, "task/example", published),
-    published,
   );
 });
 
@@ -134,12 +99,14 @@ test("resolves commits and reports root commit paths", async () => {
   assert.throws(() => resolveCommit(root, "missing-revision"), /Cannot resolve commit/);
 });
 
-test("materializes staged and tracked unstaged snapshots without changing caller state", async () => {
+test("materializes staged and full worktree snapshots without changing caller state", async () => {
   const { root } = await createRepository();
   await writeFile(join(root, "staged.txt"), "staged\n");
   git(root, "add", "staged.txt");
   await writeFile(join(root, "README.md"), "unstaged\n");
   await writeFile(join(root, "untracked.txt"), "untracked\n");
+  await mkdir(join(root, "folder"));
+  await writeFile(join(root, "folder", "definition.md"), "definition\n");
   git(root, "config", "--unset", "user.name");
   git(root, "config", "--unset", "user.email");
   const status = git(root, "status", "--short");
@@ -152,13 +119,16 @@ test("materializes staged and tracked unstaged snapshots without changing caller
     await assert.rejects(readFile(join(worktree, "untracked.txt"), "utf8"), { code: "ENOENT" });
   });
 
-  const unstaged = unstagedSnapshot(root);
-  assert.deepEqual(unstaged.paths, ["README.md"]);
-  await withTemporaryWorktree(root, unstaged.commit, async (worktree) => {
+  const worktree = worktreeSnapshot(root);
+  await withTemporaryTree(root, worktree.tree, async (worktree) => {
     assert.equal(await readFile(join(worktree, "README.md"), "utf8"), "unstaged\n");
     assert.equal(await readFile(join(worktree, "staged.txt"), "utf8"), "staged\n");
-    await assert.rejects(readFile(join(worktree, "untracked.txt"), "utf8"), { code: "ENOENT" });
+    assert.equal(await readFile(join(worktree, "untracked.txt"), "utf8"), "untracked\n");
   });
+  assert.equal(
+    worktreePathTree(root, "folder"),
+    git(root, "rev-parse", `${worktree.tree}:folder`),
+  );
 
   assert.equal(git(root, "status", "--short"), status);
   assert.equal(git(root, "branch", "--show-current"), "main");

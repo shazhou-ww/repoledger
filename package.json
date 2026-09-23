@@ -1,7 +1,7 @@
 {
   "name": "repoledger",
   "version": "0.8.2",
-  "description": "Query, validate, and publish Git-native repository task lifecycle state.",
+  "description": "Derive and validate Git-native repository idea state.",
   "packageManager": "pnpm@11.22.0",
   "type": "module",
   "bin": {

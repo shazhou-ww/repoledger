@@ -1,7 +1,6 @@
 import { lstat, readFile } from "node:fs/promises";
 import { isAbsolute, posix, relative, resolve, sep } from "node:path";
 
-import { validCanonicalLanguage } from "./language.js";
 import { validBranchName, validRepository } from "./repository.js";
 import { parseStrictYaml, stringifyCanonicalYaml } from "./yaml.js";
 
@@ -9,8 +8,7 @@ export const DEFAULT_CONFIG_NAME = "repoledger.yaml";
 
 const CONFIG_KEYS = [
   "version",
-  "tasksDirectory",
-  "taskLanguage",
+  "ideasDirectory",
   "primaryRepository",
   "primaryBranch",
 ];
@@ -28,7 +26,7 @@ function escapesRoot(root, path) {
   );
 }
 
-export function validTasksDirectory(value) {
+export function validIdeasDirectory(value) {
   if (
     typeof value !== "string" ||
     value.length === 0 ||
@@ -47,8 +45,8 @@ export function validTasksDirectory(value) {
   );
 }
 
-export async function safeTasksPath(root, value) {
-  if (!validTasksDirectory(value)) return false;
+export async function safeIdeasPath(root, value) {
+  if (!validIdeasDirectory(value)) return false;
   let current = root;
   for (const segment of value.split("/")) {
     current = resolve(current, segment);
@@ -69,20 +67,9 @@ export function validPrimaryBranch(_root, value) {
 }
 
 export function serializeConfig(config) {
-  if (
-    config.taskLanguage !== undefined &&
-    !validCanonicalLanguage(config.taskLanguage)
-  ) {
-    throw new Error(
-      `Invalid canonical BCP 47 task language: ${String(config.taskLanguage)}`,
-    );
-  }
-  const value = {
-    version: config.version,
-    tasksDirectory: config.tasksDirectory,
-  };
-  if (config.taskLanguage !== undefined) {
-    value.taskLanguage = config.taskLanguage;
+  const value = { version: config.version };
+  if (config.ideasDirectory !== undefined) {
+    value.ideasDirectory = config.ideasDirectory;
   }
   value.primaryRepository = config.primaryRepository;
   value.primaryBranch = config.primaryBranch;
@@ -170,11 +157,7 @@ export async function loadConfig({ root, configPath = DEFAULT_CONFIG_NAME }) {
     };
   }
 
-  if (
-    value.version === 1 &&
-    Object.hasOwn(value, "remote") &&
-    !Object.hasOwn(value, "primaryRepository")
-  ) {
+  if (value.version === 1 || value.version === 2) {
     return {
       config: null,
       configPath: absolutePath,
@@ -182,8 +165,8 @@ export async function loadConfig({ root, configPath = DEFAULT_CONFIG_NAME }) {
         configDiagnostic(
           "config.migration-required",
           displayPath,
-          "Repoledger configuration version 1 uses a clone-local Git remote name.",
-          "Migrate the configuration and task status to version 2 with a canonical primaryRepository URL.",
+          `Repoledger configuration version ${value.version} uses the legacy task model.`,
+          "Convert the repository explicitly to the version 3 idea model before using Repoledger vNext.",
         ),
       ],
     };
@@ -205,7 +188,6 @@ export async function loadConfig({ root, configPath = DEFAULT_CONFIG_NAME }) {
 
   for (const [key, code] of [
     ["version", "config.missing-version"],
-    ["tasksDirectory", "config.missing-tasks-directory"],
     ["primaryRepository", "config.missing-primary-repository"],
     ["primaryBranch", "config.missing-primary-branch"],
   ]) {
@@ -216,39 +198,26 @@ export async function loadConfig({ root, configPath = DEFAULT_CONFIG_NAME }) {
     }
   }
 
-  if (Object.hasOwn(value, "version") && value.version !== 2) {
+  if (Object.hasOwn(value, "version") && value.version !== 3) {
     diagnostics.push(
       configDiagnostic(
         "config.unsupported-version",
         `${displayPath}#version`,
         `Unsupported repoledger version: ${String(value.version)}`,
-        "Use version: 2.",
+        "Use version: 3.",
       ),
     );
   }
   if (
-    Object.hasOwn(value, "tasksDirectory") &&
-    !(await safeTasksPath(root, value.tasksDirectory))
+    Object.hasOwn(value, "ideasDirectory") &&
+    !(await safeIdeasPath(root, value.ideasDirectory))
   ) {
     diagnostics.push(
       configDiagnostic(
-        "config.invalid-tasks-directory",
-        `${displayPath}#tasksDirectory`,
-        "tasksDirectory must be a normalized repository-relative directory.",
-        "Use a path such as tasks without backslashes, trailing slashes, or parent traversal.",
-      ),
-    );
-  }
-  if (
-    Object.hasOwn(value, "taskLanguage") &&
-    !validCanonicalLanguage(value.taskLanguage)
-  ) {
-    diagnostics.push(
-      configDiagnostic(
-        "config.invalid-task-language",
-        `${displayPath}#taskLanguage`,
-        `taskLanguage must be one canonical BCP 47 tag: ${String(value.taskLanguage)}`,
-        "Use a canonical language tag such as en or zh-CN.",
+        "config.invalid-ideas-directory",
+        `${displayPath}#ideasDirectory`,
+        "ideasDirectory must be a normalized repository-relative directory.",
+        "Use a path such as ideas without backslashes, trailing slashes, or parent traversal.",
       ),
     );
   }
@@ -285,13 +254,15 @@ export async function loadConfig({ root, configPath = DEFAULT_CONFIG_NAME }) {
         "config.noncanonical",
         displayPath,
         "The repoledger configuration is valid but not canonical.",
-        "Rewrite properties in version, tasksDirectory, optional taskLanguage, primaryRepository, primaryBranch order with LF endings.",
+        "Rewrite properties in version, optional ideasDirectory, primaryRepository, primaryBranch order with LF endings.",
       ),
     );
   }
 
   return {
-    config: diagnostics.length === 0 ? value : null,
+    config: diagnostics.length === 0
+      ? { ...value, ideasDirectory: value.ideasDirectory ?? "ideas" }
+      : null,
     configPath: absolutePath,
     diagnostics,
   };

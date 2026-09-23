@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { readdir, readFile, readlink, realpath } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import test from "node:test";
@@ -42,33 +43,25 @@ test("exposes one consolidated repoledger skill", async () => {
   assert.deepEqual(document.toJS(), {
     name: "repoledger",
     description:
-      "Create, execute, inspect, complete, or abandon explicitly opted-in repository tasks through Repoledger. Ordinary implementation requests remain task-free.",
-    "argument-hint": "<new [--language <tag>] [context]|exec [task]|status [task]|complete [task]|abandon [task]>",
+      "Navigate repository-owned ideas with repoledger whatsnext, execute one safe action, and reobserve only after an observable delta.",
+    "argument-hint": "[idea ULID or alias]",
     "user-invocable": true,
   });
 
   for (const required of [
-    "`new [--language <tag>] [context]`",
-    "`exec [task]`",
-    "`status [task]`",
-    "`complete [task]`",
-    "`abandon [task]`",
-    "The invocation itself is not delivery approval",
-    "For a missing or unknown verb",
-    "config resolve task-language",
-    "config resolve --global task-language",
-    "project default",
-    "agent-authored user-facing narrative replies",
-    "During `/repoledger exec` and `/repoledger complete`",
-    "`Language: <canonical-tag>`",
-    "A legacy task without `Language` uses `en`",
-    "`primaryAfter` commit",
-    "fast-forward the caller's checked-out primary branch",
-    "Preserve unrelated index and worktree changes",
+    "repoledger whatsnext [idea] --json",
+    "Execute only the highest-priority action",
+    "Preserve unknown, unrelated, or user-authored changes",
+    "Never use force-push",
+    "Repoledger has no approval, acceptance, or abandonment mutation commands",
+    "repoledger check --staged --json",
+    "observedPrimaryCommit",
+    "Never infer a human decision",
+    "Never poll the same observation",
   ]) {
     assert.ok(source.includes(required), `repoledger skill is missing: ${required}`);
   }
-  assert.doesNotMatch(source, /`task-new`|`task-exec`/);
+  assert.doesNotMatch(source, /repoledger task |repoledger status|taskLanguage/);
 
   for (const [, target] of source.matchAll(/\[[^\]]+\]\((\.\/[^)#]+)(?:#[^)]+)?\)/g)) {
     const referenced = resolve(dirname(path), target);
@@ -79,21 +72,32 @@ test("exposes one consolidated repoledger skill", async () => {
 test("registers the canonical repoledger skill for this project", async () => {
   const canonical = resolve(repositoryRoot, "skills", "repoledger");
   const registration = resolve(repositoryRoot, ".github", "skills", "repoledger");
-  const target = (await readlink(registration)).replaceAll("\\", "/");
+  let target;
+  try {
+    target = (await readlink(registration)).replaceAll("\\", "/");
+    assert.equal(await realpath(registration), await realpath(canonical));
+  } catch (caught) {
+    if (caught.code !== "EINVAL") throw caught;
+    target = (await readFile(registration, "utf8")).trim().replaceAll("\\", "/");
+    const indexed = spawnSync(
+      "git",
+      ["-C", repositoryRoot, "ls-files", "-s", ".github/skills/repoledger"],
+      { encoding: "utf8", windowsHide: true },
+    );
+    assert.equal(indexed.status, 0, indexed.stderr);
+    assert.match(indexed.stdout, /^120000 /);
+  }
 
   assert.equal(target, "../../skills/repoledger");
-  assert.equal(await realpath(registration), await realpath(canonical));
 });
 
-test("keeps task-language instructions aligned across artifact templates", async () => {
-  const skillRoot = resolve(repositoryRoot, "skills", "repoledger");
-  const task = await readFile(resolve(skillRoot, "assets", "Task.md"), "utf8");
-  const progress = await readFile(resolve(skillRoot, "assets", "Progress.md"), "utf8");
-  const acceptance = await readFile(resolve(skillRoot, "assets", "UserAcceptance.md"), "utf8");
-
-  assert.match(task, /^Language: en$/m);
-  assert.match(progress, /language recorded by `Task\.md`/);
-  assert.match(acceptance, /language recorded by `Task\.md`/);
-  assert.match(progress, /approval statuses, and outcome values in English/);
-  assert.match(acceptance, /acceptance status values in English/);
+test("documents explicit vNext adoption and conversion", async () => {
+  const adoption = await readFile(
+    resolve(repositoryRoot, "skills", "repoledger", "references", "adoption.md"),
+    "utf8",
+  );
+  const normalized = adoption.replaceAll("\r\n", " ").replaceAll("\n", " ");
+  assert.match(adoption, /version: 3/);
+  assert.match(adoption, /Idea\.md` must exist but has no fixed headings/);
+  assert.match(normalized, /no runtime compatibility mode or in-place migration command/);
 });

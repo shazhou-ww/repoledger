@@ -1,48 +1,42 @@
-# Repository tasks
+# Repository idea workflow
 
-This repository uses the local [`repoledger`](/skills/repoledger/SKILL.md)
-skill with `repoledger.yaml` and `tasks/status.yaml`.
+This repository uses the local [Repoledger skill](/skills/repoledger/SKILL.md),
+`repoledger.yaml`, and the `ideas/` directory.
 
-## Admission
-
-Begin intake only after an explicit `/repoledger new` invocation. Admit one
-accepted outcome only when it is expected to change at least one path outside
-`tasks/**`. Questions, planning-only work, validation-only work, external-only
-work, and task-ledger maintenance remain task-free.
-
-## Publication
+## Authority
 
 The shared authority is `https://github.com/shazhou-ww/repoledger.git` on
-`main`. Every ongoing task advertises a resumable source branch and optionally
-a fork repository. Publish source and primary changes non-force, preserve
-concurrent work, and never delete source branches as a lifecycle side effect.
-
-Use:
+`main`. Fetch and observe that primary before idea work. Feature branches are
+optional transport and are not protocol state.
 
 ```sh
-repoledger task list
-repoledger status <task-name>
-repoledger check <task-name> --remote
-repoledger check --commit HEAD
+repoledger whatsnext [idea] --json
+repoledger check
 repoledger check --staged
-repoledger task register <task-name>
-repoledger task start <task-name> [--source-repository <url>] [--source-branch <branch>]
-repoledger task complete <task-name> --approved-commit <commit>
-repoledger task abandon <task-name>
+repoledger check --commit HEAD
+repoledger check --remote
 ```
 
-## Progress And Review
+Use the report's `observedPrimaryCommit` as the expected remote tip. When
+primary moves, reobserve instead of replaying approval or acceptance.
 
-Create or update `Progress.md` only in a commit that also changes at least one
-path outside `tasks/**`. Scope and delivery review are required. Interface,
-business/data model, and architecture review apply when affected. Completion
-uses the exact delivery-approved primary commit.
+## Decisions And Publication
+
+`whatsnext` is read-only. Human approvals, implementation acceptance,
+deployment acceptance, and abandonment are ordinary edits to one sibling idea
+status file after an explicit decision. Validate the candidate and publish a
+normal non-force commit. Prefer status-only decision commits when practical.
+
+Preserve unknown changes, concurrent history, and previous revision facts.
+Never force-push, reset, broadly clean, or automatically delete feature
+branches.
 
 ## Repository Checks
 
-- Run `pnpm check` after CLI, schema, task, configuration, or release changes.
+- Run `pnpm check` after CLI, schema, repository model, release, or skill
+  changes.
 - Run `pnpm check:skills` after skill changes.
-- Use `repoledger check --commit HEAD` for the checked-out CI commit and
-    `repoledger check --remote` when refreshed source refs must also be checked.
 - Validate package contents, installed-package smoke behavior, Markdown links,
   and `git diff --check` before delivery review.
+- Use `repoledger check --commit HEAD` for checked-out CI and
+  `repoledger check --remote` for complete primary-history evidence.

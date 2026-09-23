@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 
 const packageRoot = fileURLToPath(new URL("..", import.meta.url));
 const npmCli = process.env.npm_execpath;
+const id = "01M36QGPNTXEPP61DA4KP4AVZF";
 
 function run(command, args, cwd) {
   const result = spawnSync(command, args, {
@@ -32,54 +33,42 @@ try {
   )[0];
   const tarball = join(temporaryRoot, packed.filename);
   const consumer = join(temporaryRoot, "consumer");
-  await mkdir(join(consumer, "tasks"), { recursive: true });
+  const idea = join(consumer, "ideas", id);
+  await mkdir(idea, { recursive: true });
   await writeFile(
     join(consumer, "repoledger.yaml"),
-    "version: 2\ntasksDirectory: tasks\nprimaryRepository: https://example.com/owner/repository.git\nprimaryBranch: main\n",
+    "version: 3\nprimaryRepository: https://example.com/owner/repository.git\nprimaryBranch: main\n",
   );
-  await writeFile(join(consumer, "tasks", "status.yaml"), "version: 2\ntasks: {}\n");
+  await writeFile(join(idea, "Idea.md"), "# Installed package smoke\n");
+  await writeFile(
+    join(consumer, "ideas", `${id}.status.yaml`),
+    `version: 1\nid: ${id}\nalias: installed-smoke\n`,
+  );
+  run("git", ["init", "--initial-branch=main"], consumer);
+  run("git", ["config", "user.name", "repoledger smoke"], consumer);
+  run("git", ["config", "user.email", "repoledger@example.invalid"], consumer);
+  run("git", ["add", "."], consumer);
+  run("git", ["commit", "-m", "Initialize smoke fixture"], consumer);
 
   npm(["install", "--ignore-scripts", "--no-audit", "--no-fund", tarball], consumer);
   const help = npm(["exec", "--", "repoledger", "--help"], consumer);
-  assert.match(help, /repoledger task list/);
-  assert.doesNotMatch(help, /doctor/);
+  assert.match(help, /repoledger whatsnext/);
+  assert.match(help, /repoledger check/);
+  assert.doesNotMatch(help, /repoledger task|repoledger status|repoledger init/);
   assert.equal(npm(["exec", "--", "repoledger", "--version"], consumer), packed.version);
   const exported = run(
     process.execPath,
     [
       "--input-type=module",
       "-e",
-      "import { checkRepository, initRepository, listTasks, mutateTask, prepareV1Migration, statusRepository } from 'repoledger'; console.log([checkRepository, initRepository, listTasks, mutateTask, prepareV1Migration, statusRepository].map((value) => typeof value).join(','));",
+      "import { checkRepository, deriveIdeaState, parseIdeaStatus, whatsNext } from 'repoledger'; console.log([checkRepository, deriveIdeaState, parseIdeaStatus, whatsNext].map((value) => typeof value).join(','));",
     ],
     consumer,
   );
-  assert.equal(exported, "function,function,function,function,function,function");
+  assert.equal(exported, "function,function,function,function");
   const checked = JSON.parse(npm(["exec", "--", "repoledger", "check", "--json"], consumer));
   assert.equal(checked.ok, true);
-  await mkdir(join(consumer, "tasks", "sample-task"));
-  await writeFile(
-    join(consumer, "tasks", "status.yaml"),
-    "version: 2\ntasks:\n  sample-task:\n    state: backlog\n    createdAt: \"2026-09-20T00:00:00Z\"\n    updatedAt: \"2026-09-20T06:15:00Z\"\n",
-  );
-  const listed = JSON.parse(npm([
-    "exec",
-    "--",
-    "repoledger",
-    "task",
-    "list",
-    "--local",
-    "--json",
-    "--updated-since",
-    "2026-09-20",
-    "--updated-before",
-    "2026-09-20T15:00:00+08:00",
-  ], consumer));
-  assert.equal(listed.ok, true);
-  assert.deepEqual(listed.result.filters, {
-    updatedSince: "2026-09-20T00:00:00Z",
-    updatedBefore: "2026-09-20T07:00:00Z",
-  });
-  assert.deepEqual(listed.result.tasks.map(({ task }) => task), ["sample-task"]);
+  assert.equal(checked.result.ideas[0].alias, "installed-smoke");
   process.stdout.write(`PACK_SMOKE_OK name=${packed.name} version=${packed.version}\n`);
 } finally {
   await rm(temporaryRoot, { recursive: true, force: true });
