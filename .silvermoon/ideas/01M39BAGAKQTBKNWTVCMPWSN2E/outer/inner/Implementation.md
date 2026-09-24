@@ -22,8 +22,9 @@ text and a displayed width of 128 pixels.
 Carry every existing behavioral guarantee, prerequisite, command, schema link,
 adoption rule, validation mode, and maintainer workflow into its new
 authoritative page. Keep the English and Chinese READMEs structurally aligned,
-use the approved product positioning and biography details, and include only
-the approved official-animation links.
+use the approved product positioning and biography details, present the avatar
+and biography in a left-right table, and give the approved official-animation
+links descriptive titles and link text.
 
 ### I-S04: Update package and verification surfaces
 
@@ -55,9 +56,9 @@ the repository Markdown-link contract.
 English user-visible positioning says “the artifact spirit of the project”
 and Chinese positioning says “项目的器灵”. Both biographies contain only the
 approved Silvermoon Wolf Clan, Ling Long split-soul, wolf-headed jade scepter,
-and Bamboo Cloudswarm Swords facts, show the unchanged avatar at 128 pixels,
-and link to the approved YouTube and Bilibili pages. Prove this with targeted
-README contract assertions.
+and Bamboo Cloudswarm Swords facts, show the unchanged 128-pixel avatar to the
+left of the biography, and link to the approved YouTube and Bilibili pages with
+descriptive titles. Prove this with targeted README contract assertions.
 
 ### I-AC04: Documentation assets work from source and the installed package
 

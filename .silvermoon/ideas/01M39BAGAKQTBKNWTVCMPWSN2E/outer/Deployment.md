@@ -2,24 +2,45 @@
 
 ## Steps
 
-<!--
-Give every step a stable D-Sxx identifier and a level-three heading.
-Describe deployment or external-world verification work.
-Do not use task-list checkboxes in this document.
--->
+### D-S01: Publish a stable deployment contract
 
-### D-S01: Step title
+Publish this Deployment contract on the authoritative `main` branch before
+performing external checks. Reobserve the idea and bind all evidence to the
+resulting stable `deploymentRevision`.
 
-<!-- Describe this deployment or external-verification step. -->
+### D-S02: Verify the public repository documentation surface
+
+Confirm that the authoritative GitHub `main` branch serves both READMEs, every
+Further Reading page, and both SVGs from their committed paths. Verify that the
+English and Chinese entry pages point to the same internal destinations and to
+the approved animation URLs without tracking parameters.
+
+### D-S03: Verify the distributable package surface
+
+Build and install the npm tarball from the authoritative deployment commit.
+Confirm that both READMEs, every linked English documentation page, and both
+SVGs are readable from the installed package and that the installed CLI smoke
+workflow still succeeds.
 
 ## Acceptance criteria
 
-<!--
-Give every criterion a stable D-ACxx identifier and a level-three heading.
-Describe both the observable external outcome and the method that proves it.
-Do not create a separate validation section or use task-list checkboxes.
--->
+### D-AC01: Authoritative primary contains the accepted implementation
 
-### D-AC01: Criterion title
+The refreshed `origin/main` tip contains the accepted implementation commit
+and the stable deployment contract, with no unpublished or dirty repository
+changes. Prove this with Git ancestry and status checks plus
+`silvermoon check --remote --json`.
 
-<!-- Describe the required external outcome and how an Agent can prove it. -->
+### D-AC02: GitHub serves a complete reader-first documentation journey
+
+Public GitHub URLs for both READMEs, the five Further Reading pages, the hero,
+and the avatar return the content from the authoritative commit. Prove this by
+retrieving each immutable raw URL and checking expected headings or SVG roots,
+then verify the README links resolve to those committed paths.
+
+### D-AC03: The installed package preserves every documented entry point
+
+The packed artifact has the exact allowlisted contents, and an isolated
+consumer can read both READMEs, all linked docs, and both SVGs while completing
+the CLI smoke workflow. Prove this with `pnpm pack:check` and
+`pnpm test:e2e` against the stable deployment revision.

@@ -29,6 +29,7 @@ test("keeps both READMEs reader-first and structurally aligned", async () => {
   for (const source of [english, chinese]) {
     assert.match(source, /docs\/assets\/silvermoon\.svg/);
     assert.match(source, /docs\/assets\/silvermoon-avatar\.svg" width="128"/);
+    assert.match(source, /<table>[\s\S]*silvermoon-avatar\.svg[\s\S]*<\/table>/);
     assert.ok(source.includes(youtube));
     assert.ok(source.includes(bilibili));
     for (const target of reading) assert.ok(source.includes(target), target);
@@ -54,6 +55,11 @@ test("keeps the approved biography bounded and accurate", async () => {
   for (const phrase of ["灵界的银月狼族", "玲珑公主", "狼首玉如意", "青竹蜂云剑"]) {
     assert.ok(normalizedChinese.includes(phrase), phrase);
   }
+  assert.match(
+    english,
+    /title="A Record of a Mortal's Journey to Immortality — Episode 192: The Mulan War 16"/,
+  );
+  assert.match(chinese, /title="《凡人修仙传》第192话：慕兰之战16"/);
 });
 
 test("resolves repository-local links in reader documentation", async () => {

@@ -53,17 +53,31 @@ Silvermoon 会让目标、实现、仓库状态与现实结果始终相连。完
 
 ## 项目的器灵
 
-<img src="./docs/assets/silvermoon-avatar.svg" width="128" alt="项目器灵银月的线稿头像">
-
-Silvermoon 得名于《凡人修仙传》中的银月。她来自灵界的银月狼族，是玲珑公主分裂出的
-两道元神之一。她在人界失去部分记忆后成为器灵，先后寄居于狼首玉如意和韩立的青竹蜂云剑。
-
-这个意象与项目相合：Silvermoon 不属于某位操作者或某次对话。它与项目产物共存，理解它们
-的状态，并帮助每位同行者判断下一步。人物小传只是灵感来源，不是使用工具的知识门槛。
-
-可在 [YouTube](https://www.youtube.com/watch?v=qlodDgpiYhg) 或
-[哔哩哔哩第 1 话](https://www.bilibili.com/bangumi/play/ep733316)
-观看《凡人修仙传》官方动画。
+<table>
+  <tr>
+    <td width="160" align="center" valign="top">
+      <img src="./docs/assets/silvermoon-avatar.svg" width="128" alt="项目器灵银月的线稿头像">
+    </td>
+    <td valign="top">
+      Silvermoon 得名于《凡人修仙传》中的银月。她来自灵界的银月狼族，是玲珑公主分裂出的
+      两道元神之一。她在人界失去部分记忆后成为器灵，先后寄居于狼首玉如意和韩立的
+      青竹蜂云剑。
+      <br><br>
+      这个意象与项目相合：Silvermoon 不属于某位操作者或某次对话。它与项目产物共存，
+      理解它们的状态，并帮助每位同行者判断下一步。人物小传只是灵感来源，不是使用工具的
+      知识门槛。
+      <br><br>
+      观看
+      <a href="https://www.youtube.com/watch?v=qlodDgpiYhg" title="《凡人修仙传》第192话：慕兰之战16">
+        《凡人修仙传》第192话：慕兰之战16（YouTube）
+      </a>
+      或
+      <a href="https://www.bilibili.com/bangumi/play/ep733316" title="《凡人修仙传》官方动画第1话">
+        《凡人修仙传》官方动画第1话（哔哩哔哩）
+      </a>。
+    </td>
+  </tr>
+</table>
 
 ## 从理想到现实
 
