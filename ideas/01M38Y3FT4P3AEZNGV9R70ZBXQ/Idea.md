@@ -6,10 +6,10 @@ Language: zh-CN
 ## Goal
 
 将 Silvermoon 的 repository metadata 和 idea lifecycle 收拢到固定的 `.silvermoon/`
-命名空间，并让每个 idea 的文件结构与 ideal、inner、outer 三层世界模型同构。三层分别拥有
-独立且级联的 Git tree revision，使 ideal 变化回到 preparing、implementation contract 变化
-回到 implementing、deployment contract 变化只回到 deploying，避免较外层文档变化无谓地
-推翻已经成立的内层 decision。
+命名空间，并让每个 idea 的文件结构与 Ideal World（道境）、Inner World（内景）、
+Outer World（现世）三层世界模型同构。三层分别拥有独立且级联的 Git tree revision，
+使道境变化回到 preparing、内景变化回到 implementing、现世变化只回到 deploying，
+避免现世的变化无谓地推翻已经成立的内景 decision。
 
 最终布局为：
 
@@ -42,9 +42,11 @@ revision 或维护依赖关系。
 
 三层嵌套 Git tree 同时解决两个问题：
 
-- `ideal/` tree 表示想要什么以及不可变的产品边界；
-- `inner/` tree 包含 implementation contract 和完整 `ideal/` tree；
-- `outer/` tree 包含 deployment contract 和完整 `inner/` tree。
+- Ideal World（道境）的 `ideal/` tree 表示想要什么以及不可变的产品边界；
+- Inner World（内景）的 `inner/` tree 包含 implementation contract 和完整
+  `ideal/` tree；
+- Outer World（现世）的 `outer/` tree 包含 deployment contract 和完整
+  `inner/` tree。
 
 Git tree 的递归对象关系提供单向级联：ideal 变化会改变三层 revision，inner 自身内容变化会
 改变 inner 与 outer revision，outer 自身内容变化只改变 outer revision。`status.yaml` 位于
@@ -55,18 +57,44 @@ Silvermoon schema 已以新品牌重新归一为 v1。本设计直接定义 Silv
 rebranding idea 和历史 idea 保持不可变历史；本 idea 作为后续当前 contract 取代其中关于配置
 位置和 idea layout 的旧基线。
 
+## World terminology
+
+Silvermoon 对三层世界使用以下固定中英文术语：
+
+| Canonical English term | Canonical Chinese term | Repository path |
+|---|---|---|
+| Ideal World | 道境 | `outer/inner/ideal/` |
+| Inner World | 内景 | `outer/inner/` |
+| Outer World | 现世 | `outer/` |
+
+英文界面和机器可读说明使用 `Ideal World`、`Inner World`、`Outer World`；中文文档和
+面向人的中文说明使用“道境”“内景”“现世”，首次出现时并列中英文。三层关系的品牌化
+概括为“道境立意，内景成形，现世验真”。目录名继续使用稳定的小写 `ideal`、`inner`、
+`outer`，它们是 path segment，不是另一套产品术语。当前 skill、CLI guidance、schema
+description 和文档不得使用“理想世界”“内心世界”“内在世界”“内部世界”“外在世界”
+“外部世界”“内层世界”“外层世界”等近义翻译指代这三个正式概念。
+
 ## World and document contract
 
-- `ideal/` 是 opaque ideal tree，固定入口为 `Idea.md`。它描述目标、背景、产品边界、scope、
-  out-of-scope 和其他会影响“是否仍是同一个理想”的 artifacts。
-- `inner/` 是 opaque implementation tree，固定入口为 `Implementation.md`，并完整包含
-  `ideal/`。Implementation plan、implementation acceptance criteria、architecture 和对应
-  artifacts 属于这一层。
-- `outer/` 是 opaque deployment tree，固定入口为 `Deployment.md`，并完整包含 `inner/`。
-  Deployment plan、deployment acceptance criteria、rollout、observation 和 rollback contract
-  属于这一层。
-- 每层除固定入口和下一层目录外可以包含任意 repository-owned artifacts；这些 artifacts
-  参与所在层及所有外层 revision。
+- Ideal World（道境）的 `ideal/` 是 opaque tree，唯一规范入口为 `Idea.md`。它描述目标、
+  背景、产品边界、
+  scope 和 out-of-scope。同目录的其他文件只能作为 `Idea.md` 所定义 ideal 的辅助材料，
+  例如设计图、调研、样例或领域说明；它们可以扩充证据和细节，但不能成为绕过或替代
+  `Idea.md` 的第二份规范入口。
+- Inner World（内景）的 `inner/` 是 opaque implementation tree，固定入口为
+  `Implementation.md`，并完整包含
+  `ideal/`。Implementation plan 和 implementation acceptance criteria 由
+  `Implementation.md` 定义；inner 自有的其他文件只能作为它的辅助材料，例如 architecture、
+  protocol、test design 或 implementation note，不能独立定义另一套 implementation contract。
+- Outer World（现世）的 `outer/` 是 opaque deployment tree，固定入口为
+  `Deployment.md`，并完整包含 `inner/`。
+  Deployment plan 和 deployment acceptance criteria 由 `Deployment.md` 定义；outer 自有的
+  其他文件只能作为它的辅助材料，例如 rollout manifest、observation query、runbook 或
+  rollback note，不能独立定义另一套 deployment contract。
+- ideal、inner 和 outer 三层都允许零个或多个 repository-owned 辅助文件。辅助文件必须由
+  同层入口文档的正文或清晰上下文说明其用途，并在冲突时服从同层入口文档；Silvermoon 不把
+  文件扩展名、名称或数量限制为 Markdown，也不尝试从辅助文件推断新的 lifecycle phase。
+  每个辅助文件参与所在层及所有外层 revision。
 - `.silvermoon/ideas/<IDEA_ID>/status.yaml` 保存 identity、可选 alias、abandonment 和三个
   decision revision。它不参与 ideal、inner 或 outer revision。
 
@@ -126,7 +154,8 @@ deploymentAcceptedRevision: <deploymentRevision>
 - 按三层 revision 推导五态 lifecycle，保持 abandoned 的显式人工 decision 和最高优先级。
 - 将 authoring convention 拆分到三个入口文档：`Idea.md` 定义 ideal，
   `Implementation.md` 定义 implementation plan 与 implementation acceptance criteria，
-  `Deployment.md` 定义 deployment plan 与 deployment acceptance criteria。
+  `Deployment.md` 定义 deployment plan 与 deployment acceptance criteria；每层其他文件均
+  明确作为对应入口文档的辅助材料。
 - 让 criteria extraction、criteria evidence verification 和 implementation acceptance 读取
   当前 `Implementation.md`，并绑定完整 `implementationRevision`；deployment acceptance
   绑定完整 `deploymentRevision`。
@@ -134,6 +163,11 @@ deploymentAcceptedRevision: <deploymentRevision>
   并在碰撞或 partial failure 时只回滚本次调用拥有的路径。
 - 让 `whats-next`、`check`、create preflight、snapshot inspection、publication guidance、
   package smoke、skill、repository instructions 和当前文档统一使用新布局与三层术语。
+- 更新 Agent skill 与 `whats-next` 的 human/JSON guidance，使 preparing 明确指向
+  `Idea.md` 及其 ideal 辅助材料，implementing 明确指向 `Implementation.md` 及其 inner
+  辅助材料，deploying 明确指向 `Deployment.md` 及其 outer 辅助材料。Guidance 必须说明
+  辅助材料从属于对应入口文档，并提示修改更内层内容会按 revision 级联回退；面向人的输出
+  同时使用正式英文与当前 locale 的正式中文世界名称。
 - 保留显式 create intent、单一最高优先 action、structured worktree changes、immutable
   observation、expected remote tip 和 non-force publication safety。
 
@@ -189,20 +223,37 @@ deploymentAcceptedRevision: <deploymentRevision>
   对相同 tree 返回相同三层 revision；worktree/staged 的 mode、rename、untracked 和 deletion
   会归入正确层。Immutable target inspection 不调用 Git worktree mutation，也不受调用者当前
   checkout 中旧布局文件影响。
-- **I09 Criteria 与 evidence：** authoring 和 parser tests 要求 implementation criteria 位于
+- **I09 文档与辅助材料归属：** Authoring contract、Agent skill 和当前文档明确规定
+  `Idea.md`、`Implementation.md`、`Deployment.md` 是各层唯一规范入口；ideal、inner、outer
+  均允许任意 repository-owned 辅助文件，但它们分别只能辅助同层入口文档，不能成为第二入口
+  或独立 lifecycle contract。Tests 在三层分别加入不同扩展名和嵌套辅助文件，并断言它们只
+  改变所在层及外层 revision，checker 不按文件名猜测额外 phase。
+- **I10 世界术语：** Skill、`whats-next` human guidance、JSON details 的 display metadata、
+  schema descriptions 和当前用户文档统一使用 `Ideal World`/“道境”、
+  `Inner World`/“内景”、`Outer World`/“现世”，并在适合的产品说明中使用
+  “道境立意，内景成形，现世验真”。目录和稳定机器标识继续使用
+  `ideal`、`inner`、`outer`。Tests 拒绝当前表面出现未批准的同义翻译，并精确断言三个 phase
+  guidance 使用对应的正式世界名称。
+- **I11 Criteria 与 evidence：** authoring 和 parser tests 要求 implementation criteria 位于
   `Implementation.md`、deployment criteria 位于 `Deployment.md`，而 `Idea.md` 不再承载这两个
   phase heading。`verifyCriteriaEvidence` 按稳定 criterion ID 验证当前
   `implementationRevision` 的完整 criteria，并拒绝 missing、reordered、empty 或绑定 stale
   inner candidate 的 evidence。
-- **I10 导航与 publication：** selector、多个 active ideas、无 alias idea、explicit create
+- **I12 Skill 与 whats-next guidance：** Agent skill 和 `whats-next` 的 human/JSON action
+  guidance 对 preparing、implementing、deploying 分别返回对应入口文档路径、同层辅助材料
+  root、当前层 revision 和需要记录的 decision revision。输出明确说明辅助文件必须支持而非
+  替代入口文档，并说明编辑 ideal 会失效三层 decision、编辑 inner 自有内容会失效
+  implementation/deployment、编辑 outer 自有内容只会失效 deployment。Fixture 精确断言三种
+  state 的 message/details，不依赖 Agent 自行推断路径或级联效果。
+- **I13 导航与 publication：** selector、多个 active ideas、无 alias idea、explicit create
   intent、branch/conflict/dirty/behind/ahead/diverged hygiene、request context、structured
   changes、publication coordinates 和 stale non-force push rejection 在新布局上保持现有
   优先级与安全语义。Guidance 明确展示当前三层 revision 及 decision 所需的目标 revision。
-- **I11 Clean break 与当前表面：** 只有 `silvermoon.yaml`、`repoledger.yaml`、根目录
+- **I14 Clean break 与当前表面：** 只有 `silvermoon.yaml`、`repoledger.yaml`、根目录
   `ideas/` 或 `.repoledger/` 的 fixture 不构成有效 Silvermoon repository，也不会触发旧内容
   读取、合并、移动、删除或迁移。非历史源码、schema、package、skill、README 和当前文档只把
   `.silvermoon/` 三层布局描述为当前 contract；历史 idea 内容保持不变。
-- **I12 完整验证：** Deterministic trajectory tests 覆盖 scaffold、三阶段 authoring、
+- **I15 完整验证：** Deterministic trajectory tests 覆盖 scaffold、三阶段 authoring、
   status-only decision commits、三种回退矩阵、abandonment、criteria evidence、concurrent
   primary movement 和 package smoke install；最终候选通过 `pnpm check` 和
   `git diff --check`。
@@ -217,5 +268,6 @@ deploymentAcceptedRevision: <deploymentRevision>
   和 ideal change，已安装 CLI 依次报告 deploying、implementing 和 preparing，且未修改
   `status.yaml`、Git refs 或其他 world tree。
 - **D03 发布包与 skill：** npm package、Agent skill 和当前用户文档只发现并展示
-  `.silvermoon/ideas/<IDEA_ID>/` 三层布局，不依赖开发 checkout、旧品牌文件、根目录
-  `silvermoon.yaml`、全局 Repoledger 安装或迁移数据。
+  `.silvermoon/ideas/<IDEA_ID>/` 三层布局，并能从每个 phase 的 guidance 找到规范入口和同层
+  辅助材料范围；它们不依赖开发 checkout、旧品牌文件、根目录 `silvermoon.yaml`、全局
+  Repoledger 安装或迁移数据。
