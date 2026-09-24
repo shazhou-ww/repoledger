@@ -36,6 +36,7 @@ test("uses a protected, least-privilege trusted-publishing workflow", async () =
     "Run contract tests",
     "Run integration tests",
     "Discover agent skills",
+    "Generate immutable npm README",
     "Verify selected package tarball",
     "Test installed package",
   ];
@@ -47,6 +48,22 @@ test("uses a protected, least-privilege trusted-publishing workflow", async () =
     assert.ok(
       stepNames.indexOf(name) < stepNames.indexOf("Publish selected package"),
       `${name} must run before publication`,
+    );
+  }
+
+  const generateReadmeIndex = stepNames.indexOf("Generate immutable npm README");
+  assert.ok(
+    generateReadmeIndex > stepNames.indexOf("Discover agent skills"),
+    "README generation must run after release validation and layered tests",
+  );
+  for (const name of [
+    "Verify selected package tarball",
+    "Test installed package",
+    "Publish selected package",
+  ]) {
+    assert.ok(
+      generateReadmeIndex < stepNames.indexOf(name),
+      `README generation must run before ${name}`,
     );
   }
 
@@ -64,6 +81,9 @@ test("uses a protected, least-privilege trusted-publishing workflow", async () =
   const contract = publish.steps.find(({ name }) => name === "Run contract tests");
   const integration = publish.steps.find(({ name }) => name === "Run integration tests");
   const skills = publish.steps.find(({ name }) => name === "Discover agent skills");
+  const generateReadme = publish.steps.find(
+    ({ name }) => name === "Generate immutable npm README",
+  );
   const tarball = publish.steps.find(({ name }) => name === "Verify selected package tarball");
   const e2e = publish.steps.find(({ name }) => name === "Test installed package");
   const publication = publish.steps.find(({ name }) => name === "Publish selected package");
@@ -84,7 +104,16 @@ test("uses a protected, least-privilege trusted-publishing workflow", async () =
   assert.equal(contract.run, "pnpm test:contract");
   assert.equal(integration.run, "pnpm test:integration");
   assert.equal(skills.run, "pnpm check:skills");
-  for (const step of [tarball, e2e, publication]) {
+  assert.equal(
+    generateReadme["working-directory"],
+    "${{ steps.release.outputs.package_directory }}",
+  );
+  assert.equal(generateReadme.env.RELEASE_COMMIT, "${{ github.sha }}");
+  assert.match(
+    generateReadme.run,
+    /generate-npm-readme\.mjs[\s\S]*--commit "\$RELEASE_COMMIT" > README\.md/,
+  );
+  for (const step of [generateReadme, tarball, e2e, publication]) {
     assert.equal(
       step["working-directory"],
       "${{ steps.release.outputs.package_directory }}",

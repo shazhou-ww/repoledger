@@ -74,6 +74,14 @@ jobs:
       - name: Discover agent skills
         run: pnpm check:skills
 
+      - name: Generate immutable npm README
+        working-directory: ${{ steps.release.outputs.package_directory }}
+        env:
+          RELEASE_COMMIT: ${{ github.sha }}
+        run: >-
+          node ${{ github.workspace }}/scripts/generate-npm-readme.mjs
+          --commit "$RELEASE_COMMIT" > README.md
+
       - name: Verify selected package tarball
         working-directory: ${{ steps.release.outputs.package_directory }}
         run: npm run pack:check
