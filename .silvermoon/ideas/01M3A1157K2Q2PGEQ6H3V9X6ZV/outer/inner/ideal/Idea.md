@@ -12,11 +12,23 @@
 
 ## Desired outcome
 
-- 当所有 hygiene 检查通过时，`whats-next` 不再打印逐项成功信息，输出直接聚焦于生命周期 action。
-- 当 hygiene 未通过时，输出只包含未满足或发生冲突的 gap，不包含任何已通过检查。
-- 每个 gap 明确说明稳定标识、未满足的要求、实际观测事实、是否阻塞、修复方式以及修复后的重查入口。
-- 人类可读输出和 `--json` 输出遵循同一语义，Agent 无需从完整检查流水账中筛选真正的问题。
-- `whats-next` 仍然只给出一个最高优先级 action，不因精简诊断信息而丢失安全的依赖顺序或修复指导。
+### Hygiene 通过
+
+- 当所有 onboarding/hygiene 要求均满足时，人类可读输出不显示 onboarding 状态、执行来源、版本、逐项 requirement 或 recheck，只呈现生命周期路由所需的信息和唯一 action。
+- `--json` 成功报告不携带完整 onboarding requirement 矩阵，也不以其他字段重复已通过项目；调用方可由正常返回的生命周期 action 判断 preflight 已通过。
+
+### Hygiene 未通过
+
+- 人类可读输出和 `--json` 只暴露当前未满足、冲突或无法确认的 gap，不包含任何 `satisfied` 或 `inapplicable` requirement。
+- 每个 gap 保留稳定 requirement ID、要求名称、状态、是否阻塞、依赖关系、实际观测事实和结构化 remediation；凡修复后需要重新诊断的报告同时提供明确的 recheck 命令。
+- 多个 gap 按稳定、确定的顺序输出；推荐修复动作仍服从依赖关系和阻塞优先级，不能因为隐藏成功项目而让 Agent 跳过前置条件。
+- 当 onboarding 阻塞生命周期工作时，唯一 action 仍是 `adopt-silvermoon`，其 details 与顶层 gap 表达引用同一组未通过事实，不形成语义冲突。
+
+### 一致性
+
+- 人类可读输出与 `--json` 对“成功时安静、失败时只报告 gap”采用同一判定，不出现一侧精简而另一侧仍输出完整矩阵的情况。
+- `whats-next` 在任何路径上仍然只给出一个最高优先级 action；idea 选择、生命周期状态、语言解析、Git hygiene 顺序和 action 优先级保持现有行为。
+- `check` 继续提供完整仓库诊断能力，调用方需要逐项审计时无需依赖 `whats-next` 的精简视图。
 
 ## Scope
 
@@ -25,7 +37,7 @@
 - 精简 `whats-next` 的 onboarding/hygiene 人类可读输出。
 - 精简并明确 `whats-next --json` 中成功状态与失败 gap 的表达。
 - 调整相关稳定输出契约、自动化测试和用户文档。
-- 保留失败诊断所需的 expected、observed、blocking、remediation、dependencies 和 recheck 信息。
+- 保留失败诊断所需的 requirement identity、observed、blocking、remediation、dependencies 和 recheck 信息。
 
 ### Out of scope
 
@@ -39,4 +51,6 @@
 - 失败必须显式且可操作，不能因精简输出而静默丢失错误、依赖关系或修复指引。
 - JSON 字段变更必须作为明确的契约演进处理，并同步 schema、文档和契约测试。
 - 保持输出确定性，使 Agent 和自动化调用方能够稳定消费。
+- 不得用空数组、成功占位对象或重复摘要伪装精简；成功报告应真正省略逐项 onboarding 流水账。
+- 未知状态、检查异常或缺失观测不能被当作成功过滤，必须作为可见 gap 或现有显式错误返回。
 - 成功应当安静，失败应当具体且可行动。
