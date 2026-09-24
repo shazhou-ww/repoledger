@@ -91,10 +91,13 @@ silvermoon check [--remote | --commit <revision> | --staged | --worktree]
 
 `whats-next` returns one highest-priority action after repository and onboarding
 diagnosis. JSON reports include `observedPrimaryCommit`, `language`,
-`selectedIdea`, and exactly one `action`. They also include `onboarding`, whose
-requirements expose
-stable IDs, statuses, blocking flags, dependencies, observed facts, structured
-remediation, a recommended action, and a recheck command.
+`selectedIdea`, and exactly one `action`. When onboarding passes without gaps,
+the report omits `onboarding`. Otherwise `onboarding.gaps` contains only unmet,
+conflicting, or unknown requirements, preserving their stable IDs, statuses,
+blocking flags, dependencies, observed facts, and structured remediation. The
+compact onboarding report also includes a recommended action and recheck
+command. Human-readable output follows the same quiet-success, actionable-gap
+semantics. Use `check` when a complete repository diagnostic is required.
 
 Execution source is classified as `source-checkout`, `project-local`,
 `temporary`, `global`, or `unknown`. Temporary execution can bootstrap

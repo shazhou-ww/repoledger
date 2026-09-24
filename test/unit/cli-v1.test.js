@@ -73,7 +73,7 @@ test("renders a created idea scaffold", () => {
   );
 });
 
-test("renders complete onboarding requirement details", () => {
+test("renders only actionable onboarding gaps", () => {
   const report = {
     command: "whats-next",
     ok: true,
@@ -85,9 +85,7 @@ test("renders complete onboarding requirement details", () => {
       selectedIdea: null,
       onboarding: {
         status: "blocked",
-        desiredVersion: "1.2.3",
-        executionSource: { kind: "temporary" },
-        requirements: [{
+        gaps: [{
           id: "skill.repository-local",
           title: "Repository-local canonical skill",
           status: "missing",
@@ -121,6 +119,7 @@ test("renders complete onboarding requirement details", () => {
   assert.match(text, /depends  package\.installed/);
   assert.match(text, /fix      npx skills add/);
   assert.match(text, /recheck  npx --no-install silvermoon whats-next/);
+  assert.doesNotMatch(text, /runtime|satisfied|inapplicable/);
 });
 
 test("renders deterministic whats-next human and JSON output", () => {
@@ -164,6 +163,7 @@ test("renders deterministic whats-next human and JSON output", () => {
   assert.match(human.logs.join("\n"), /state    preparing/);
   assert.match(human.logs.join("\n"), /world    Ideal World \(道心\)/);
   assert.match(human.logs.join("\n"), /decision approvedRevision:/);
+  assert.doesNotMatch(human.logs.join("\n"), /onboarding/);
 
   const json = capture();
   render(report, true, json.io);

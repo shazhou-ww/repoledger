@@ -202,6 +202,12 @@ test("[selector-known] renders preparing guidance for a clean synchronized prima
   assert.equal(report.result.action.details.world.name, "Ideal World");
   assert.equal(report.result.action.details.world.displayName, "道心");
   assert.equal(
+    report.result.onboarding.gaps.some(({ status }) =>
+      ["satisfied", "inapplicable"].includes(status)
+    ),
+    false,
+  );
+  assert.equal(
     report.result.action.details.world.revision,
     report.result.selectedIdea.idealRevision,
   );
