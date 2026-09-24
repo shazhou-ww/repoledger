@@ -22,8 +22,14 @@
 
 ### Deployment steps
 
-- [ ] **D-S01:** Step title
+- [ ] **D-S01:** Build and inspect the package artifact
+- [ ] **D-S02:** Exercise installed-package language resolution
+- [ ] **D-S03:** Exercise installed create-idea overrides
+- [ ] **D-S04:** Confirm primary health and remove temporary state
 
 ### Deployment acceptance criteria
 
-- [ ] **D-AC01:** Criterion title
+- [ ] **D-AC01:** The packed consumer surface is complete
+- [ ] **D-AC02:** Installed resolution is layered, explainable, and dynamic
+- [ ] **D-AC03:** Installed creation preserves override boundaries
+- [ ] **D-AC04:** Verification is externally healthy and leaves no residue
