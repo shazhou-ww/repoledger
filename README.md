@@ -6,6 +6,17 @@
 </p>
 
 <p align="center">
+  <!-- markdownlint-disable-next-line MD013 -->
+  <a href="https://npmx.dev/package/silvermoon"><img src="https://img.shields.io/npm/v/silvermoon?style=flat-square" alt="npm version"></a>
+  <!-- markdownlint-disable-next-line MD013 -->
+  <a href="https://npmx.dev/package/silvermoon"><img src="https://img.shields.io/node/v/silvermoon?style=flat-square" alt="Node.js version"></a>
+  <!-- markdownlint-disable-next-line MD013 -->
+  <a href="https://npmx.dev/package/silvermoon"><img src="https://img.shields.io/npm/unpacked-size/silvermoon?style=flat-square" alt="npm unpacked size"></a>
+  <!-- markdownlint-disable-next-line MD013 -->
+  <a href="https://github.com/shazhou-ww/silvermoon/actions/workflows/ci.yml?query=branch%3Amain"><img src="https://img.shields.io/github/actions/workflow/status/shazhou-ww/silvermoon/ci.yml?branch=main&style=flat-square&label=CI" alt="CI status"></a>
+</p>
+
+<p align="center">
   English | <a href="./README.zh-CN.md">简体中文</a>
 </p>
 
