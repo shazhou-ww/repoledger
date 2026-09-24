@@ -54,8 +54,12 @@ hygiene preflight and, only when it passes, creates the structured idea scaffold
   selection. After hygiene passes, the command creates one self-contained idea
   with structured `Idea.md`, `Implementation.md`, `Deployment.md`, and
   `ledger.md` entries plus alias-less `status.yaml`. It never stages, commits,
-  pushes, or records a decision. Review and replace template placeholders in
-  the resulting untracked paths before publication.
+  pushes, or records a decision. Review every generated path before
+  publication. During initial preparation, replace the `Idea.md` guidance with
+  the requested Ideal World contract, but keep the Implementation, Deployment,
+  and matching ledger placeholders synchronized until their lifecycle actions.
+  An Agent may add a concise, unique alias derived from the user's request;
+  do not interrupt the user only to ask them to name it.
 - `switch-to-primary`, `resolve-conflicts`, `inspect-worktree-changes`,
   `fast-forward-primary`, `integrate-primary`, `publish-primary`: perform the
   exact Git hygiene step without discarding either history or unknown work.
