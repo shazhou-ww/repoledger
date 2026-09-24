@@ -2,9 +2,15 @@
   <img src="./assets/silvermoon.svg" width="960" alt="Silvermoon, the spirit of your project">
 </p>
 
-# Silvermoon
+# Silvermoon（银月）
 
 **The spirit of your project.**
+
+> *Silvermoon (银月) is named after the artifact spirit and steadfast companion
+> in **A Record of a Mortal's Journey to Immortality** (RMJI; 凡人修仙传).
+> Like her, this Silvermoon lives with the artifacts, understands their state,
+> and helps its companions navigate what comes next: the spirit of your
+> project.*
 
 Silvermoon is a shared tool for humans and agents. It checks the repository's
 real state, preserves facts both can understand, guards decision boundaries,
