@@ -2,24 +2,24 @@
 
 ## Steps
 
-<!--
-Give every step a stable D-Sxx identifier and a level-three heading.
-Describe deployment or external-world verification work.
-Do not use task-list checkboxes in this document.
--->
+### D-S01: Observe the layered CI workflow on primary
 
-### D-S01: Step title
+Publish this deployment contract to `main` through the ordinary non-force path
+and observe the GitHub Actions `CI` run whose head SHA is that exact published
+commit. Do not trigger the npm publish workflow or create a release tag.
 
-<!-- Describe this deployment or external-verification step. -->
+Inspect the run's jobs rather than treating the overall conclusion alone as
+proof. The run must contain the six unit matrix jobs for Ubuntu, Windows, and
+macOS on Node 22 and 24, one repository contract job, and one Git integration
+job. No installed-package E2E or package publish job should run in ordinary CI.
 
 ## Acceptance criteria
 
-<!--
-Give every criterion a stable D-ACxx identifier and a level-three heading.
-Describe both the observable external outcome and the method that proves it.
-Do not create a separate validation section or use task-list checkboxes.
--->
+### D-AC01: GitHub Actions proves the intended CI topology
 
-### D-AC01: Criterion title
-
-<!-- Describe the required external outcome and how an Agent can prove it. -->
+The `CI` workflow run for the exact deployment-contract commit completes with
+overall conclusion `success`. Every one of the six unit matrix jobs, the
+repository contract job, and the Git integration job succeeds, and the run has
+no E2E or publish job. Prove this from GitHub Actions run and job metadata tied
+to the exact head SHA; a local test run or a run for a different commit is not
+sufficient.
