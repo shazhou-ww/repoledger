@@ -62,22 +62,37 @@ sessions, Agents, and hosting platforms.
 
 ## The Project's Artifact Spirit
 
-<img src="./docs/assets/silvermoon-avatar.svg" width="128" alt="Line portrait of Silvermoon, the project's artifact spirit">
-
-Silvermoon is named after a character in *A Record of a Mortal's Journey to
-Immortality*. She comes from the Silvermoon Wolf Clan in the Spirit Realm and
-is one of the split souls of Ling Long. After losing part of her memory in the
-human realm, she lives as an artifact spirit first in a wolf-headed jade
-scepter and later in Han Li's Bamboo Cloudswarm Swords.
-
-That image fits this project: Silvermoon does not belong to one operator or one
-chat. It lives with the project's artifacts, understands their state, and
-helps each companion find what comes next. The biography is inspiration, not a
-prerequisite for using the tool.
-
-Watch the official animation on
-[YouTube](https://www.youtube.com/watch?v=qlodDgpiYhg) or
-[Bilibili (Episode 1)](https://www.bilibili.com/bangumi/play/ep733316).
+<table>
+  <tr>
+    <td width="160" align="center" valign="top">
+      <img src="./docs/assets/silvermoon-avatar.svg" width="128" alt="Line portrait of Silvermoon, the project's artifact spirit">
+    </td>
+    <td valign="top">
+      Silvermoon is named after a character in <em>A Record of a Mortal's
+      Journey to Immortality</em>. She comes from the Silvermoon Wolf Clan in
+      the Spirit Realm and is one of the split souls of Ling Long. After losing
+      part of her memory in the human realm, she lives as an artifact spirit
+      first in a wolf-headed jade scepter and later in Han Li's Bamboo
+      Cloudswarm Swords.
+      <br><br>
+      That image fits this project: Silvermoon does not belong to one operator
+      or one chat. It lives with the project's artifacts, understands their
+      state, and helps each companion find what comes next. The biography is
+      inspiration, not a prerequisite for using the tool.
+      <br><br>
+      Watch
+      <a href="https://www.youtube.com/watch?v=qlodDgpiYhg" title="A Record of a Mortal's Journey to Immortality — Episode 192: The Mulan War 16">
+        <em>A Record of a Mortal's Journey to Immortality</em> — Episode 192:
+        The Mulan War 16 (YouTube)
+      </a>
+      or
+      <a href="https://www.bilibili.com/bangumi/play/ep733316" title="A Record of a Mortal's Journey to Immortality — Episode 1">
+        <em>A Record of a Mortal's Journey to Immortality</em> — Episode 1
+        (Bilibili)
+      </a>.
+    </td>
+  </tr>
+</table>
 
 ## From Ideal To Real
 
