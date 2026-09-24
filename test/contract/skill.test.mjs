@@ -149,13 +149,21 @@ test("registers the canonical silvermoon skill for this project", async () => {
 
 test("documents explicit Silvermoon adoption and conversion", async () => {
   const readme = await readFile(resolve(repositoryRoot, "README.md"), "utf8");
+  const operations = await readFile(
+    resolve(repositoryRoot, "docs", "operations.md"),
+    "utf8",
+  );
+  const reference = await readFile(
+    resolve(repositoryRoot, "docs", "reference.md"),
+    "utf8",
+  );
   const adoption = await readFile(
     resolve(repositoryRoot, "skills", "silvermoon", "references", "adoption.md"),
     "utf8",
   );
   const normalized = adoption.replaceAll("\r\n", " ").replaceAll("\n", " ");
   assert.match(adoption, /version: 1/);
-  for (const source of [readme, adoption]) {
+  for (const source of [`${readme}\n${operations}\n${reference}`, adoption]) {
     assert.match(source, /opaque Git tree/);
     assert.match(source, /\.silvermoon\/config\.yaml/);
     assert.match(source, /Ideal World \(道心\)/);

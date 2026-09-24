@@ -166,6 +166,17 @@ try {
     await readFile(join(consumer, "node_modules", "silvermoon", "README.zh-CN.md"), "utf8"),
     /# Silvermoon（银月）/,
   );
+  assert.match(
+    await readFile(
+      join(consumer, "node_modules", "silvermoon", "docs", "getting-started.md"),
+      "utf8",
+    ),
+    /# Getting Started/,
+  );
+  await readFile(
+    join(consumer, "node_modules", "silvermoon", "docs", "assets", "silvermoon-avatar.svg"),
+    "utf8",
+  );
   for (const schema of [
     "config.schema.json",
     "definitions.schema.json",

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./assets/silvermoon.svg" width="960" alt="Silvermoon，项目之灵">
+  <img src="./docs/assets/silvermoon.svg" width="960" alt="Silvermoon，项目的器灵">
 </p>
 
 <p align="center">
@@ -8,44 +8,16 @@
 
 # Silvermoon（银月）
 
-**The spirit of your project.（项目之灵。）**
+**项目的器灵。**
 
-> *Silvermoon（银月）得名于《凡人修仙传》（A Record of a Mortal's Journey to
-> Immortality，RMJI）中的器灵与坚定同行者。就像她一样，这个 Silvermoon 与项目产物
-> 共存，理解它们的状态，并帮助同行者判断下一步：它是你的项目之灵。*
+## 快速开始
 
-Silvermoon 是人类与 Agent 共享的工具。它检查仓库的真实状态，保存双方都能理解的
-事实，守护决策边界，并回答一个问题：**下一步是什么？**
-
-它不是个人助理，也不会替人类作决定。Silvermoon 属于项目本身，因此每位协作者看到的
-都是同一份状态和同一个最高优先级的下一步行动。
-
-Silvermoon 有三个公开命令：
-
-```sh
-silvermoon whats-next [idea]
-silvermoon create-idea
-silvermoon check [--remote | --commit <revision> | --staged | --worktree]
-```
-
-`whats-next` 先输出完整的 doctor 风格 adoption 报告；所有阻塞要求满足后才路由 idea
-生命周期。它会 fetch 并观察，但绝不会编辑、checkout、merge、commit、stash、删除、
-reset、fast-forward 或 push；它只返回一个最高优先级行动。`check` 为人类、hook 和
-CI 验证存储及 Git 事实。`create-idea` 先执行同样的仓库卫生预检，再创建一个结构化
-idea 脚手架；它不会 stage、commit、push 或记录 approval。
-
-## 安装
+Silvermoon 需要 Node.js 22 或更高版本，并且能够通过 Git 访问仓库的 primary branch。
 
 ```sh
 npm install --save-dev silvermoon
 npx skills add ./node_modules/silvermoon/skills --skill silvermoon --agent github-copilot --yes --copy
 ```
-
-需要 Node.js 22 或更高版本，并且能够通过 Git 访问配置的 primary branch。
-npm 包内包含 canonical skill；注册和更新由 `npx skills` 负责。Silvermoon 只读诊断
-exact content alignment，不修改 registered skill。
-
-## 配置
 
 创建 `.silvermoon/config.yaml`：
 
@@ -55,151 +27,65 @@ primaryRepository: https://github.com/example/repository.git
 primaryBranch: main
 ```
 
-仓库 URL 是不含凭据的 canonical HTTPS 共享状态。凭据、remote 名称和 URL rewrite
-仍属于本地 Git 配置。metadata 路径固定，不能通过配置覆盖。
-
-## 存储 Idea
-
-每个 idea 都放在一个 canonical 大写 ULID 目录中，彼此独立：
-
-```text
-.silvermoon/
-|-- config.yaml
-`-- ideas/
-    `-- 01M36QGPNTXEPP61DA4KP4AVZF/
-        |-- status.yaml
-        |-- ledger.md
-        `-- outer/
-            |-- Deployment.md
-            `-- inner/
-                |-- Implementation.md
-                `-- ideal/
-                    `-- Idea.md
-```
-
-三个嵌套世界各有 canonical English name 和中文名称：
-
-- **Ideal World（道心）：** `Idea.md` 定义理想。
-- **Inner World（内景）：** `Implementation.md` 定义实现。
-- **Outer World（现世）：** `Deployment.md` 定义部署。
-
-道心立意，内景成形，现世验真。
-
-每个世界都可以包含其他文件或目录。Ideal World 的产物服务于 `Idea.md`，Inner World
-的产物服务于 `Implementation.md`，Outer World 的产物服务于 `Deployment.md`；
-辅助材料永远不能取代同一世界的 canonical 入口。
-
-每个世界都是不透明的 Git tree。`idealRevision` 标识 `ideal/`；`implementationRevision`
-标识 `inner/`，因此包含 Ideal World；`deploymentRevision` 标识 `outer/`，因此包含
-两个内层世界。由此形成确定性的级联失效。`status.yaml` 和必需的 `ledger.md` 位于
-三个世界之外。
-
-Silvermoon Agent skill 在 `Implementation.md` 和 `Deployment.md` 的 `## Steps`
-下编写计划，在 `## Acceptance criteria` 下编写结果契约。每项使用稳定的三级标题
-`I-Sxx`、`I-ACxx`、`D-Sxx` 或 `D-ACxx`。每条 criterion 同时描述可观察结果和证明
-方法。世界契约不使用任务列表 checkbox。
-
-idea 根目录必需的 `ledger.md` 在 Implementation 和 Deployment 的 Steps 与
-Acceptance criteria checklist 中镜像稳定 ID 和短标题。Silvermoon 要求它是常规文件，
-但不会解析其内容、把它纳入 world revision，或从 `[x]` 推断人类决定。Agent 同步更新
-world heading 与 ledger entry；若已完成事项发生实质变化，则重置 checkbox；下一步由
-`whats-next`、world contract 和未勾选条目共同决定。
-
-```yaml
-version: 1
-id: 01M36QGPNTXEPP61DA4KP4AVZF
-alias: publish-documentation
-approvedRevision: 0123456789abcdef0123456789abcdef01234567
-implementationAcceptedRevision: 0123456789abcdef0123456789abcdef01234567
-deploymentAcceptedRevision: 0123456789abcdef0123456789abcdef01234567
-```
-
-`version` 和 `id` 必填。`alias` 可选；存在时，它是区分大小写、精确且唯一的 selector。
-其他可选字段按 canonical 顺序依次为 `abandoned: true` 和上面三个 revision 字段。
-显式的 `abandoned: false`、派生 state、criteria mirror、source locator、未知 key、
-YAML alias/anchor、comment 以及非 canonical YAML 都会被拒绝。
-
-状态按以下顺序派生：
-
-1. `abandoned: true` 时为 `abandoned`。
-2. `approvedRevision` 与 `idealRevision` 不同时为 `preparing`。
-3. `implementationAcceptedRevision` 与 `implementationRevision` 不同时为 `implementing`。
-4. `deploymentAcceptedRevision` 与 `deploymentRevision` 不同时为 `deploying`。
-5. 三个 revision 全部匹配时为 `completed`。
-
-## 导航
+然后创建一个 idea，让已注册的 Silvermoon skill 每次引导一个安全的下一步行动：
 
 ```sh
-silvermoon whats-next
-silvermoon whats-next 01M36QGPNTXEPP61DA4KP4AVZF
-silvermoon whats-next publish-documentation --json
+npx silvermoon create-idea --json
+npx silvermoon whats-next <idea> --json
 ```
 
-不提供 selector 时，Silvermoon 会要求你从多个 active idea 中选择一个、继续唯一的
-active idea，或创建新 idea。提供 ULID 或精确唯一的 alias 时，它会渲染状态指引。
-每次调用都会先检查配置的 primary branch、冲突、dirty worktree 以及本地与远端 primary
-的 ancestry。
+在生成的 `Idea.md` 中描述想要抵达的世界，审阅并批准这个精确 revision。此后，
+Silvermoon 会让目标、实现、仓库状态与现实结果始终相连。完整的首次工作流见英文
+[Getting Started](./docs/getting-started.md)。
 
-JSON 报告包含 `observedPrimaryCommit`、`selectedIdea` 和且仅有一个 `action`。后续写入
-应把 observed commit 当作预期的远端 tip。如果 primary 已移动，应重新 fetch 并观察，
-而不是重放过期决定。
+## 为什么需要 Silvermoon
 
-## 创建 Idea
+长期运行的 Agent 工作往往让人背负太多不可见状态：有人必须记住原本想做什么、代码是否
+仍与任务一致，以及最新事实究竟留在哪次对话或哪台机器上。Silvermoon 把这些问题变成
+项目自身的一部分。
 
-```sh
-silvermoon create-idea --json
-```
+它让人不必持续看守，只在真正属于人的决策点回来：批准目标、验收实现，以及确认结果在
+现世成立。在这些边界之间，Agent 可以检查仓库事实，并继续最高优先级的安全行动。
 
-branch、冲突、dirty-worktree 和 primary-ancestry 卫生检查通过后，该命令生成 canonical
-ULID、结构化的 `Idea.md`、`Implementation.md`、`Deployment.md`、`ledger.md`，以及只含
-`version` 和 `id` 的 canonical `status.yaml`。它不会要求或虚构 alias。新文件有意保持
-untracked，因此下一次 `whats-next <ULID>` 会报告 `inspect-worktree-changes`，直到你完成
-初始 `Idea.md`、审阅 candidate，并通过普通 Git 发布。Agent 可以根据用户请求添加简洁、
-唯一的 alias；用户无需为了命名而停下。
+它也不允许一张脱离代码的任务卡自行宣告成功。当前产物与明确决定共同派生状态，因此目标
+或实现一旦改变，依赖旧 revision 的结论自然失效。事实保存在 Git 中，工作便能跨设备、
+跨 session、跨 Agent、跨托管平台延续。
 
-Silvermoon 没有修改 approval 或 acceptance 的命令。收到明确决定后，应编辑 idea 的
-status 文件，运行 `silvermoon check --staged`，提交状态事实，再通过普通 Git 非强制 push。
+## 项目的器灵
 
-## 验证
+<img src="./docs/assets/silvermoon-avatar.svg" width="128" alt="项目器灵银月的线稿头像">
 
-- `check` 只验证已提交的 `HEAD` snapshot，并从该 snapshot 读取 primary coordinates。
-- `check --worktree` 验证由 HEAD、index、unstaged change 和未忽略 untracked file
-  组成的假设 commit，并从这个完整 candidate 读取 primary coordinates。
-- `check --staged` 验证 index snapshot。
-- `check --commit <revision>` 验证一个本地 commit snapshot。
-- `check --remote` 使用已提交 HEAD 的 coordinates fetch primary，验证其 immutable tip，
-  并根据完整的、可达的 primary history 证明保留的 revision fact。
+Silvermoon 得名于《凡人修仙传》中的银月。她来自灵界的银月狼族，是玲珑公主分裂出的
+两道元神之一。她在人界失去部分记忆后成为器灵，先后寄居于狼首玉如意和韩立的青竹蜂云剑。
 
-这些 target 互斥，也都不会改变调用者的 branch、index 或 worktree。退出状态 `0`
-表示成功，`1` 表示验证或操作失败，`2` 表示 CLI 用法无效。使用 `--json` 可获得完整、
-稳定的 report envelope。
+这个意象与项目相合：Silvermoon 不属于某位操作者或某次对话。它与项目产物共存，理解它们
+的状态，并帮助每位同行者判断下一步。人物小传只是灵感来源，不是使用工具的知识门槛。
 
-仓库配置 schema 是 [schema/v1/config.schema.json](schema/v1/config.schema.json)，
-idea status schema 是
-[schema/v1/idea-status.schema.json](schema/v1/idea-status.schema.json)，二者共用
-[schema/v1/definitions.schema.json](schema/v1/definitions.schema.json) 中的定义。
+可在 [YouTube](https://www.youtube.com/watch?v=qlodDgpiYhg) 或
+[哔哩哔哩第 1 话](https://www.bilibili.com/bangumi/play/ep733316)
+观看《凡人修仙传》官方动画。
 
-运行时检查还会验证 canonical YAML、固定常规 metadata 路径、三个 world entry、唯一
-alias、当前 Git object format、tree object type、逐 world candidate revision binding
-和 acceptance history。
+## 从理想到现实
 
-## 采用 Silvermoon
+项目不只是一张任务列表，也不是一份对话记录。它是理想经过三个嵌套世界逐渐进入现实的
+过程。
 
-Silvermoon 是从上一产品直接进行的不兼容切换。它只识别版本 1 的
-`.silvermoon/config.yaml`，不会读取、转换或诊断旧布局。请保留 Git history，并且只记录
-有明确 review 支持的 acceptance fact。采用步骤见已安装 skill 的
-`references/adoption.md`。
+**Ideal World（道心）**确定值得追求的结果，**Inner World（内景）**让意图在仓库产物中
+成形，**Outer World（现世）**则验证这些产物在真正需要运行的地方是否成立。
 
-## 开发
+> 道心立意，内景成形，现世验真。
 
-```sh
-pnpm install --frozen-lockfile
-pnpm sync:skills
-pnpm check
-pnpm check:skills
-```
+三个世界由内向外层层包含：实现包含它所服务的理想，部署又包含二者。这不只是比喻，也是
+工程关系。内层变化时，外层旧结论便失去原有依据，必须重新证明。
 
-请只编辑 `skills/silvermoon` 中的 canonical skill，然后运行
-`pnpm sync:skills`。提交到仓库的 `.github/skills/silvermoon` 是生成副本，因此无需
-symbolic link 支持也能完成仓库 skill discovery；`pnpm check:skills` 会拒绝过期或
-被手工修改的副本。
+人负责 approval 与 acceptance，Agent 负责 continuation：读取 contract、ledger 与 Git
+事实，保留并发工作，执行一个安全行动，并只在发生变化后重新观察。上下文属于项目，而不
+属于转瞬即逝的某次对话。
+
+## 延伸阅读
+
+- [Getting Started](./docs/getting-started.md) — 安装、配置与第一个 idea。
+- [Core Concepts](./docs/core-concepts.md) — 项目归属、三重世界、revision 与决策边界。
+- [Operating Silvermoon](./docs/operations.md) — 导航、创建、发布、仓库卫生与持续推进。
+- [Technical Reference](./docs/reference.md) — 存储、派生状态、CLI report、验证 target 与 schema。
+- [Maintaining Silvermoon](./docs/maintaining.md) — 开发检查、文档职责与发布指南。

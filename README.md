@@ -1,59 +1,24 @@
 <p align="center">
-  <img src="./assets/silvermoon.svg" width="960" alt="Silvermoon, the spirit of your project">
+  <img src="./docs/assets/silvermoon.svg" width="960" alt="Silvermoon, the artifact spirit of the project">
 </p>
 
 <p align="center">
   English | <a href="./README.zh-CN.md">简体中文</a>
 </p>
 
-# Silvermoon（银月）
+# Silvermoon
 
-**The spirit of your project.**
+**The artifact spirit of the project.**
 
-> *Silvermoon (银月) is named after the artifact spirit and steadfast companion
-> in **A Record of a Mortal's Journey to Immortality** (RMJI; 凡人修仙传).
-> Like her, this Silvermoon lives with the artifacts, understands their state,
-> and helps its companions navigate what comes next: the spirit of your
-> project.*
+## Quick Start
 
-Silvermoon is a shared tool for humans and agents. It checks the repository's
-real state, preserves facts both can understand, guards decision boundaries,
-and answers one question: **what's next?**
-
-It does not act as a personal assistant or make human decisions. Silvermoon
-belongs to the project itself, so every collaborator observes the same state
-and the same highest-priority next action.
-
-Silvermoon has three public commands:
-
-```sh
-silvermoon whats-next [idea]
-silvermoon create-idea
-silvermoon check [--remote | --commit <revision> | --staged | --worktree]
-```
-
-`whats-next` first emits a complete doctor-style adoption report and routes
-idea work only after every blocking requirement is satisfied. It fetches and
-observes but never edits, checks out, merges, commits,
-stashes, deletes, resets, fast-forwards, or pushes. It returns one
-highest-priority action. `check` validates storage and Git facts for humans,
-hooks, and CI. `create-idea` runs the same hygiene preflight, then creates one
-structured idea scaffold without staging, committing, pushing, or recording
-approval.
-
-## Install
+Silvermoon needs Node.js 22 or newer and Git access to the repository's primary
+branch.
 
 ```sh
 npm install --save-dev silvermoon
 npx skills add ./node_modules/silvermoon/skills --skill silvermoon --agent github-copilot --yes --copy
 ```
-
-Requires Node.js 22 or newer and Git access to the configured primary branch.
-The npm package contains the canonical skill. Skill registration and updates
-belong to `npx skills`; Silvermoon only diagnoses exact content alignment and
-never changes the registered skill.
-
-## Configure
 
 Create `.silvermoon/config.yaml`:
 
@@ -63,180 +28,87 @@ primaryRepository: https://github.com/example/repository.git
 primaryBranch: main
 ```
 
-Repository URLs are canonical credential-free HTTPS shared state. Credentials,
-named remotes, and URL rewrites remain local Git concerns. Metadata paths are
-fixed and cannot be overridden by configuration.
-
-Create or repair this file with ordinary repository editing tools. Silvermoon
-reports configuration findings but does not own an onboarding mutation command.
-
-## Store Ideas
-
-Each idea is self-contained under one canonical uppercase ULID folder:
-
-```text
-.silvermoon/
-|-- config.yaml
-`-- ideas/
-    `-- 01M36QGPNTXEPP61DA4KP4AVZF/
-        |-- status.yaml
-        |-- ledger.md
-        `-- outer/
-            |-- Deployment.md
-            `-- inner/
-                |-- Implementation.md
-                `-- ideal/
-                    `-- Idea.md
-```
-
-The three nested worlds have canonical English and Chinese names:
-
-- **Ideal World (道心):** `Idea.md` defines the ideal.
-- **Inner World (内景):** `Implementation.md` defines implementation.
-- **Outer World (现世):** `Deployment.md` defines deployment.
-
-道心立意，内景成形，现世验真。
-
-Every world may contain additional files or directories. Ideal World artifacts
-support `Idea.md`, Inner World artifacts support `Implementation.md`, and Outer
-World artifacts support `Deployment.md`; supporting material never replaces
-the canonical same-world entry.
-
-Each world is an opaque Git tree. `idealRevision` identifies `ideal/`,
-`implementationRevision` identifies `inner/` and therefore includes the Ideal
-World, and `deploymentRevision` identifies `outer/` and therefore includes both
-nested worlds. This creates deterministic cascading invalidation. `status.yaml`
-and required `ledger.md` are outside all three world trees.
-
-The Silvermoon Agent skill authors implementation and deployment plans under
-`## Steps` and outcome contracts under `## Acceptance criteria`. Every item
-uses a stable level-three `I-Sxx`, `I-ACxx`, `D-Sxx`, or `D-ACxx` heading.
-Each criterion contains both its observable outcome and the method that proves
-it. World contracts never use task-list checkboxes.
-
-The required idea-root `ledger.md` mirrors stable IDs and short titles under
-Implementation and Deployment Steps and Acceptance criteria checklists.
-Silvermoon requires the regular file but does not parse it, include it in world
-revisions, or infer a human decision from `[x]`. Agents update world headings
-and ledger entries together, reset materially changed completed items, and
-derive the next work from `whats-next`, the contracts, and unchecked entries.
-
-```yaml
-version: 1
-id: 01M36QGPNTXEPP61DA4KP4AVZF
-alias: publish-documentation
-approvedRevision: 0123456789abcdef0123456789abcdef01234567
-implementationAcceptedRevision: 0123456789abcdef0123456789abcdef01234567
-deploymentAcceptedRevision: 0123456789abcdef0123456789abcdef01234567
-```
-
-`version` and `id` are required. `alias` is optional; when present it is an
-exact, unique, case-sensitive selector. Other optional fields, in canonical
-order, are `abandoned: true` and the three revision fields shown above. Explicit
-`abandoned: false`, derived state, criteria mirrors, source locators, unknown
-keys, aliases/anchors, comments, and noncanonical YAML are rejected.
-
-State is derived in order:
-
-1. `abandoned` when `abandoned: true`.
-2. `preparing` when `approvedRevision` differs from `idealRevision`.
-3. `implementing` when `implementationAcceptedRevision` differs from
-   `implementationRevision`.
-4. `deploying` when `deploymentAcceptedRevision` differs from
-   `deploymentRevision`.
-5. `completed` when all three revisions match.
-
-## Navigate
+Then create an idea and let the registered Silvermoon skill guide one safe
+next action at a time:
 
 ```sh
-silvermoon whats-next
-silvermoon whats-next 01M36QGPNTXEPP61DA4KP4AVZF
-silvermoon whats-next publish-documentation --json
+npx silvermoon create-idea --json
+npx silvermoon whats-next <idea> --json
 ```
 
-Without a selector, Silvermoon asks you to choose among multiple active ideas,
-continue one active idea, or create a new idea. With a ULID or exact unique
-alias, it renders state guidance. Every invocation first checks the configured
-primary branch, conflicts, dirty worktree, and local/remote primary ancestry.
+Describe the desired world in the generated `Idea.md`, review it, and approve
+that exact revision. From then on, Silvermoon keeps the goal, implementation,
+repository state, and real-world result connected. See
+[Getting Started](./docs/getting-started.md) for the complete first workflow.
 
-JSON reports contain `observedPrimaryCommit`, `selectedIdea`, and exactly one
-`action`. They also contain `onboarding`, whose requirements carry stable IDs,
-statuses, blocking flags, dependencies, observed facts, structured remediation,
-a recommended action, and a recheck command. Execution source is
-`source-checkout`, `project-local`, `temporary`, `global`, or `unknown`.
-Temporary execution can bootstrap diagnosis; normal idea work requires the
-exact project dependency, installed package, and matching repository skill.
-Use the observed commit as the expected remote tip for later writes.
-If primary moves, fetch and reobserve rather than replaying a stale decision.
+## Why Silvermoon
 
-## Create An Idea
+Long-running Agent work usually asks people to carry too much invisible state.
+Someone must remember what was intended, whether the code still matches the
+task, and which conversation or machine knows the latest truth. Silvermoon
+makes those concerns part of the project instead.
 
-```sh
-silvermoon create-idea --json
-```
+It lets people step back from continuous supervision and return at the
+decisions that belong to them: approving the intended outcome, accepting the
+implementation, and accepting that the result is true in the outside world.
+Between those boundaries, an Agent can inspect repository facts and continue
+the highest-priority safe action.
 
-After branch, conflict, dirty-worktree, and primary-ancestry hygiene passes, the
-command generates a canonical ULID, structured `Idea.md`, `Implementation.md`,
-`Deployment.md`, and `ledger.md` documents, plus a canonical `status.yaml`
-containing only `version` and `id`. It does not require or invent an alias. The
-new files are intentionally untracked, so the next `whats-next <ULID>` reports
-`inspect-worktree-changes` until you complete the initial `Idea.md`, review the
-candidate, and publish it through ordinary Git. An Agent may add a concise,
-unique alias derived from the user's request while preparing the idea; users
-need not stop to name it.
+It also refuses to let a detached task card declare success. Current artifacts
+and explicit decisions jointly determine state, so a changed goal or
+implementation naturally invalidates conclusions that depended on the older
+revision. Because those facts live in Git, work can continue across devices,
+sessions, Agents, and hosting platforms.
 
-Silvermoon has no approval or acceptance mutation commands. After an explicit
-decision, edit the idea's status file, run `silvermoon check --staged`, commit
-the status fact, and non-force push through ordinary Git.
+## The Project's Artifact Spirit
 
-## Validate
+<img src="./docs/assets/silvermoon-avatar.svg" width="128" alt="Line portrait of Silvermoon, the project's artifact spirit">
 
-- `check` validates only the committed `HEAD` snapshot and reads primary
-  coordinates from that snapshot.
-- `check --worktree` validates the hypothetical commit containing HEAD, the
-  index, unstaged changes, and nonignored untracked files. It reads primary
-  coordinates from that complete candidate.
-- `check --staged` validates the index snapshot.
-- `check --commit <revision>` validates one local commit snapshot.
-- `check --remote` uses committed HEAD coordinates to fetch primary, validates
-  its immutable tip, and proves retained revision facts against complete
-  reachable primary history.
+Silvermoon is named after a character in *A Record of a Mortal's Journey to
+Immortality*. She comes from the Silvermoon Wolf Clan in the Spirit Realm and
+is one of the split souls of Ling Long. After losing part of her memory in the
+human realm, she lives as an artifact spirit first in a wolf-headed jade
+scepter and later in Han Li's Bamboo Cloudswarm Swords.
 
-Targets are mutually exclusive and never change the caller's branch, index, or
-worktree. Exit status `0` means success, `1` means validation or operational
-failure, and `2` means invalid CLI usage. Use `--json` for the complete stable
-report envelope.
+That image fits this project: Silvermoon does not belong to one operator or one
+chat. It lives with the project's artifacts, understands their state, and
+helps each companion find what comes next. The biography is inspiration, not a
+prerequisite for using the tool.
 
-The repository configuration schema is
-[schema/v1/config.schema.json](schema/v1/config.schema.json), and the idea
-status schema is
-[schema/v1/idea-status.schema.json](schema/v1/idea-status.schema.json). Both
-use the shared definitions in
-[schema/v1/definitions.schema.json](schema/v1/definitions.schema.json).
-Runtime checks additionally verify canonical YAML, regular fixed metadata
-paths, three world entries, unique aliases, current Git object format, tree
-object types, per-world candidate revision binding, and acceptance history.
+Watch the official animation on
+[YouTube](https://www.youtube.com/watch?v=qlodDgpiYhg) or
+[Bilibili (Episode 1)](https://www.bilibili.com/bangumi/play/ep733316).
 
-## Adopt Silvermoon
+## From Ideal To Real
 
-Silvermoon is a direct breaking cutover from the previous product. It recognizes
-only `.silvermoon/config.yaml` version 1 and does not read, convert, or diagnose
-previous layouts. Preserve Git history and record only acceptance facts
-supported by explicit review. See the installed skill's `references/adoption.md` for
-the adoption sequence.
+A project is more than a task list or a transcript. It is an ideal becoming
+real through three nested worlds.
 
-## Development
+**Ideal World (道心)** names the outcome worth pursuing. **Inner World (内景)**
+gives that intent shape in repository artifacts. **Outer World (现世)** asks
+whether the shaped work is true where it must actually operate.
 
-```sh
-pnpm install --frozen-lockfile
-pnpm sync:skills       # refresh the generated GitHub Copilot skill copy
-pnpm test              # fast unit and repository contract tests
-pnpm test:integration # real filesystem and Git behavior
-pnpm test:e2e         # packed and installed CLI behavior
-pnpm check            # complete release-grade validation
-```
+> 道心立意，内景成形，现世验真。
 
-Edit the canonical skill under `skills/silvermoon`, then run
-`pnpm sync:skills`. The checked-in `.github/skills/silvermoon` directory is a
-generated copy so repository skill discovery works without symbolic-link
-support. `pnpm check:skills` rejects a stale or manually edited copy.
+The worlds nest from the inside out. Implementation contains the ideal it
+serves, and deployment contains both. This is an engineering relationship, not
+just a metaphor: when an inner world changes, conclusions from an outer world
+no longer have the same foundation and must be proven again.
+
+Humans own approval and acceptance. Agents own continuation: they read the
+contracts, the ledger, and Git facts; preserve concurrent work; execute one
+safe action; and reobserve only after something changes. The context belongs to
+the project, not to a fleeting conversation.
+
+## Further Reading
+
+- [Getting Started](./docs/getting-started.md) — installation, configuration,
+  and the first idea.
+- [Core Concepts](./docs/core-concepts.md) — project ownership, the three
+  worlds, revisions, and decision boundaries.
+- [Operating Silvermoon](./docs/operations.md) — navigation, creation,
+  publication, hygiene, and continuation.
+- [Technical Reference](./docs/reference.md) — storage, derived state, CLI
+  reports, validation targets, and schemas.
+- [Maintaining Silvermoon](./docs/maintaining.md) — development checks,
+  documentation ownership, and release guidance.
