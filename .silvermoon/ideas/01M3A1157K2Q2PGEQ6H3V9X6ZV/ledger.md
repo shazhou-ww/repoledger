@@ -23,13 +23,19 @@
 
 ### Deployment steps
 
-- [ ] **D-S01:** 发布并锁定现世契约
-- [ ] **D-S02:** 验证 ready 消费体验
-- [ ] **D-S03:** 验证 packaged consumer 的 gap 体验
-- [ ] **D-S04:** 执行发布级回归
+- [x] **D-S01:** 发布并锁定现世契约
+- [x] **D-S02:** 验证 ready 消费体验
+- [x] **D-S03:** 验证 packaged consumer 的 gap 体验
+- [x] **D-S04:** 执行发布级回归
 
 ### Deployment acceptance criteria
 
-- [ ] **D-AC01:** Ready 输出不展示 onboarding 流水账
-- [ ] **D-AC02:** Blocked 输出只展示完整 gap
-- [ ] **D-AC03:** 发布候选保持兼容且可交付
+- [x] **D-AC01:** Ready 输出不展示 onboarding 流水账
+- [x] **D-AC02:** Blocked 输出只展示完整 gap
+- [x] **D-AC03:** 发布候选保持兼容且可交付
+
+### 现世证据
+
+- 稳定 deployment revision：`2d980bdb7e5304b6d9c7360629126d0adacd64c8`。
+- source checkout 人类可读输出无 `onboarding` 行；JSON `result` 无 `onboarding` 属性，二者 action 均为 `deploy-idea`。
+- `pnpm check`：integration 62 项通过、2 项跳过；package smoke、installed-package e2e 和 skill consistency 全部通过。
