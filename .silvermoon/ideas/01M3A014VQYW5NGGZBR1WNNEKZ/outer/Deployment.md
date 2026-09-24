@@ -1,25 +1,25 @@
-# Deployment
+# 部署
 
-## Steps
-
-<!--
-Give every step a stable D-Sxx identifier and a level-three heading.
-Describe deployment or external-world verification work.
-Do not use task-list checkboxes in this document.
--->
-
-### D-S01: Step title
-
-<!-- Describe this deployment or external-verification step. -->
-
-## Acceptance criteria
+## 步骤
 
 <!--
-Give every criterion a stable D-ACxx identifier and a level-three heading.
-Describe both the observable external outcome and the method that proves it.
-Do not create a separate validation section or use task-list checkboxes.
+为每个步骤设置稳定的 D-Sxx 标识符和三级标题。
+描述部署或外部世界验证工作。
+本文档中不要使用任务列表复选框。
 -->
 
-### D-AC01: Criterion title
+### D-S01: 步骤标题
 
-<!-- Describe the required external outcome and how an Agent can prove it. -->
+<!-- 描述此部署或外部验证步骤。 -->
+
+## 验收标准
+
+<!--
+为每项标准设置稳定的 D-ACxx 标识符和三级标题。
+同时描述可观察的外部结果及其证明方法。
+不要创建单独的验证章节，也不要使用任务列表复选框。
+-->
+
+### D-AC01: 标准标题
+
+<!-- 描述所需的外部结果以及 Agent 如何证明该结果。 -->
