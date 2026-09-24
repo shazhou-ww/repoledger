@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, test } from "node:test";
 
-import { loadConfig, serializeConfig } from "../src/config.js";
+import { loadConfig, serializeConfig } from "../../src/config.js";
 
 const temporaryDirectories = [];
 

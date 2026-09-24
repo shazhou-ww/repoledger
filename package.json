@@ -18,12 +18,16 @@
     "schema"
   ],
   "scripts": {
-    "check": "node --check bin/silvermoon.js && node --test && npm run pack:check && npm run smoke:pack && npm run check:skills",
+    "check": "npm run check:quick && npm run test:integration && npm run pack:check && npm run test:e2e && npm run check:skills",
+    "check:quick": "node --check bin/silvermoon.js && npm test",
     "check:skills": "npx skills add . --list",
     "pack:check": "node scripts/check-pack.js",
     "prepare:npm-release": "node scripts/prepare-npm-release.mjs",
-    "smoke:pack": "node scripts/smoke-pack.js",
-    "test": "node --test"
+    "test": "npm run test:unit && npm run test:contract",
+    "test:contract": "node --test \"test/contract/*.test.*\"",
+    "test:e2e": "node --test \"test/e2e/*.test.*\"",
+    "test:integration": "node --test \"test/integration/*.test.*\"",
+    "test:unit": "node --test \"test/unit/*.test.*\""
   },
   "engines": {
     "node": ">=22"

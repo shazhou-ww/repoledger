@@ -4,11 +4,17 @@
 
 ### Steps
 
-- [ ] **I-S01:** Step title
+- [x] **I-S01:** Separate tests by execution boundary
+- [x] **I-S02:** Expose deterministic validation commands
+- [x] **I-S03:** Reshape CI and publish validation
+- [x] **I-S04:** Align documentation and executable contracts
 
 ### Acceptance criteria
 
-- [ ] **I-AC01:** Criterion title
+- [x] **I-AC01:** Every automated test has an accurate layer
+- [x] **I-AC02:** Ordinary CI gives fast pre-merge feedback
+- [x] **I-AC03:** Publication is guarded by the complete suite
+- [x] **I-AC04:** Repository validation remains compatible and complete
 
 ## Deployment
 

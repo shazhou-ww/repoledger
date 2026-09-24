@@ -62,8 +62,6 @@ development machine.
    ```sh
    pnpm install --frozen-lockfile
    pnpm check
-   npm run pack:check
-   pnpm check:skills
    git diff --check
    ```
 

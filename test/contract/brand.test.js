@@ -4,7 +4,7 @@ import { relative, resolve } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
-const repositoryRoot = fileURLToPath(new URL("..", import.meta.url));
+const repositoryRoot = fileURLToPath(new URL("../..", import.meta.url));
 const previousBrand = ["repo", "ledger"].join("");
 
 async function currentFiles(directory) {
@@ -33,6 +33,9 @@ test("keeps previous-brand references confined to explicit rejection tests", asy
 
   assert.deepEqual(
     occurrences.map(({ path }) => path),
-    ["scripts/smoke-pack.js", "test/config-v1.test.js"],
+    [
+      "test/e2e/installed-package.test.js",
+      "test/integration/config-v1.test.js",
+    ],
   );
 });

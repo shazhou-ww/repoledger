@@ -5,9 +5,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, test } from "node:test";
 
-import { inspectIdeaLayout } from "../src/idea-layout.js";
-import { serializeIdeaStatus } from "../src/ideas.js";
-import { ideaPaths } from "../src/layout.js";
+import { inspectIdeaLayout } from "../../src/idea-layout.js";
+import { serializeIdeaStatus } from "../../src/ideas.js";
+import { ideaPaths } from "../../src/layout.js";
 
 const temporaryDirectories = [];
 const id = "01M36QGPNTXEPP61DA4KP4AVZF";

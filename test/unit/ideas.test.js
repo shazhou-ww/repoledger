@@ -6,7 +6,7 @@ import {
   isValidUlid,
   parseIdeaStatus,
   serializeIdeaStatus,
-} from "../src/ideas.js";
+} from "../../src/ideas.js";
 
 const id = "01M36QGPNTXEPP61DA4KP4AVZF";
 const revision = "0123456789abcdef0123456789abcdef01234567";

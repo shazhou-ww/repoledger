@@ -2,11 +2,14 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { basename, join } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-const packageRoot = fileURLToPath(new URL("..", import.meta.url));
-const npmCli = process.env.npm_execpath;
+const packageRoot = fileURLToPath(new URL("../..", import.meta.url));
+const configuredNpmCli = process.env.npm_execpath;
+const npmCli = configuredNpmCli && /^npm-cli\.js$/i.test(basename(configuredNpmCli))
+  ? configuredNpmCli
+  : resolve(dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js");
 const id = "01M36QGPNTXEPP61DA4KP4AVZF";
 
 function ideaPaths(ideaId) {
@@ -35,13 +38,17 @@ function run(command, args, cwd) {
 }
 
 function npm(args, cwd) {
-  assert.ok(npmCli && /^npm-cli\.js$/i.test(basename(npmCli)));
   process.stdout.write(`SMOKE_NPM ${args[0]}\n`);
-  return run(process.execPath, [npmCli, ...args], cwd);
+  const result = npmResult(args, cwd);
+  assert.equal(
+    result.status,
+    0,
+    `npm ${args.join(" ")} failed:\n${result.stderr || result.error?.message}`,
+  );
+  return result.stdout.trim();
 }
 
 function npmResult(args, cwd) {
-  assert.ok(npmCli && /^npm-cli\.js$/i.test(basename(npmCli)));
   return spawnSync(process.execPath, [npmCli, ...args], {
     cwd,
     encoding: "utf8",

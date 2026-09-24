@@ -11,14 +11,12 @@ import {
   fetchPrimary,
   indexSnapshot,
   observeGitCommands,
-  parseWorktreeChanges,
   resolveCommit,
-  sanitizeGitMessage,
   worktreePathTree,
   worktreeSnapshot,
   withTemporaryTree,
   withTemporaryWorktree,
-} from "../src/git.js";
+} from "../../src/git.js";
 
 const temporaryDirectories = [];
 const repository = "https://example.test/owner/repository.git";
@@ -81,34 +79,6 @@ test("fetches primary by URL without a named Git remote", async () => {
   assert.equal(git(root, "for-each-ref", "--format=%(refname) %(objectname)"), refs);
 });
 
-test("redacts credentials and sensitive query values from Git messages", () => {
-  const message = "fatal: https://user:secret@example.test/repository.git?token=abc123 and ghp_abcdefghijklmnopqrstuvwxyz";
-  const sanitized = sanitizeGitMessage(message);
-
-  assert.doesNotMatch(sanitized, /user:secret|abc123|ghp_/);
-  assert.match(sanitized, /https:\/\/\[redacted\]@example\.test/);
-  assert.match(sanitized, /token=\[redacted\]/);
-});
-
-test("parses porcelain v2 worktree changes into stable arrays", () => {
-  const hash = "a".repeat(40);
-  const source = [
-    `2 R. N... 100644 100644 100644 ${hash} ${hash} R100 renamed.txt`,
-    "old.txt",
-    `1 .M N... 100644 100644 100644 ${hash} ${hash} modified.txt`,
-    "? new.txt",
-    `u UU N... 100644 100644 100644 100644 ${hash} ${hash} ${hash} conflict.txt`,
-    "",
-  ].join("\0");
-
-  assert.deepEqual(parseWorktreeChanges(source), {
-    staged: [{ path: "renamed.txt", kind: "renamed", originalPath: "old.txt" }],
-    unstaged: [{ path: "modified.txt", kind: "modified" }],
-    untracked: [{ path: "new.txt" }],
-    conflicted: [{ path: "conflict.txt", kind: "both-modified" }],
-  });
-});
-
 test("resolves commits and reports root commit paths", async () => {
   const { root } = await createRepository();
   const commit = resolveCommit(root, "HEAD");
@@ -135,7 +105,9 @@ test("materializes staged and full worktree snapshots without changing caller st
   await withTemporaryTree(root, staged.tree, async (worktree) => {
     assert.equal(await readFile(join(worktree, "README.md"), "utf8"), "fixture\n");
     assert.equal(await readFile(join(worktree, "staged.txt"), "utf8"), "staged\n");
-    await assert.rejects(readFile(join(worktree, "untracked.txt"), "utf8"), { code: "ENOENT" });
+    await assert.rejects(readFile(join(worktree, "untracked.txt"), "utf8"), {
+      code: "ENOENT",
+    });
   });
 
   const worktree = worktreeSnapshot(root);

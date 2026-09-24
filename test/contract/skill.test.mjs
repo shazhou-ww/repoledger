@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 
 import { parseDocument } from "yaml";
 
-const repositoryRoot = fileURLToPath(new URL("..", import.meta.url));
+const repositoryRoot = fileURLToPath(new URL("../..", import.meta.url));
 
 async function findSkillFiles(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
