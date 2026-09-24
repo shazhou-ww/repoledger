@@ -22,7 +22,8 @@ Silvermoon 要解决的问题应聚焦为三点。第一，让人少操心：Age
 项目名称还承载了一层简洁而有辨识度的背景。银月是《凡人修仙传》中的人物，来自灵界的
 银月狼族，是玲珑公主分裂出的两道元神之一。她在人界失去部分记忆后以银月之名作为器灵，
 先后寄居于狼首玉如意和韩立的青竹蜂云剑。这个人物关系与 Silvermoon 的产品定位相呼应，
-但它只应作为人物小传和趣味来源，不应扩展成需要读者了解原作的设定负担。
+但它只应作为人物小传和趣味来源，不应扩展成需要读者了解原作的设定负担。人物小传之后
+可以提供 YouTube 与哔哩哔哩的官方动画入口，作为对原作与动画创作者的简短致敬。
 
 ## Desired outcome
 
@@ -51,6 +52,10 @@ CLI、validation、adoption 和维护者信息在英文 `docs/` 中各有清晰�
 - 增加简短的人物小传，只介绍银月来自灵界的银月狼族、是玲珑公主的分魂之一，以及她作为
   器灵先后寄居的狼首玉如意（a wolf-headed jade scepter）和青竹蜂云剑
   （the Bamboo Cloudswarm Swords），不展开额外原作剧情。
+- 在人物小传结尾以一行简短链接邀请读者观看《凡人修仙传》官方动画，使用稳定的
+  [YouTube](https://www.youtube.com/watch?v=qlodDgpiYhg) 与
+  [哔哩哔哩第 1 话](https://www.bilibili.com/bangumi/play/ep733316) 页面，不保留分享
+  tracking 参数。
 - 将只服务于文档的根级 `assets/` 迁入 `docs/assets/`，并更新仓库浏览、npm package、
   README 渲染和测试中的全部引用，使文档与其视觉资源具有同一个清晰归属。
 - 在人物小传附近使用迁移后的 `docs/assets/silvermoon-avatar.svg` 线稿头像，默认宽度约
@@ -70,6 +75,8 @@ CLI、validation、adoption 和维护者信息在英文 `docs/` 中各有清晰�
 - 重新设计顶部主视觉或 `silvermoon-avatar.svg`，以及新增另一套品牌资产；本 idea 只改变
   现有文档资源的归属和引用路径。
 - 撰写《凡人修仙传》剧情、人物考据或扩展世界设定；原作背景只服务于项目命名和器灵隐喻。
+- 嵌入、下载、转载或摘录动画内容，以及暗示 Silvermoon 项目与小说、动画或其官方平台存在
+  隶属、授权或背书关系。
 - 为迁入 `docs/` 的文章提供中文翻译；本 idea 只要求中英文 README 双语同构，`docs/` 使用
   英文。
 - 把 README 变成完整协议规范、维护者手册或所有命令选项的替代参考。
@@ -85,6 +92,8 @@ CLI、validation、adoption 和维护者信息在英文 `docs/` 中各有清晰�
   作为描述性修饰 `wolf-headed`，不虚构新的固定专名。英文身份表述使用正文可证实的
   `the Silvermoon Wolf Clan in the Spirit Realm` 和 `one of the split souls of Ling Long`，
   不依赖二手资料中不稳定的头衔译法。
+- 动画入口只作为人物小传后的可选延伸阅读，使用描述性平台名称和外部链接，不复制受版权
+  保护的内容，不影响未看过原作或无法访问相应平台的读者理解项目。
 - README 不重复 docs 中的完整规范；docs 也不复制两份相互竞争的权威说明。迁移内容时必须
   保留现有行为保证和重要限制。
 - 文档体系应按读者意图组织，但避免把一个过长 README 机械拆成大量零碎页面。
