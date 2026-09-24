@@ -37,6 +37,9 @@ Silvermoon 的产品定位是“你项目的器灵”。它不是只服务人的
 - 将 `repoledger.yaml`、相关 schema、配置发现、错误消息、fixtures 和 canonical repository
   identity 迁移为 Silvermoon 命名；为已有 checkout 提供明确、可测试且不会静默选错 authority
   的迁移路径。
+- 将 Silvermoon 的公开 schema version 重新从 `v1` 开始，包括把当前 Repoledger `v3`
+  配置/schema 迁移为 Silvermoon `v1`。新品牌不继承旧产品的 schema 版本序列；schema 文件、
+  配置中的 `version`、校验器、生成器、fixtures、示例和文档必须使用一致的新版本号。
 - 迁移源码模块、导出符号、常量、内部术语、脚本、测试和 snapshots 中代表当前产品的
   Repoledger 标识；保留协议上确有必要的历史输入兼容时，必须用集中、文档化的兼容层隔离。
 - 将 Agent skill 的名称、目录、frontmatter、调用方式、模板、引用和项目指令迁移为
@@ -72,6 +75,10 @@ Silvermoon 的产品定位是“你项目的器灵”。它不是只服务人的
   不依赖全局安装或旧缓存。
 - **CLI 与配置：** 全新安装可通过 `silvermoon` 命令完成所有既有流程；新配置名和 schema
   可被正确发现和验证；旧配置/命令的接受或拒绝严格符合已批准的兼容策略，并有正反测试。
+- **Schema 版本线：** Silvermoon 的 canonical config/schema 标识为 `v1`，package 中只包含
+  正确命名的 Silvermoon `v1` schema；配置序列化、解析、JSON Schema 校验、CLI diagnostics、
+  fixtures 和文档均把它视为 Silvermoon 的首个版本，不将其表示为 Repoledger `v3` 的别名。
+  Repoledger `v3` 输入的迁移或拒绝行为符合已批准的兼容策略，并有明确测试。
 - **代码与测试：** 当前产品的模块、导出、符号、常量、fixtures、snapshots 和测试描述完成
   迁移；现有行为测试保持通过，新增测试覆盖包名、命令、配置、skill 和 repository identity
   的重命名边界。
@@ -108,6 +115,8 @@ Silvermoon 的产品定位是“你项目的器灵”。它不是只服务人的
 - 改名必须保持 primary authority 可验证。迁移 canonical repository/config 时，旧 checkout、
   新 checkout 和 URL redirect 的行为必须分别测试，不能通过放宽 repository identity 校验来
   避免迁移设计。
+- Silvermoon `v1` 与历史 Repoledger `v1` 是不同产品命名空间中的版本，不得仅凭数字相同
+  误接受旧格式；产品标识、文件名、字段集合和迁移入口必须共同消除版本歧义。
 - 历史 idea、status revision 和 Git commit 是审计事实。不得为了实现零文本命中而重写历史；
   若 tracked 历史 idea 文档必须修改，需先证明不会使已接受 revision 失效，或为受影响 idea
   取得新的显式审批/接受事实。
