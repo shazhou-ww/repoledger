@@ -22,14 +22,28 @@
 
 ### Deployment steps
 
-- [ ] **D-S01:** Build and inspect the package artifact
-- [ ] **D-S02:** Exercise installed-package language resolution
-- [ ] **D-S03:** Exercise installed create-idea overrides
-- [ ] **D-S04:** Confirm primary health and remove temporary state
+- [x] **D-S01:** Build and inspect the package artifact
+- [x] **D-S02:** Exercise installed-package language resolution
+- [x] **D-S03:** Exercise installed create-idea overrides
+- [x] **D-S04:** Confirm primary health and remove temporary state
 
 ### Deployment acceptance criteria
 
-- [ ] **D-AC01:** The packed consumer surface is complete
-- [ ] **D-AC02:** Installed resolution is layered, explainable, and dynamic
-- [ ] **D-AC03:** Installed creation preserves override boundaries
-- [ ] **D-AC04:** Verification is externally healthy and leaves no residue
+- [x] **D-AC01:** The packed consumer surface is complete
+- [x] **D-AC02:** Installed resolution is layered, explainable, and dynamic
+- [x] **D-AC03:** Installed creation preserves override boundaries
+- [x] **D-AC04:** Verification is externally healthy and leaves no residue
+
+### Deployment evidence
+
+- Installed tarball smoke: `silvermoon@0.0.1`, 34 packed files, required
+  language runtime, schemas, docs, and skill present.
+- Installed resolution: default `en-US`, dynamic global `de` then `fr`,
+  project `zh-CN`, idea `ja`; inherited status bytes unchanged.
+- Installed creation: explicit `zh-cn` persisted as `zh-CN`, omitted override
+  wrote no field, invalid override returned `idea.language.invalid` without
+  mutation, and only `create-idea` accepted the option.
+- Primary and cleanup: implementation, acceptance, and deployment-contract
+  commits are reachable from `origin/main`; CI run
+  `https://github.com/shazhou-ww/silvermoon/actions/runs/36017122938` succeeded;
+  temporary roots were removed and the real user config remained unchanged.
