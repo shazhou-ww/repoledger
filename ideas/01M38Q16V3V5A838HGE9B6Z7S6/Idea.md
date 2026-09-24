@@ -82,7 +82,10 @@ Silvermoon 的产品定位是“你项目的器灵”。它不是只服务人的
 - 重写 Git 历史、删除审计证据，或把历史 commit 中的 Repoledger 字样改写为 Silvermoon。
 - 在 `silvermoon` 包名被其他主体占用后自动选择相似名称、作用域包或购买/索取名称。
 - 未经明确 Interface review 就永久保留旧 npm 包、旧 CLI、旧配置文件或双品牌入口。
-- 从开发机器直接发布 npm 包；发布仍必须遵守仓库的受控 workflow 和 immutable tag 规则。
+- 首次发布 npm 包、创建或推送 release tag、触发发布 workflow、验证 registry provenance、
+  执行发布后 smoke 或接受首版发布结果；这些工作由首版发布前的后续 task 定义和推进。
+- 从开发机器直接发布 npm 包；任何后续发布仍必须遵守仓库的受控 workflow 和 immutable
+  tag 规则。
 
 ## Implementation acceptance criteria
 
@@ -136,23 +139,14 @@ Silvermoon 的产品定位是“你项目的器灵”。它不是只服务人的
 - **D01 GitHub 迁移：** 已改名的 GitHub repository 的默认分支、保护规则、Actions、
   secrets/environment 引用和 canonical remote 坐标可用；新的 clone URL 与仓库内配置一致，
   旧 URL redirect 已验证但不再作为配置 authority。
-- **D02 npm 发布：** npm 包 `silvermoon` 仅通过批准的 GitHub Actions 发布流程和新命名的
-  immutable release tag 发布，registry metadata、provenance、安装和
-  `silvermoon --version` smoke 均正确。
-- **D03 全新环境：** 在一个无旧缓存的临时环境中，用户可以按迁移文档从安装到配置、运行、
-  检查远端状态完成代表性流程，且输出和生成文件只把 Silvermoon 作为当前产品。
-- **D04 旧入口：** 旧 GitHub URL、旧 npm 包或旧 CLI/配置入口的最终行为符合已批准的兼容和
-  弃用决策；没有无说明的错误重定向、authority 漂移或同名包供应链风险。
-- **D05 用户接受：** 用户审查发布后的包、仓库首页、主要文档和代表性 CLI 输出，并明确接受
-  Silvermoon 改名结果。
 
 ## Constraints
 
 - `silvermoon` 的 npm 可用性属于竞态条件；任何本地 404 都不能替代发布边界的再次核验，
-  更不能视为名称所有权。
+  更不能视为名称所有权。本任务只记录实现期间的可用性证据，不执行或接受首次发布。
 - GitHub repository 改名已经完成；实现不得尝试重复改名。canonical URL 切换、旧 URL
-  redirect 验证和 npm 首次发布仍是外部、可能需要用户权限的动作，必须有明确顺序、回滚方案
-  和人工确认，不得由本地脚本猜测成功。
+  redirect 验证仍是本任务的外部动作。npm 首次发布及其权限、顺序和回滚方案由后续 task
+  负责，不得由本任务创建 tag 或触发 workflow。
 - 改名必须保持 primary authority 可验证。迁移 canonical repository/config 时，旧 checkout、
   新 checkout 和 URL redirect 的行为必须分别测试，不能通过放宽 repository identity 校验来
   避免迁移设计。
@@ -177,11 +171,11 @@ Silvermoon 的产品定位是“你项目的器灵”。它不是只服务人的
 - **Visual review — required before accepting the README artwork:** 用户审查清理后的线稿、
   头发碎点/连线处理、单一银灰资源在浅色与深色背景上的效果，以及窄屏/桌面 README 渲染，
   批准最终头图版本。
-- **Deployment review — required before canonical cutover/publication:** repository/package
-  owner 审查已完成的 GitHub 改名现状、canonical URL 切换、npm 名称实时可用性、immutable
-  tag、workflow 权限和发布 smoke 计划。
+- **Deployment review — required before canonical cutover acceptance:** repository owner 审查
+  已完成的 GitHub 改名现状、canonical URL 切换和旧 URL redirect；npm 首发审查明确留给
+  后续 task。
 - **Delivery acceptance — required:** 用户或 accountable owner 审查已发布实现、残留审计、
-  验证证据和外部部署结果，并接受精确 primary commit。
+  验证证据和 canonical repository 迁移结果，并接受精确 primary commit。
 
 ## References
 
