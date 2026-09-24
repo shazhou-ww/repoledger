@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
-import { readdir, readFile, readlink, realpath } from "node:fs/promises";
+import { lstat, readdir, readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -8,6 +7,12 @@ import { fileURLToPath } from "node:url";
 import { parseDocument } from "yaml";
 
 const repositoryRoot = fileURLToPath(new URL("../..", import.meta.url));
+const generatedSkillRegistration = resolve(
+  repositoryRoot,
+  ".github",
+  "skills",
+  "silvermoon",
+);
 
 async function findSkillFiles(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -15,6 +20,7 @@ async function findSkillFiles(directory) {
   for (const entry of entries) {
     if ([".git", "node_modules"].includes(entry.name)) continue;
     const path = resolve(directory, entry.name);
+    if (path === generatedSkillRegistration) continue;
     if (entry.isDirectory()) matches.push(...(await findSkillFiles(path)));
     if (entry.isFile() && entry.name === "SKILL.md") matches.push(path);
   }
@@ -27,6 +33,7 @@ async function findMarkdownFiles(directory) {
   for (const entry of entries) {
     if ([".git", "ideas", "node_modules"].includes(entry.name)) continue;
     const path = resolve(directory, entry.name);
+    if (path === generatedSkillRegistration) continue;
     if (entry.isDirectory()) matches.push(...(await findMarkdownFiles(path)));
     if (entry.isFile() && entry.name.endsWith(".md")) matches.push(path);
   }
@@ -115,24 +122,29 @@ test("exposes one consolidated silvermoon skill", async () => {
 
 test("registers the canonical silvermoon skill for this project", async () => {
   const canonical = resolve(repositoryRoot, "skills", "silvermoon");
-  const registration = resolve(repositoryRoot, ".github", "skills", "silvermoon");
-  let target;
-  try {
-    target = (await readlink(registration)).replaceAll("\\", "/");
-    assert.equal(await realpath(registration), await realpath(canonical));
-  } catch (caught) {
-    if (caught.code !== "EINVAL") throw caught;
-    target = (await readFile(registration, "utf8")).trim().replaceAll("\\", "/");
-    const indexed = spawnSync(
-      "git",
-      ["-C", repositoryRoot, "ls-files", "-s", ".github/skills/silvermoon"],
-      { encoding: "utf8", windowsHide: true },
-    );
-    assert.equal(indexed.status, 0, indexed.stderr);
-    assert.match(indexed.stdout, /^120000 /);
+  const metadata = await lstat(generatedSkillRegistration);
+  assert.ok(metadata.isDirectory(), "repository skill registration must be a directory");
+
+  async function snapshot(directory) {
+    const entries = (await readdir(directory, { withFileTypes: true }))
+      .sort((left, right) => left.name.localeCompare(right.name));
+    const result = {};
+    for (const entry of entries) {
+      const path = resolve(directory, entry.name);
+      if (entry.isDirectory()) {
+        result[entry.name] = await snapshot(path);
+      } else {
+        assert.ok(entry.isFile(), `skill contains a non-regular path: ${path}`);
+        result[entry.name] = await readFile(path);
+      }
+    }
+    return result;
   }
 
-  assert.equal(target, "../../skills/silvermoon");
+  assert.deepEqual(
+    await snapshot(generatedSkillRegistration),
+    await snapshot(canonical),
+  );
 });
 
 test("documents explicit Silvermoon adoption and conversion", async () => {

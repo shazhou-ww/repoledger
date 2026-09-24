@@ -194,6 +194,12 @@ Silvermoon 是从上一产品直接进行的不兼容切换。它只识别版本
 
 ```sh
 pnpm install --frozen-lockfile
+pnpm sync:skills
 pnpm check
 pnpm check:skills
 ```
+
+请只编辑 `skills/silvermoon` 中的 canonical skill，然后运行
+`pnpm sync:skills`。提交到仓库的 `.github/skills/silvermoon` 是生成副本，因此无需
+symbolic link 支持也能完成仓库 skill discovery；`pnpm check:skills` 会拒绝过期或
+被手工修改的副本。

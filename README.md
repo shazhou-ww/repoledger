@@ -229,8 +229,14 @@ the adoption sequence.
 
 ```sh
 pnpm install --frozen-lockfile
+pnpm sync:skills       # refresh the generated GitHub Copilot skill copy
 pnpm test              # fast unit and repository contract tests
 pnpm test:integration # real filesystem and Git behavior
 pnpm test:e2e         # packed and installed CLI behavior
 pnpm check            # complete release-grade validation
 ```
+
+Edit the canonical skill under `skills/silvermoon`, then run
+`pnpm sync:skills`. The checked-in `.github/skills/silvermoon` directory is a
+generated copy so repository skill discovery works without symbolic-link
+support. `pnpm check:skills` rejects a stale or manually edited copy.
