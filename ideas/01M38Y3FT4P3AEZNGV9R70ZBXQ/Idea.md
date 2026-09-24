@@ -6,9 +6,9 @@ Language: zh-CN
 ## Goal
 
 将 Silvermoon 的 repository metadata 和 idea lifecycle 收拢到固定的 `.silvermoon/`
-命名空间，并让每个 idea 的文件结构与 Ideal World（道境）、Inner World（内景）、
+命名空间，并让每个 idea 的文件结构与 Ideal World（道心）、Inner World（内景）、
 Outer World（现世）三层世界模型同构。三层分别拥有独立且级联的 Git tree revision，
-使道境变化回到 preparing、内景变化回到 implementing、现世变化只回到 deploying，
+使道心变化回到 preparing、内景变化回到 implementing、现世变化只回到 deploying，
 避免现世的变化无谓地推翻已经成立的内景 decision。
 
 最终布局为：
@@ -42,7 +42,7 @@ revision 或维护依赖关系。
 
 三层嵌套 Git tree 同时解决两个问题：
 
-- Ideal World（道境）的 `ideal/` tree 表示想要什么以及不可变的产品边界；
+- Ideal World（道心）的 `ideal/` tree 表示想要什么以及不可变的产品边界；
 - Inner World（内景）的 `inner/` tree 包含 implementation contract 和完整
   `ideal/` tree；
 - Outer World（现世）的 `outer/` tree 包含 deployment contract 和完整
@@ -63,20 +63,20 @@ Silvermoon 对三层世界使用以下固定中英文术语：
 
 | Canonical English term | Canonical Chinese term | Repository path |
 |---|---|---|
-| Ideal World | 道境 | `outer/inner/ideal/` |
+| Ideal World | 道心 | `outer/inner/ideal/` |
 | Inner World | 内景 | `outer/inner/` |
 | Outer World | 现世 | `outer/` |
 
 英文界面和机器可读说明使用 `Ideal World`、`Inner World`、`Outer World`；中文文档和
-面向人的中文说明使用“道境”“内景”“现世”，首次出现时并列中英文。三层关系的品牌化
-概括为“道境立意，内景成形，现世验真”。目录名继续使用稳定的小写 `ideal`、`inner`、
+面向人的中文说明使用“道心”“内景”“现世”，首次出现时并列中英文。三层关系的品牌化
+概括为“道心立意，内景成形，现世验真”。目录名继续使用稳定的小写 `ideal`、`inner`、
 `outer`，它们是 path segment，不是另一套产品术语。当前 skill、CLI guidance、schema
 description 和文档不得使用“理想世界”“内心世界”“内在世界”“内部世界”“外在世界”
 “外部世界”“内层世界”“外层世界”等近义翻译指代这三个正式概念。
 
 ## World and document contract
 
-- Ideal World（道境）的 `ideal/` 是 opaque tree，唯一规范入口为 `Idea.md`。它描述目标、
+- Ideal World（道心）的 `ideal/` 是 opaque tree，唯一规范入口为 `Idea.md`。它描述目标、
   背景、产品边界、
   scope 和 out-of-scope。同目录的其他文件只能作为 `Idea.md` 所定义 ideal 的辅助材料，
   例如设计图、调研、样例或领域说明；它们可以扩充证据和细节，但不能成为绕过或替代
@@ -229,9 +229,9 @@ deploymentAcceptedRevision: <deploymentRevision>
   或独立 lifecycle contract。Tests 在三层分别加入不同扩展名和嵌套辅助文件，并断言它们只
   改变所在层及外层 revision，checker 不按文件名猜测额外 phase。
 - **I10 世界术语：** Skill、`whats-next` human guidance、JSON details 的 display metadata、
-  schema descriptions 和当前用户文档统一使用 `Ideal World`/“道境”、
+  schema descriptions 和当前用户文档统一使用 `Ideal World`/“道心”、
   `Inner World`/“内景”、`Outer World`/“现世”，并在适合的产品说明中使用
-  “道境立意，内景成形，现世验真”。目录和稳定机器标识继续使用
+  “道心立意，内景成形，现世验真”。目录和稳定机器标识继续使用
   `ideal`、`inner`、`outer`。Tests 拒绝当前表面出现未批准的同义翻译，并精确断言三个 phase
   guidance 使用对应的正式世界名称。
 - **I11 Criteria 与 evidence：** authoring 和 parser tests 要求 implementation criteria 位于
