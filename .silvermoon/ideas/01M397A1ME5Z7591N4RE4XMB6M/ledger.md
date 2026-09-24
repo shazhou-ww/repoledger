@@ -20,8 +20,8 @@
 
 ### Steps
 
-- [ ] **D-S01:** Observe the layered CI workflow on primary
+- [x] **D-S01:** Observe the layered CI workflow on primary
 
 ### Acceptance criteria
 
-- [ ] **D-AC01:** GitHub Actions proves the intended CI topology
+- [x] **D-AC01:** GitHub Actions proves the intended CI topology
