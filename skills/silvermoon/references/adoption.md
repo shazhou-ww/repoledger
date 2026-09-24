@@ -2,6 +2,29 @@
 
 ## New repositories
 
+Start with a complete, read-only diagnosis, even in an unfamiliar repository:
+
+```sh
+npx silvermoon@<version> whats-next --json
+```
+
+The report distinguishes source checkout, project-local, temporary, global,
+and unknown execution; lists all requirements and findings with dependencies;
+and provides structured remediation plus a recheck command. Temporary
+execution is only a bootstrap authority. Adopt its exact version, install it
+project-locally, and thereafter use `npx --no-install silvermoon`.
+
+Install and synchronize explicitly:
+
+```sh
+npm install --save-dev --save-exact silvermoon@<version>
+npx skills add ./node_modules/silvermoon/skills --skill silvermoon --agent github-copilot --yes --copy
+```
+
+The npm package ships the canonical skill. Installation never writes tracked
+skill files. Registration and updates belong to `npx skills`; Silvermoon
+diagnoses the resulting repository-local content but never overwrites it.
+
 Create `.silvermoon/config.yaml` with the fixed version 1 contract:
 
 ```yaml
@@ -21,6 +44,9 @@ silvermoon check --remote
 silvermoon create-idea --json
 silvermoon whats-next <ULID> --json
 ```
+
+Create or repair configuration through ordinary reviewed file editing.
+Silvermoon reports every configuration finding but has no init or setup command.
 
 ## Idea storage
 

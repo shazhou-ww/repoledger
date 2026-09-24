@@ -67,6 +67,55 @@ test("renders a created idea scaffold", () => {
   );
 });
 
+test("renders complete onboarding requirement details", () => {
+  const report = {
+    command: "whats-next",
+    ok: true,
+    root: "C:/repository",
+    diagnostics: [],
+    result: {
+      observedPrimaryCommit: null,
+      selectedIdea: null,
+      onboarding: {
+        status: "blocked",
+        desiredVersion: "1.2.3",
+        executionSource: { kind: "temporary" },
+        requirements: [{
+          id: "skill.repository-local",
+          title: "Repository-local canonical skill",
+          status: "missing",
+          blocking: true,
+          dependencies: ["package.installed"],
+          observed: { paths: [] },
+          remediation: {
+            kind: "command",
+            executable: "npx",
+            args: ["skills", "add", "./node_modules/silvermoon/skills"],
+            description: "Register the skill.",
+          },
+        }],
+        recommendedAction: null,
+        recheck: {
+          kind: "command",
+          executable: "npx",
+          args: ["--no-install", "silvermoon", "whats-next"],
+          description: "Recheck.",
+        },
+      },
+      action: { code: "adopt-silvermoon", message: "Adopt it.", details: {} },
+    },
+  };
+  const output = capture();
+
+  render(report, false, output.io);
+
+  const text = output.logs.join("\n");
+  assert.match(text, /skill\.repository-local \[blocking\]/);
+  assert.match(text, /depends  package\.installed/);
+  assert.match(text, /fix      npx skills add/);
+  assert.match(text, /recheck  npx --no-install silvermoon whats-next/);
+});
+
 test("renders deterministic whats-next human and JSON output", () => {
   const report = {
     command: "whats-next",

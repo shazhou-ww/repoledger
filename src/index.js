@@ -253,4 +253,8 @@ export {
   validateIdeaStatus,
 } from "./ideas.js";
 export { createIdea, generateUlid } from "./create-idea.js";
+export {
+  inspectAdoption,
+  SILVERMOON_VERSION,
+} from "./adoption.js";
 export { whatsNext } from "./whatsnext.js";

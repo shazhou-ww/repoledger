@@ -63,6 +63,22 @@ try {
     npm(["pack", "--json", "--pack-destination", temporaryRoot], packageRoot),
   )[0];
   const tarball = join(temporaryRoot, packed.filename);
+  const bootstrap = join(temporaryRoot, "bootstrap");
+  await mkdir(bootstrap);
+  run("git", ["init", "--initial-branch=main"], bootstrap);
+  npm(["init", "-y"], bootstrap);
+  npm(["install", "--ignore-scripts", "--no-audit", "--no-fund", tarball], bootstrap);
+  const bootstrapReport = JSON.parse(
+    npm(["exec", "--", "silvermoon", "whats-next", "--json"], bootstrap),
+  );
+  assert.equal(bootstrapReport.result.action.code, "adopt-silvermoon");
+  assert.equal(bootstrapReport.result.onboarding.executionSource.kind, "project-local");
+  assert.deepEqual(
+    bootstrapReport.result.onboarding.findings.map(({ id }) => id),
+    ["package.manifest", "skill.repository-local", "repository.configuration"],
+  );
+  assert.equal(bootstrapReport.result.onboarding.recommendedAction.executable, "npm");
+
   const consumer = join(temporaryRoot, "consumer");
   const primary = join(temporaryRoot, "primary.git");
   const paths = ideaPaths(id);
@@ -87,6 +103,27 @@ try {
   run("git", ["commit", "-m", "Initialize smoke fixture"], consumer);
 
   npm(["install", "--ignore-scripts", "--no-audit", "--no-fund", tarball], consumer);
+  const consumerManifestPath = join(consumer, "package.json");
+  const consumerManifest = JSON.parse(await readFile(consumerManifestPath, "utf8"));
+  delete consumerManifest.dependencies;
+  consumerManifest.devDependencies = { silvermoon: packed.version };
+  await writeFile(consumerManifestPath, `${JSON.stringify(consumerManifest, null, 2)}\n`);
+  npm([
+    "exec",
+    "--yes",
+    "--package",
+    "skills",
+    "--",
+    "skills",
+    "add",
+    "./node_modules/silvermoon/skills",
+    "--skill",
+    "silvermoon",
+    "--agent",
+    "github-copilot",
+    "--yes",
+    "--copy",
+  ], consumer);
   assert.match(
     await readFile(join(consumer, "node_modules", "silvermoon", "README.zh-CN.md"), "utf8"),
     /# Silvermoon（银月）/,
@@ -107,7 +144,11 @@ try {
     readFile(join(consumer, "node_modules", ".bin", "repoledger"), "utf8"),
     { code: "ENOENT" },
   );
-  run("git", ["add", "package.json", "package-lock.json", ".gitignore"], consumer);
+  run(
+    "git",
+    ["add", "package.json", "package-lock.json", ".gitignore", ".agents", "skills-lock.json"],
+    consumer,
+  );
   run("git", ["commit", "-m", "Install packed Silvermoon"], consumer);
   run("git", ["init", "--bare", "--initial-branch=main", primary], consumer);
   run("git", ["push", primary, "main"], consumer);
@@ -120,7 +161,10 @@ try {
   assert.match(help, /silvermoon whats-next/);
   assert.match(help, /silvermoon create-idea/);
   assert.match(help, /silvermoon check/);
-  assert.doesNotMatch(help, /silvermoon whatsnext|silvermoon task|silvermoon status|silvermoon init/);
+  assert.doesNotMatch(
+    help,
+    /silvermoon whatsnext|silvermoon task|silvermoon status|silvermoon init|silvermoon skill/,
+  );
   assert.equal(npm(["exec", "--", "silvermoon", "--version"], consumer), packed.version);
   const exported = run(
     process.execPath,
@@ -192,6 +236,25 @@ try {
   );
   assert.equal(worktree.ok, true);
   assert.equal(Object.hasOwn(createdSummary, "alias"), false);
+  const lifecycle = JSON.parse(
+    npm(["exec", "--", "silvermoon", "whats-next", "installed-smoke", "--json"], consumer),
+  );
+  assert.equal(lifecycle.result.onboarding.status, "ready");
+  assert.equal(lifecycle.result.onboarding.executionSource.kind, "project-local");
+  await writeFile(
+    join(consumer, ".agents", "skills", "silvermoon", "SKILL.md"),
+    "drift\n",
+  );
+  const drift = JSON.parse(
+    npm(["exec", "--", "silvermoon", "whats-next", "installed-smoke", "--json"], consumer),
+  );
+  assert.equal(drift.result.action.code, "adopt-silvermoon");
+  assert.equal(
+    drift.result.onboarding.findings.find(({ id: finding }) =>
+      finding === "skill.repository-local"
+    ).status,
+    "mismatched",
+  );
   process.stdout.write(`PACK_SMOKE_OK name=${packed.name} version=${packed.version}\n`);
 } finally {
   await rm(temporaryRoot, { recursive: true, force: true });

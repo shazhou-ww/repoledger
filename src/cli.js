@@ -33,9 +33,31 @@ function renderIdeaIdentity(idea) {
   return idea.alias === undefined ? idea.id : `${idea.id} (${idea.alias})`;
 }
 
+function renderRemediation(remediation) {
+  return remediation.kind === "command"
+    ? `${remediation.executable} ${remediation.args.join(" ")}`
+    : `${remediation.description} (${remediation.path})`;
+}
+
 function renderWhatsNext(result, io) {
+  if (result.onboarding) {
+    io.log(`onboarding ${result.onboarding.status}`);
+    io.log(`  runtime  ${result.onboarding.executionSource.kind} ${result.onboarding.desiredVersion}`);
+    for (const item of result.onboarding.requirements) {
+      io.log(
+        `  ${item.status.padEnd(12)} ${item.id}${item.blocking ? " [blocking]" : " [non-blocking]"}: ${item.title}`,
+      );
+      io.log(`    depends  ${item.dependencies.length ? item.dependencies.join(", ") : "none"}`);
+      io.log(`    observed ${JSON.stringify(item.observed)}`);
+      if (item.remediation) io.log(`    fix      ${renderRemediation(item.remediation)}`);
+    }
+    if (result.onboarding.recommendedAction) {
+      io.log(`  next     ${renderRemediation(result.onboarding.recommendedAction)}`);
+    }
+    io.log(`  recheck  ${renderRemediation(result.onboarding.recheck)}`);
+  }
   io.log(`${result.action.code}: ${result.action.message}`);
-  io.log(`  primary  ${result.observedPrimaryCommit}`);
+  if (result.observedPrimaryCommit) io.log(`  primary  ${result.observedPrimaryCommit}`);
   if (result.selectedIdea) {
     io.log(`  idea     ${renderIdeaIdentity(result.selectedIdea)}`);
     io.log(`  state    ${result.selectedIdea.state}`);
@@ -124,7 +146,7 @@ Examples:
       .command("whats-next [idea]")
       .description("fetch primary and render the highest-priority next action"),
   ).action(async (idea, options) => {
-    const report = await whatsNext({ idea, root: options.root });
+    const report = await whatsNext({ enforceOnboarding: true, idea, root: options.root });
     render(report, options.json, io);
     program.setOptionValue("resultCode", report.ok ? 0 : 1);
   });
@@ -168,7 +190,8 @@ export async function runCli(args, io = console) {
     await program.parseAsync(args.length === 0 ? ["--help"] : args, { from: "user" });
   } catch (caught) {
     if (caught instanceof CommanderError) return caught.exitCode === 0 ? 0 : 2;
-    throw caught;
+    io.error(`ERROR command.failed: ${caught.message}`);
+    return 1;
   }
   return program.getOptionValue("resultCode") ?? 0;
 }
