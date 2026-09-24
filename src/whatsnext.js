@@ -58,6 +58,16 @@ function actionWithLanguage(nextAction, language) {
   };
 }
 
+function onboardingGaps(onboarding) {
+  if (onboarding.findings.length === 0) return null;
+  return {
+    status: onboarding.status,
+    gaps: onboarding.findings,
+    recommendedAction: onboarding.recommendedAction,
+    recheck: onboarding.recheck,
+  };
+}
+
 function success(root, observedPrimaryCommit, request, selectedIdea, nextAction, language) {
   return {
     command: "whats-next",
@@ -396,6 +406,7 @@ export async function whatsNext({
 } = {}) {
   const repositoryRoot = resolve(root);
   const onboarding = await inspectAdoption({ root: repositoryRoot, selector });
+  const gapReport = onboardingGaps(onboarding);
   const request = create
     ? { kind: "create-idea" }
     : selector === undefined
@@ -419,14 +430,14 @@ export async function whatsNext({
         request,
         language,
         selectedIdea: null,
-        onboarding,
+        onboarding: gapReport,
         action: actionWithLanguage(action(
           "adopt-silvermoon",
-          "Complete the blocking Silvermoon onboarding findings before idea lifecycle work.",
+          "Complete the blocking Silvermoon onboarding gaps before idea lifecycle work.",
           {
-            blockingFindings: onboarding.findings.filter(({ blocking }) => blocking),
-            recommendedAction: onboarding.recommendedAction,
-            recheck: onboarding.recheck,
+            gaps: gapReport.gaps,
+            recommendedAction: gapReport.recommendedAction,
+            recheck: gapReport.recheck,
           },
         ), language),
       },
@@ -438,6 +449,6 @@ export async function whatsNext({
     root: repositoryRoot,
     userHome,
   });
-  if (report.result) report.result.onboarding = onboarding;
+  if (report.result && gapReport) report.result.onboarding = gapReport;
   return report;
 }

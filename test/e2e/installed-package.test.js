@@ -83,33 +83,46 @@ try {
   );
   assert.equal(bootstrapStatusAfter, bootstrapStatusBefore);
   assert.equal(bootstrapReport.result.action.code, "adopt-silvermoon");
-  assert.equal(bootstrapReport.result.onboarding.executionSource.kind, "project-local");
   assert.deepEqual(
-    bootstrapReport.result.onboarding.requirements.map(({ id: requirement }) =>
-      requirement
-    ),
+    bootstrapReport.result.onboarding.gaps.map(({ id: requirement }) => requirement),
     [
-      "repository.git",
-      "runtime.execution-source",
       "package.manifest",
-      "package.installed",
       "skill.repository-local",
       "repository.configuration",
     ],
   );
-  assert.deepEqual(
-    bootstrapReport.result.onboarding.findings.map(({ id }) => id),
-    ["package.manifest", "skill.repository-local", "repository.configuration"],
-  );
   assert.ok(
-    bootstrapReport.result.onboarding.requirements.every(({ dependencies }) =>
+    bootstrapReport.result.onboarding.gaps.every(({ dependencies }) =>
       Array.isArray(dependencies)
     ),
   );
   assert.ok(
-    bootstrapReport.result.onboarding.findings.every(({ blocking, remediation }) =>
+    bootstrapReport.result.onboarding.gaps.every(({ blocking, remediation }) =>
       blocking === true && remediation
     ),
+  );
+  assert.deepEqual(
+    bootstrapReport.result.action.details.gaps,
+    bootstrapReport.result.onboarding.gaps,
+  );
+  assert.ok(
+    bootstrapReport.result.onboarding.gaps.every((gap) =>
+      [
+        "id",
+        "title",
+        "status",
+        "blocking",
+        "dependencies",
+        "observed",
+        "remediation",
+      ].every((field) => Object.hasOwn(gap, field))
+    ),
+  );
+  assert.equal(
+    bootstrapReport.result.onboarding.gaps.some(({ status }) =>
+      ["satisfied", "inapplicable"].includes(status)
+    ),
+    false,
   );
   assert.equal(bootstrapReport.result.onboarding.recommendedAction.executable, "npm");
   assert.deepEqual(
@@ -288,8 +301,7 @@ try {
   const lifecycle = JSON.parse(
     npm(["exec", "--", "silvermoon", "whats-next", "installed-smoke", "--json"], consumer),
   );
-  assert.equal(lifecycle.result.onboarding.status, "ready");
-  assert.equal(lifecycle.result.onboarding.executionSource.kind, "project-local");
+  assert.equal(Object.hasOwn(lifecycle.result, "onboarding"), false);
   await writeFile(
     join(consumer, ".agents", "skills", "silvermoon", "SKILL.md"),
     "drift\n",
@@ -299,7 +311,7 @@ try {
   );
   assert.equal(drift.result.action.code, "adopt-silvermoon");
   assert.equal(
-    drift.result.onboarding.findings.find(({ id: finding }) =>
+    drift.result.onboarding.gaps.find(({ id: finding }) =>
       finding === "skill.repository-local"
     ).status,
     "mismatched",

@@ -42,8 +42,7 @@ function renderRemediation(remediation) {
 function renderWhatsNext(result, io) {
   if (result.onboarding) {
     io.log(`onboarding ${result.onboarding.status}`);
-    io.log(`  runtime  ${result.onboarding.executionSource.kind} ${result.onboarding.desiredVersion}`);
-    for (const item of result.onboarding.requirements) {
+    for (const item of result.onboarding.gaps) {
       io.log(
         `  ${item.status.padEnd(12)} ${item.id}${item.blocking ? " [blocking]" : " [non-blocking]"}: ${item.title}`,
       );
