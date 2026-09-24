@@ -17,6 +17,11 @@ canonical repository 坐标一致使用 `silvermoon`，且安装、使用、校�
 只修改显示名称会造成安装命令、配置发现、远端校验、skill discovery 和发布自动化互相
 不一致，因此本次改名必须作为一次有审查门槛的端到端迁移完成。
 
+Silvermoon 的产品定位是“你项目的器灵”。它不是只服务人的 Agent，也不是替人执行任务的
+自动化代理，而是同时服务人和 Agent、归属于项目本身的共享工具。它观察并检查项目的真实
+状态，保存双方都能理解的稳定事实，识别边界与阻塞，并回答当前唯一最高优先级的
+`what's next`。当下一步需要人类判断时，它应明确停下，而不是代替人作出决定。
+
 在 idea 创建时，`npm view silvermoon --registry https://registry.npmjs.org` 返回
 `E404 Not Found`，表明无作用域包名 `silvermoon` 当时未在官方 registry 注册。这不是名称
 预留；实施和发布前必须重新核验，并在名称被占用时停止，由用户决定新的包名。
@@ -39,6 +44,9 @@ canonical repository 坐标一致使用 `silvermoon`，且安装、使用、校�
 - 更新 README、开发/采用/发布文档、仓库指令、工作流、issue/PR 模板及其他当前文档，
   使其只把 Silvermoon 描述为当前产品；旧名称只可出现在明确标注的迁移说明、兼容测试或
   不可变历史事实中。
+- 在 README 的首要产品介绍中表达“Silvermoon 是你项目的器灵”这一定位，说明它同时面向
+  人和 Agent，以项目事实为依据检查状态、守住决策边界并回答 `what's next`；避免把它描述成
+  私人助理、聊天 Agent、后台服务或会替用户自主决策的执行者。
 - 将 GitHub repository 及默认远端坐标改名为 `silvermoon`，更新所有受影响的 canonical
   URL、badge、workflow、发布标签命名空间和自动化权限边界，并验证旧 URL 重定向不会被误当作
   新的 canonical identity。
@@ -69,7 +77,8 @@ canonical repository 坐标一致使用 `silvermoon`，且安装、使用、校�
   的重命名边界。
 - **Skill 与文档：** 安装后的 skill discovery 只把 Silvermoon 作为当前 skill/产品展示，
   项目指令和所有当前文档、示例、链接、badge 及发布说明均使用新名称；迁移说明准确列出
-  用户必须采取的动作。
+  用户必须采取的动作。README 的开篇明确使用“你项目的器灵”作为核心产品隐喻，并准确解释
+  Silvermoon 如何同时服务人和 Agent、检查项目状态、回答 `what's next` 及停在人类决策边界。
 - **残留审计：** 对 tracked files 执行大小写敏感和不敏感的 `repoledger` 搜索。每个剩余
   命中都属于明确列举的不可变历史事实或已批准、带期限的兼容测试/迁移说明；不存在未解释的
   当前品牌、公开 contract、文件名、配置名、代码标识或 URL 命中。
