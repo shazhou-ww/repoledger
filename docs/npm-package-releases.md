@@ -63,8 +63,9 @@ the release namespace.
 ## Publish a version
 
 1. Update the selected package's `version` in its committed `package.json`.
-2. Run `pnpm install --frozen-lockfile`, `pnpm check`, and the selected
-   package's `pack:check` script.
+2. Run `pnpm install --frozen-lockfile` and `pnpm check`. The complete check
+   includes unit, contract, integration, package contents, installed-package
+   E2E, and skill discovery.
 3. Merge the version change to `main`; do not tag an unmerged branch or local
    working tree.
 4. When the release is a deployment criterion of an active Silvermoon idea,
@@ -92,8 +93,11 @@ The [`publish-npm.yml`](../.github/workflows/publish-npm.yml) workflow then:
 2. installs the frozen pnpm dependencies;
 3. runs the allowlisted release planner and confirms the version is absent
    from npm;
-4. runs repository validation and the selected package tarball check; and
-5. publishes only the selected directory with provenance and the derived npm
+4. runs `pnpm test:unit`, `pnpm test:contract`, `pnpm test:integration`, and
+   `pnpm check:skills`;
+5. runs the selected package's `npm run pack:check` and
+   `npm run test:e2e`; and
+6. publishes only the selected directory with provenance and the derived npm
    dist-tag.
 
 Release runs are serialized within this repository. The registry preflight and
@@ -128,6 +132,8 @@ a new tag after the fix is merged. npm versions and release tags are immutable.
    the `npm` environment.
 5. Keep its tags under the protected `npm/<release-key>/v<semver>` convention.
 
-Run `node --test test/prepare-npm-release.test.mjs` for focused release
-validation and `pnpm check` for the complete repository suite before merging
-the mapping change.
+Run `node --test test/unit/prepare-npm-release.test.mjs
+test/integration/prepare-npm-release.test.mjs
+test/contract/npm-release.test.mjs` for focused release validation and
+`pnpm check` for the complete repository suite before merging the mapping
+change.

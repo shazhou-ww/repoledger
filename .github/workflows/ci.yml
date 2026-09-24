@@ -9,8 +9,8 @@ permissions:
   contents: read
 
 jobs:
-  validate:
-    name: Node ${{ matrix.node }} on ${{ matrix.os }}
+  unit:
+    name: Unit - Node ${{ matrix.node }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -42,11 +42,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Validate workspace and package
-        run: pnpm check
+      - name: Validate CLI syntax
+        run: node --check bin/silvermoon.js
 
-  skills:
-    name: Discover Agent Skills
+      - name: Run unit tests
+        run: pnpm test:unit
+
+  contract:
+    name: Repository contracts
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -57,5 +60,42 @@ jobs:
         with:
           node-version: 24
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run contract tests
+        run: pnpm test:contract
+
       - name: Discover skills
-        run: npx skills add . --list
+        run: pnpm check:skills
+
+  integration:
+    name: Git integration - Node 24 on Ubuntu
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run integration tests
+        run: pnpm test:integration

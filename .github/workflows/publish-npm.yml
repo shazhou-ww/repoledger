@@ -59,12 +59,28 @@ jobs:
           --tag "$RELEASE_TAG"
           --commit "$RELEASE_COMMIT"
 
-      - name: Validate workspace
-        run: pnpm check
+      - name: Validate CLI syntax
+        run: node --check bin/silvermoon.js
+
+      - name: Run unit tests
+        run: pnpm test:unit
+
+      - name: Run contract tests
+        run: pnpm test:contract
+
+      - name: Run integration tests
+        run: pnpm test:integration
+
+      - name: Discover agent skills
+        run: pnpm check:skills
 
       - name: Verify selected package tarball
         working-directory: ${{ steps.release.outputs.package_directory }}
         run: npm run pack:check
+
+      - name: Test installed package
+        working-directory: ${{ steps.release.outputs.package_directory }}
+        run: npm run test:e2e
 
       - name: Publish selected package
         working-directory: ${{ steps.release.outputs.package_directory }}

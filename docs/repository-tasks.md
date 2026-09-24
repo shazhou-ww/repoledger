@@ -49,8 +49,11 @@ branches.
 
 ## Repository Checks
 
+- Run `pnpm test` for the fast unit-and-contract developer suite.
+- Run `pnpm test:integration` for real filesystem and Git behavior, and
+  `pnpm test:e2e` for the installed package.
 - Run `pnpm check` after CLI, schema, repository model, release, or skill
-  changes.
+  changes; it remains the complete release-grade validation entrypoint.
 - Run `pnpm check:skills` after skill changes.
 - Validate package contents, installed-package smoke behavior, Markdown links,
   and `git diff --check` before delivery review.

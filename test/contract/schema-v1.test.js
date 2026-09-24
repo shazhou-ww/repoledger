@@ -4,12 +4,12 @@ import { test } from "node:test";
 
 import Ajv2020 from "ajv/dist/2020.js";
 
-import { isValidUlid } from "../src/ideas.js";
-import { validRepository } from "../src/repository.js";
+import { isValidUlid } from "../../src/ideas.js";
+import { validRepository } from "../../src/repository.js";
 
 async function readSchema(name) {
   return JSON.parse(
-    await readFile(new URL(`../schema/v1/${name}.schema.json`, import.meta.url), "utf8"),
+    await readFile(new URL(`../../schema/v1/${name}.schema.json`, import.meta.url), "utf8"),
   );
 }
 

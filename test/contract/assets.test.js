@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 
-const artworkUrl = new URL("../assets/silvermoon.svg", import.meta.url);
-const readmeUrl = new URL("../README.md", import.meta.url);
+const artworkUrl = new URL("../../assets/silvermoon.svg", import.meta.url);
+const readmeUrl = new URL("../../README.md", import.meta.url);
 
 function luminance(hex) {
   const channels = hex.match(/[0-9a-f]{2}/gi)

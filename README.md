@@ -215,6 +215,8 @@ the adoption sequence.
 
 ```sh
 pnpm install --frozen-lockfile
-pnpm check
-pnpm check:skills
+pnpm test              # fast unit and repository contract tests
+pnpm test:integration # real filesystem and Git behavior
+pnpm test:e2e         # packed and installed CLI behavior
+pnpm check            # complete release-grade validation
 ```

@@ -6,10 +6,10 @@ import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { afterEach, test } from "node:test";
 
-import { checkRepository } from "../src/index.js";
-import { observeGitCommands } from "../src/git.js";
-import { serializeIdeaStatus } from "../src/ideas.js";
-import { ideaPaths } from "../src/layout.js";
+import { checkRepository } from "../../src/index.js";
+import { observeGitCommands } from "../../src/git.js";
+import { serializeIdeaStatus } from "../../src/ideas.js";
+import { ideaPaths } from "../../src/layout.js";
 
 const temporaryDirectories = [];
 const id = "01M36QGPNTXEPP61DA4KP4AVZF";

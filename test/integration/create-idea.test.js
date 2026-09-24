@@ -6,17 +6,17 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { afterEach, test } from "node:test";
 
-import { createIdea } from "../src/create-idea.js";
-import { observeGitCommands } from "../src/git.js";
+import { createIdea } from "../../src/create-idea.js";
+import { observeGitCommands } from "../../src/git.js";
 import {
   DEPLOYMENT_TEMPLATE,
   IDEA_TEMPLATE,
   IMPLEMENTATION_TEMPLATE,
   LEDGER_TEMPLATE,
-} from "../src/idea-templates.js";
-import { serializeIdeaStatus } from "../src/ideas.js";
-import { ideaPaths } from "../src/layout.js";
-import { whatsNext } from "../src/whatsnext.js";
+} from "../../src/idea-templates.js";
+import { serializeIdeaStatus } from "../../src/ideas.js";
+import { ideaPaths } from "../../src/layout.js";
+import { whatsNext } from "../../src/whatsnext.js";
 
 const temporaryDirectories = [];
 const existingId = "01M36QGPNTXEPP61DA4KP4AVZF";
