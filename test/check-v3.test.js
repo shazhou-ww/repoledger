@@ -106,7 +106,7 @@ test("rejects conflicting check targets", async () => {
   assert.equal(report.diagnostics[0].code, "check.target.conflict");
 });
 
-test("rejects a changed acceptance field that does not bind the candidate tree", async () => {
+test("rejects a changed acceptance field in staged and worktree candidates", async () => {
   const root = await createRepository();
   await writeFile(
     join(root, "ideas", `${id}.status.yaml`),
@@ -119,10 +119,13 @@ test("rejects a changed acceptance field that does not bind the candidate tree",
   );
   git(root, "add", ".");
 
-  const report = await checkRepository({ root, staged: true });
+  const staged = await checkRepository({ root, staged: true });
+  const worktree = await checkRepository({ root, worktree: true });
 
-  assert.equal(report.ok, false);
-  assert.ok(report.diagnostics.some(({ code }) => code === "idea.revision.candidate-mismatch"));
+  for (const report of [staged, worktree]) {
+    assert.equal(report.ok, false);
+    assert.ok(report.diagnostics.some(({ code }) => code === "idea.revision.candidate-mismatch"));
+  }
 });
 
 test("rejects a mismatched acceptance introduced in the root commit", async () => {
