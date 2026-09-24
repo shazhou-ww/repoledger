@@ -59,6 +59,17 @@ Root commit 中每个新出现的 acceptance revision 都应视为相对“空 p
 字段，并必须等于同一 candidate snapshot 中的 current idea tree。上述 candidate 应返回
 `idea.revision.candidate-mismatch`。
 
+### Decision
+
+采用统一 candidate binding 规则：只有新增或修改 acceptance revision 时，才要求其等于
+同一 candidate 中 `ideas/<ULID>/` 的 Git tree OID。Root commit 的 previous status 按空对象
+处理，因此其中所有 revision 字段都属于新增字段。只修改 idea definition、保留旧 status
+revision 是合法的；旧值因不匹配而使状态自然回到 `preparing`。
+
+不同 check target 使用各自 candidate：`--commit` 使用 commit tree，`--staged` 使用 index
+tree，`--worktree` 使用完整 worktree candidate，`--remote` 还负责从 primary history 证明
+保留 revision 当初的合法 binding。
+
 ### Likely surface
 
 - `src/index.js` 的 commit target 在 root commit 时没有 parent/base revision。
@@ -98,6 +109,16 @@ worktree 或落后的 primary 上创建第一个新 idea。
 `create-idea` 是会引发 repository mutation 的产品动作。无 active idea 时也必须先经过与
 selected idea 相同的 branch/conflict/dirty/primary reconciliation；只有 clean、synchronized
 configured primary 才能输出 `create-idea`。
+
+### Decision
+
+所有 `whatsnext` 调用都先执行统一 worktree hygiene，不因是否带 selector、是否存在 active
+idea 而跳过。固定优先级为：refresh/structure diagnostic、configured-primary branch、conflict、
+dirty changes、local/remote behind-ahead-diverged，最后才是 idea selection、`create-idea` 或
+state guidance。
+
+因此无参数时的 `select-active-idea`、`continue-active-idea` 和 `create-idea` 都必须后置于
+hygiene。`whatsnext` 仍只读，只输出当前唯一最高优先动作。
 
 ### Likely surface
 
@@ -140,13 +161,28 @@ primary。已复现输出 alias 为 `from-A-migrated`，没有读取 B0。
 
 ### Expected
 
-必须明确选择一种一致语义：
+Local candidate 选择哪个 primary，primary 就由该 candidate 中的 `repoledger.yaml` 决定。
+同一次检查不得混用一个 candidate 的配置和另一个 primary 的 commit/ideas；任何 local 与
+fetched primary gap 都作为 worktree hygiene 输出，先同步或整合，再重新观察。
 
-- 首版不支持 relocation：local bootstrap config 与 fetched snapshot 的 primary coordinates
-  不一致时返回 `config.primary-mismatch`，要求同步后重新观察；或
-- 设计显式 handoff：验证 A1 到 B 的连续性，再以 B 的不可变 tip 重新完成 observation。
+### Decision
 
-不得在同一个成功 report 中混用 A 的 commit/ideas 与声明 B 的 authoritative config。
+统一 snapshot target 语义：
+
+- 默认 `check` 完全检查 committed `HEAD`，不把 staged、unstaged 或 untracked 内容并入
+  candidate；primary 坐标也读取 `HEAD:repoledger.yaml`。
+- `check --worktree` 把 HEAD、index、unstaged 和 nonignored untracked 合成为“假定全部已经
+  commit”的 candidate；配置与 primary 坐标直接使用该 worktree candidate 的内容，使调用者
+  可以在提交前验证 authority relocation。
+- `check --staged` 保留为只检查 index candidate 的 hook 入口；现有 `--unstaged` 由语义更
+  明确的 `--worktree` 取代。
+- `whatsnext` 不支持 `--worktree`。它只对 committed HEAD 与该 HEAD 配置所指向的 primary
+  导航；发现 dirty worktree 时，唯一方向是先处理这些变化，可建议调用
+  `check --worktree` 做提交前验证。
+
+因此 A0 指向 A、A1 改指 B 的场景中，停在 A0 的本地先从 A 观察到 A1，并把 A0/A1 gap
+作为 hygiene 输出；同步到 A1 后再次调用，才由 HEAD 中的新配置观察 B。不会在同一 report
+中混合 A 的 snapshot 与 B 的 authority。
 
 ### Likely surface
 
@@ -256,18 +292,23 @@ path validator 把 idea folder 内所有 regular file 都当作定义 artifact�
 ## Acceptance criteria
 
 - [ ] Root commit 中新增的每个 acceptance revision 都必须等于同一 candidate snapshot 的
-  current idea tree；`check --commit`、default local check 和 required CI 都不能漏检。
-- [ ] 无 active idea 时，dirty、conflicted、非 configured-primary、behind、ahead 和 diverged
-  worktree 都先输出相应 hygiene/reconciliation guidance，只有安全 worktree 才输出
-  `create-idea`。
-- [ ] Local bootstrap config 与 fetched primary config 的 authority coordinates 不一致时，
-  按获批的 mismatch 或 handoff 语义确定性处理，不返回混合 authority 的成功 report。
+  current idea tree；`check --commit`、`check --staged`、`check --worktree` 和 required CI
+  都不能漏检。
+- [ ] 所有 `whatsnext` 调用先执行统一 worktree hygiene；dirty、conflicted、非
+  configured-primary、behind、ahead 和 diverged 都先输出相应 guidance，只有安全 worktree
+  才输出 selection、`create-idea` 或 state guidance。
+- [ ] Default `check` 只检查 HEAD，`check --worktree` 检查假想完整 worktree commit 并使用
+  candidate config 指向的 primary，`check --staged` 只检查 index；`whatsnext` 不接受
+  `--worktree`。
+- [ ] Primary relocation 通过连续两次 observation 处理：先按旧 HEAD config 同步包含新配置
+  的 primary commit，再按新 HEAD config 观察新 primary；任何单次 report 都不混合 authority。
 - [ ] 公开 `validateIdeaStatus`、`serializeIdeaStatus` 和 `deriveIdeaState` 拒绝非 40/64 位 OID；
   repository-aware validation 继续要求当前 object format 的精确长度和 tree type。
 - [ ] Idea folder 内的 nested `.status.yaml` 被 checker 拒绝，diagnostic 指向精确路径并给出
   sibling status 修复方式。
 - [ ] 新增测试覆盖五个本文复现，并覆盖相邻合法场景，避免修复破坏 root idea creation、
-  project-level selection、正常 config、public helper 与普通 narrative artifact。
+  project-level selection、HEAD/worktree/staged target、正常 config、public helper 与普通
+  narrative artifact。
 - [ ] `pnpm check`、pack contents、installed-package smoke、Markdown links 和 skill validation
   全部通过。
 
