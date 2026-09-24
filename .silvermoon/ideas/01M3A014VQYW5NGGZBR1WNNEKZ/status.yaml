@@ -4,3 +4,4 @@ alias: release-silvermoon-0-0-2
 language: zh-CN
 approvedRevision: b613797907331ab2c53c6adaa01d2f1c2dcb4f0f
 implementationAcceptedRevision: d8bcdb4575f0d396814bc618a016d4d05c669cfd
+deploymentAcceptedRevision: 063ebae16cb71065a471068e0a6970cb58c8c8e6
