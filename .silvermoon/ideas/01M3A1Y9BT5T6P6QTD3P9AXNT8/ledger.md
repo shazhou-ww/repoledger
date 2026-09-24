@@ -14,8 +14,8 @@
 
 ### Deployment steps
 
-- [ ] **D-S01:** 在 GitHub 与徽章目标页面核验外部呈现
+- [x] **D-S01:** 在 GitHub 与徽章目标页面核验外部呈现
 
 ### Deployment acceptance criteria
 
-- [ ] **D-AC01:** npm package 徽章在公开 README 中清晰且可信
+- [x] **D-AC01:** npm package 徽章在公开 README 中清晰且可信
