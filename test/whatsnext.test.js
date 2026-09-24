@@ -37,6 +37,7 @@ async function writeIdea(root, ideaId, status = {}) {
   await writeFile(join(root, ...paths.ideaDocumentPath.split("/")), "# Fixture\n");
   await writeFile(join(root, ...paths.implementationDocumentPath.split("/")), "");
   await writeFile(join(root, ...paths.deploymentDocumentPath.split("/")), "");
+  await writeFile(join(root, ...paths.ledgerPath.split("/")), "# Ledger\n");
   await writeFile(
     join(root, ...paths.statusPath.split("/")),
     serializeIdeaStatus({ version: 1, id: ideaId, ...status }),

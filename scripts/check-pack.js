@@ -34,6 +34,7 @@ if (packed.status !== 0) {
     "src/create-idea.js",
     "src/git.js",
     "src/idea-layout.js",
+    "src/idea-templates.js",
     "src/ideas.js",
     "src/index.js",
     "src/layout.js",

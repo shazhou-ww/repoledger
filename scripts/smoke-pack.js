@@ -13,6 +13,7 @@ function ideaPaths(ideaId) {
   const idea = join(".silvermoon", "ideas", ideaId);
   return {
     status: join(idea, "status.yaml"),
+    ledger: join(idea, "ledger.md"),
     outer: join(idea, "outer"),
     deployment: join(idea, "outer", "Deployment.md"),
     inner: join(idea, "outer", "inner"),
@@ -67,6 +68,7 @@ try {
   await writeFile(join(consumer, paths.idea), "# Installed package smoke\n");
   await writeFile(join(consumer, paths.implementation), "");
   await writeFile(join(consumer, paths.deployment), "");
+  await writeFile(join(consumer, paths.ledger), "# Ledger\n");
   await writeFile(
     join(consumer, paths.status),
     `version: 1\nid: ${id}\nalias: installed-smoke\n`,
@@ -125,7 +127,42 @@ try {
   assert.match(created.result.createdIdea.id, /^[0-7][0-9A-HJKMNP-TV-Z]{25}$/);
   assert.equal(
     await readFile(join(consumer, created.result.createdIdea.ideaDocumentPath), "utf8"),
-    "",
+    `# Idea
+
+## Intent
+
+<!-- State the desired outcome in one or two sentences. -->
+
+## Context
+
+<!-- Describe the current problem, situation, or opportunity. -->
+
+## Desired outcome
+
+<!-- Describe the externally meaningful state that should become true. -->
+
+## Scope
+
+### In scope
+
+<!-- Describe what this idea includes. -->
+
+### Out of scope
+
+<!-- Describe adjacent work this idea intentionally excludes. -->
+
+## Constraints
+
+<!-- Record material product, repository, compatibility, or operational constraints. -->
+
+## Open questions
+
+<!-- Record unresolved decisions. Remove this section when none remain. -->
+`,
+  );
+  assert.match(
+    await readFile(join(consumer, created.result.createdIdea.ledgerPath), "utf8"),
+    /## Implementation[\s\S]*I-S01[\s\S]*## Deployment[\s\S]*D-AC01/,
   );
   assert.equal(
     await readFile(join(consumer, created.result.createdIdea.statusPath), "utf8"),

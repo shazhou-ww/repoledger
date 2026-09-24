@@ -32,7 +32,8 @@ silvermoon check [--remote | --commit <revision> | --staged | --worktree]
 stashes, deletes, resets, fast-forwards, or pushes. It returns one
 highest-priority action. `check` validates storage and Git facts for humans,
 hooks, and CI. `create-idea` runs the same hygiene preflight, then creates one
-empty idea scaffold without staging, committing, pushing, or recording approval.
+structured idea scaffold without staging, committing, pushing, or recording
+approval.
 
 ## Install
 
@@ -67,7 +68,7 @@ Each idea is self-contained under one canonical uppercase ULID folder:
 `-- ideas/
     `-- 01M36QGPNTXEPP61DA4KP4AVZF/
         |-- status.yaml
-        |-- ledger.md (optional)
+        |-- ledger.md
         `-- outer/
             |-- Deployment.md
             `-- inner/
@@ -93,21 +94,20 @@ Each world is an opaque Git tree. `idealRevision` identifies `ideal/`,
 `implementationRevision` identifies `inner/` and therefore includes the Ideal
 World, and `deploymentRevision` identifies `outer/` and therefore includes both
 nested worlds. This creates deterministic cascading invalidation. `status.yaml`
-and optional `ledger.md` are outside all three world trees.
+and required `ledger.md` are outside all three world trees.
 
-The Silvermoon Agent skill authors implementation criteria in
-`Implementation.md` under `## Implementation acceptance criteria` and
-deployment criteria in `Deployment.md` under
-`## Deployment acceptance criteria`. These world contracts use plain list
-items rather than task-list state; the three revision fields are the only
-acceptance state.
+The Silvermoon Agent skill authors implementation and deployment plans under
+`## Steps` and outcome contracts under `## Acceptance criteria`. Every item
+uses a stable level-three `I-Sxx`, `I-ACxx`, `D-Sxx`, or `D-ACxx` heading.
+Each criterion contains both its observable outcome and the method that proves
+it. World contracts never use task-list checkboxes.
 
-An optional idea-root `ledger.md` is the Agent continuation surface. It may use
-revision frontmatter plus `Current`, `Work`, `Checks`, and `Next` sections with
-Markdown checkboxes. Silvermoon does not parse the ledger, include it in world
-revisions, or infer a human decision from `[x]`. Agents compare its recorded
-world revisions with the current `whats-next` result and re-review stale
-records before continuing unfinished work, pending checks, or blockers.
+The required idea-root `ledger.md` mirrors stable IDs and short titles under
+Implementation and Deployment Steps and Acceptance criteria checklists.
+Silvermoon requires the regular file but does not parse it, include it in world
+revisions, or infer a human decision from `[x]`. Agents update world headings
+and ledger entries together, reset materially changed completed items, and
+derive the next work from `whats-next`, the contracts, and unchecked entries.
 
 ```yaml
 version: 1
@@ -158,11 +158,12 @@ silvermoon create-idea --json
 ```
 
 After branch, conflict, dirty-worktree, and primary-ancestry hygiene passes, the
-command generates a canonical ULID, three empty world entry documents, and a
-canonical `status.yaml` containing only `version` and `id`. It does not require
-or invent an alias. The new files are intentionally untracked, so the next
-`whats-next <ULID>` reports `inspect-worktree-changes` until you review and
-publish them through ordinary Git.
+command generates a canonical ULID, structured `Idea.md`, `Implementation.md`,
+`Deployment.md`, and `ledger.md` documents, plus a canonical `status.yaml`
+containing only `version` and `id`. It does not require or invent an alias. The
+new files are intentionally untracked, so the next `whats-next <ULID>` reports
+`inspect-worktree-changes` until you replace template placeholders, review the
+candidate, and publish it through ordinary Git.
 
 Silvermoon has no approval or acceptance mutation commands. After an explicit
 decision, edit the idea's status file, run `silvermoon check --staged`, commit

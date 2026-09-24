@@ -63,6 +63,7 @@ function renderCreateIdea(result, io) {
   }
   io.log(`created: ${result.createdIdea.id}`);
   io.log(`  idea    ${result.createdIdea.ideaPath}`);
+  io.log(`  ledger  ${result.createdIdea.ledgerPath}`);
   io.log(`  status  ${result.createdIdea.statusPath}`);
 }
 
@@ -131,7 +132,7 @@ Examples:
   addCommonOptions(
     program
       .command("create-idea")
-      .description("create one empty idea scaffold after primary hygiene"),
+      .description("create one structured idea scaffold after primary hygiene"),
   ).action(async (options) => {
     const report = await createIdea({ root: options.root });
     render(report, options.json, io);

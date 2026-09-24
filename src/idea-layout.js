@@ -143,14 +143,23 @@ async function requireDocument(root, path, diagnostics) {
   return true;
 }
 
-async function validateOptionalLedger(root, path, diagnostics) {
+async function requireLedger(root, path, diagnostics) {
   const value = await metadata(resolve(root, path));
-  if (value && (!value.isFile() || value.isSymbolicLink())) {
+  if (!value) {
+    diagnostics.push(error(
+      "idea.ledger.missing-file",
+      path,
+      `Required idea ledger does not exist: ${path}`,
+      `Create ${path} as a repository-owned regular file.`,
+    ));
+    return false;
+  }
+  if (!value.isFile() || value.isSymbolicLink()) {
     diagnostics.push(error(
       "idea.ledger.invalid-file",
       path,
-      `Optional idea ledger must be a repository-owned regular file: ${path}`,
-      `Replace ${path} with a regular file or remove it.`,
+      `Required idea ledger must be a repository-owned regular file: ${path}`,
+      `Replace ${path} with a regular file.`,
     ));
     return false;
   }
@@ -285,10 +294,10 @@ export async function inspectIdeaLayout({
           : "idea.entry.unexpected",
         `${paths.ideaPath}/${child.name}`,
         `Unexpected entry at the idea root: ${child.name}`,
-        "Keep only status.yaml, optional ledger.md, and outer/ at the idea root; put supporting files in their world.",
+        "Keep only status.yaml, ledger.md, and outer/ at the idea root; put supporting files in their world.",
       ));
     }
-    await validateOptionalLedger(root, paths.ledgerPath, diagnostics);
+    await requireLedger(root, paths.ledgerPath, diagnostics);
     const requiredDirectories = [
       paths.outerPath,
       paths.innerPath,

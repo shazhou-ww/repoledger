@@ -29,7 +29,7 @@ and Git.
 
 `whats-next` may fetch and inspect. It never checkout, merges, edits, commits,
 stashes, deletes, resets, fast-forwards, or pushes. `create-idea` runs the same
-hygiene preflight and, only when it passes, creates the empty idea scaffold.
+hygiene preflight and, only when it passes, creates the structured idea scaffold.
 
 ## Preserve Work
 
@@ -52,10 +52,10 @@ hygiene preflight and, only when it passes, creates the empty idea scaffold.
 - `create-idea`: this action is internal to the explicit `create-idea` command's
   preflight; do not replace the user's create intent with active-idea
   selection. After hygiene passes, the command creates one self-contained idea
-  with empty `Idea.md`, `Implementation.md`, and `Deployment.md` entries plus
-  alias-less `status.yaml`. It never stages, commits, pushes, or records a
-  decision. Review the resulting untracked paths before adding substantive
-  content.
+  with structured `Idea.md`, `Implementation.md`, `Deployment.md`, and
+  `ledger.md` entries plus alias-less `status.yaml`. It never stages, commits,
+  pushes, or records a decision. Review and replace template placeholders in
+  the resulting untracked paths before publication.
 - `switch-to-primary`, `resolve-conflicts`, `inspect-worktree-changes`,
   `fast-forward-primary`, `integrate-primary`, `publish-primary`: perform the
   exact Git hygiene step without discarding either history or unknown work.
@@ -87,7 +87,7 @@ Every idea uses this fixed structure:
 ```text
 .silvermoon/ideas/<ULID>/
 ├── status.yaml
-├── ledger.md (optional)
+├── ledger.md
 └── outer/
     ├── Deployment.md
     └── inner/
@@ -102,64 +102,61 @@ World (现世) entry: 道心立意，内景成形，现世验真. Each world may
 additional files and nested directories, but those artifacts support their
 same-world entry and do not define a second contract.
 
-Put implementation acceptance criteria as plain list items under
-`## Implementation acceptance criteria` in `Implementation.md`. Put deployment
-acceptance criteria under `## Deployment acceptance criteria` in
-`Deployment.md`. Keep checkboxes out of these world contracts. World content
-changes its world revision and every containing world revision; `status.yaml`
-and optional `ledger.md` stay outside all three world trees.
+In `Implementation.md` and `Deployment.md`, put plans under `## Steps` and
+outcome contracts under `## Acceptance criteria`. Give every step and criterion
+a stable level-three heading: `I-Sxx`, `I-ACxx`, `D-Sxx`, or `D-ACxx`. A
+criterion must describe both its observable outcome and the method that proves
+it; do not add a separate validation section. Keep checkboxes out of world
+contracts. World content changes its world revision and every containing world
+revision; `status.yaml` and `ledger.md` stay outside all three world trees.
 
 ## Continue From The Ledger
 
-An idea may have an Agent-owned `ledger.md` at the path reported by
-`whats-next`. It is operational context, not a fourth world, storage schema,
-normative contract, or human decision. Silvermoon allows the file but does not
-parse its body or derive lifecycle state from it.
+Every idea has an Agent-owned `ledger.md` at the path reported by `whats-next`.
+It is operational state, not a fourth world, normative contract, or human
+decision. Silvermoon requires the regular file but does not parse its body or
+derive lifecycle state from it.
 
-Use this authoring convention when a ledger helps another session continue:
+Mirror stable IDs and short titles from both world contracts:
 
 ```markdown
----
-idealRevision: <revision observed while authoring>
-implementationRevision: <revision observed while authoring>
-deploymentRevision: <revision observed while authoring>
----
-
 # Ledger
 
-## Current
+## Implementation
 
-- State: implementing
-- Focus: current outcome
-- Blocked: no
+### Steps
 
-## Work
+- [x] **I-S01:** Completed step
+- [ ] **I-S02:** Remaining step
 
-- [x] Completed work
-- [ ] Remaining work
+### Acceptance criteria
 
-## Checks
+- [x] **I-AC01:** Proven criterion
+- [ ] **I-AC02:** Unproven criterion
 
-- [x] Completed check
-- [ ] Pending check
+## Deployment
 
-## Next
+### Steps
 
-1. First actionable continuation step.
+- [ ] **D-S01:** Deployment step
+
+### Acceptance criteria
+
+- [ ] **D-AC01:** Deployment criterion
 ```
 
-The headings and frontmatter are an Agent authoring convention, not a
-machine-readable compatibility promise. After repository and lifecycle
-hygiene, compare all three ledger frontmatter revisions with the current
-`selectedIdea` revisions. Re-review records associated with any mismatch
-instead of blindly continuing stale checklist items. Then resume unfinished
-work, pending checks, or an explicit blocker relevant to the reported action.
+When adding or removing a world step or criterion, update the matching ledger
+entry in the same change. Keep its stable ID when only the title or details are
+refined. Add new entries unchecked. If a completed item's requirement or proof
+method changes materially, reset its checkbox and re-run the work or proof.
+Infer the next action from `whats-next`, the world contracts, and unchecked
+ledger entries; do not maintain duplicate Current or Next summaries.
 
 `[x]` means only that the Agent recorded work or a check as complete. It never
 approves an Ideal World, accepts implementation or deployment, changes
 `status.yaml`, or authorizes publication. Record test names, commands,
-artifacts, and results as useful prose without creating a separate evidence
-schema or public API contract.
+artifacts, and results in the corresponding world criterion or concise ledger
+notes without creating a separate evidence schema or public API contract.
 
 ## Write Status Facts
 

@@ -74,12 +74,16 @@ test("exposes one consolidated silvermoon skill", async () => {
     "Outer World (现世)",
     "supporting files",
     ".silvermoon/ideas/<ULID>/",
-    "## Implementation acceptance criteria",
-    "## Deployment acceptance criteria",
+    "## Steps",
+    "## Acceptance criteria",
+    "I-Sxx",
+    "I-ACxx",
+    "D-Sxx",
+    "D-ACxx",
     "Continue From The Ledger",
     "ledger.md",
-    "Agent authoring convention",
-    "revisions with the current",
+    "reset its checkbox",
+    "do not maintain duplicate Current or Next summaries",
     "It never",
     "implementationRevision",
     "silvermoon check --worktree --json",
@@ -92,7 +96,7 @@ test("exposes one consolidated silvermoon skill", async () => {
   }
   assert.doesNotMatch(
     source,
-    /silvermoon task |silvermoon status|silvermoon whatsnext|taskLanguage|criteriaEvidence|verifyCriteriaEvidence|implementationCriterionIds/,
+    /silvermoon task |silvermoon status|silvermoon whatsnext|taskLanguage|criteriaEvidence|verifyCriteriaEvidence|implementationCriterionIds|ledger\.md \(optional\)|revision frontmatter/,
   );
 
   for (const [, target] of source.matchAll(/\[[^\]]+\]\((\.\/[^)#]+)(?:#[^)]+)?\)/g)) {
@@ -137,8 +141,10 @@ test("documents explicit Silvermoon adoption and conversion", async () => {
     assert.match(source, /Ideal World \(道心\)/);
     assert.match(source, /Inner World \(内景\)/);
     assert.match(source, /Outer World \(现世\)/);
-    assert.match(source, /Implementation acceptance criteria/);
-    assert.match(source, /Deployment acceptance criteria/);
+    assert.match(source, /## Steps/);
+    assert.match(source, /## Acceptance criteria/);
+    assert.match(source, /I-Sxx/);
+    assert.match(source, /D-ACxx/);
     assert.match(source, /ledger\.md/);
     assert.match(source, /check --worktree/);
     assert.match(source, /create-idea/);

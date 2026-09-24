@@ -41,6 +41,7 @@ async function writeIdea(root, ideaId = id, status = {}) {
     join(root, ...paths.deploymentDocumentPath.split("/")),
     "# Deployment\n",
   );
+  await writeFile(join(root, ...paths.ledgerPath.split("/")), "# Ledger\n");
   await writeFile(
     join(root, ...paths.statusPath.split("/")),
     serializeIdeaStatus({ version: 1, id: ideaId, ...status }),
@@ -121,23 +122,22 @@ test("does not include status facts in world revisions", async () => {
   assert.deepEqual(after.revisions, before.revisions);
 });
 
-test("allows an optional ledger without including it in world revisions", async () => {
+test("requires a ledger without including it in world revisions", async () => {
   const root = await createRepository();
   const paths = ideaPaths(id);
   const before = (await inspectIdeaLayout({ root })).ideas[0];
-  await writeFile(join(root, ...paths.ledgerPath.split("/")), "# Ledger\n");
-
-  const after = (await inspectIdeaLayout({ root })).ideas[0];
-  assert.deepEqual(after.revisions, before.revisions);
-  assert.equal(after.ledgerPath, paths.ledgerPath);
 
   await writeFile(join(root, ...paths.ledgerPath.split("/")), "# Updated ledger\n");
   const edited = (await inspectIdeaLayout({ root })).ideas[0];
   assert.deepEqual(edited.revisions, before.revisions);
+  assert.equal(edited.ledgerPath, paths.ledgerPath);
 
   await rm(join(root, ...paths.ledgerPath.split("/")));
-  const removed = (await inspectIdeaLayout({ root })).ideas[0];
-  assert.deepEqual(removed.revisions, before.revisions);
+  const missing = await inspectIdeaLayout({ root });
+  assert.deepEqual(missing.ideas[0].revisions, before.revisions);
+  assert.ok(
+    missing.diagnostics.some(({ code }) => code === "idea.ledger.missing-file"),
+  );
 
   await mkdir(join(root, ...paths.ledgerPath.split("/")));
   const invalid = await inspectIdeaLayout({ root });

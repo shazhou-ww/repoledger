@@ -29,7 +29,7 @@ Each idea is self-contained:
 ```text
 .silvermoon/ideas/<ULID>/
 |-- status.yaml
-|-- ledger.md (optional)
+|-- ledger.md
 `-- outer/
     |-- Deployment.md
     `-- inner/
@@ -45,20 +45,21 @@ but they serve rather than replace the canonical same-world entry.
 
 The nested opaque Git trees produce `idealRevision`,
 `implementationRevision`, and `deploymentRevision`. Inner World includes Ideal
-World; Outer World includes both nested worlds. `status.yaml` is outside all
-three revisions. Optional `ledger.md` is also outside all three revisions and
-is not parsed by Silvermoon.
+World; Outer World includes both nested worlds. `status.yaml` and required
+`ledger.md` are outside all three revisions. Silvermoon requires ledger as a
+regular file but does not parse its body.
 
-Write implementation criteria in `Implementation.md` under
-`## Implementation acceptance criteria` and deployment criteria in
-`Deployment.md` under `## Deployment acceptance criteria`, using plain list
-items. Keep task-list checkboxes out of world contracts.
+Write implementation and deployment plans under `## Steps` and their outcome
+contracts under `## Acceptance criteria`. Give every item a stable level-three
+`I-Sxx`, `I-ACxx`, `D-Sxx`, or `D-ACxx` heading. Each criterion describes both
+the observable outcome and how to prove it. Keep task-list checkboxes out of
+world contracts.
 
-Agents may use `ledger.md` for cross-session continuation with revision
-frontmatter and `Current`, `Work`, `Checks`, and `Next` sections. Checkboxes
-record Agent work only, never human approval or acceptance. When a recorded
-revision differs from the current `whats-next` result, re-review the related
-ledger entries before continuing.
+Agents mirror those stable IDs and short titles into the required `ledger.md`
+under Implementation and Deployment Steps and Acceptance criteria checklists.
+Update both files together, and reset a checked item when its requirement or
+proof changes materially. Checkboxes record Agent work only, never human
+approval or acceptance.
 
 ```yaml
 version: 1
@@ -72,7 +73,7 @@ Status may additionally contain canonical `abandoned: true`,
 corresponding current world revision.
 
 For a new scaffold, run `silvermoon create-idea --json`. It generates the ULID,
-three empty entry documents, and alias-less status; it does not stage, commit,
+four structured documents and alias-less status; it does not stage, commit,
 push, approve, or accept.
 
 ## Adopting from another layout

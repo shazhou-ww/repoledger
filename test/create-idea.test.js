@@ -8,6 +8,12 @@ import { afterEach, test } from "node:test";
 
 import { createIdea } from "../src/create-idea.js";
 import { observeGitCommands } from "../src/git.js";
+import {
+  DEPLOYMENT_TEMPLATE,
+  IDEA_TEMPLATE,
+  IMPLEMENTATION_TEMPLATE,
+  LEDGER_TEMPLATE,
+} from "../src/idea-templates.js";
 import { serializeIdeaStatus } from "../src/ideas.js";
 import { ideaPaths } from "../src/layout.js";
 import { whatsNext } from "../src/whatsnext.js";
@@ -64,6 +70,7 @@ primaryBranch: main
   await writeFile(join(root, ...existing.ideaDocumentPath.split("/")), "# Existing\n");
   await writeFile(join(root, ...existing.implementationDocumentPath.split("/")), "");
   await writeFile(join(root, ...existing.deploymentDocumentPath.split("/")), "");
+  await writeFile(join(root, ...existing.ledgerPath.split("/")), "# Ledger\n");
   await writeFile(
     join(root, ...existing.statusPath.split("/")),
     serializeIdeaStatus({ version: 1, id: existingId, alias: "existing" }),
@@ -123,14 +130,16 @@ test("[unrelated-active-create] creates an exact alias-less scaffold without Git
     ideaDocumentPath: `.silvermoon/ideas/${createdId}/outer/inner/ideal/Idea.md`,
     implementationDocumentPath: `.silvermoon/ideas/${createdId}/outer/inner/Implementation.md`,
     deploymentDocumentPath: `.silvermoon/ideas/${createdId}/outer/Deployment.md`,
+    ledgerPath: `.silvermoon/ideas/${createdId}/ledger.md`,
   });
   const created = ideaPaths(createdId);
-  for (const path of [
-    created.ideaDocumentPath,
-    created.implementationDocumentPath,
-    created.deploymentDocumentPath,
+  for (const [path, source] of [
+    [created.ideaDocumentPath, IDEA_TEMPLATE],
+    [created.implementationDocumentPath, IMPLEMENTATION_TEMPLATE],
+    [created.deploymentDocumentPath, DEPLOYMENT_TEMPLATE],
+    [created.ledgerPath, LEDGER_TEMPLATE],
   ]) {
-    assert.equal(await readFile(join(root, ...path.split("/")), "utf8"), "");
+    assert.equal(await readFile(join(root, ...path.split("/")), "utf8"), source);
   }
   assert.equal(
     await readFile(join(root, ...created.statusPath.split("/")), "utf8"),
@@ -146,6 +155,7 @@ test("[unrelated-active-create] creates an exact alias-less scaffold without Git
       `?? .silvermoon/ideas/${createdId}/outer/Deployment.md`,
       `?? .silvermoon/ideas/${createdId}/outer/inner/Implementation.md`,
       `?? .silvermoon/ideas/${createdId}/outer/inner/ideal/Idea.md`,
+      `?? .silvermoon/ideas/${createdId}/ledger.md`,
       `?? .silvermoon/ideas/${createdId}/status.yaml`,
     ].sort(),
   );
@@ -176,7 +186,14 @@ test("creates the first idea in the fixed missing ideas directory", async () => 
   assert.equal(report.ok, true);
   const paths = ideaPaths(createdId);
   assert.equal(report.result.createdIdea.ideaPath, paths.ideaPath);
-  assert.equal(await readFile(join(root, ...paths.ideaDocumentPath.split("/")), "utf8"), "");
+  assert.equal(
+    await readFile(join(root, ...paths.ideaDocumentPath.split("/")), "utf8"),
+    IDEA_TEMPLATE,
+  );
+  assert.equal(
+    await readFile(join(root, ...paths.ledgerPath.split("/")), "utf8"),
+    LEDGER_TEMPLATE,
+  );
   assert.equal(
     await readFile(join(root, ...paths.statusPath.split("/")), "utf8"),
     `version: 1\nid: ${createdId}\n`,
@@ -223,6 +240,7 @@ test("[partial-write-failure] removes only owned scaffold paths after a partial 
   assert.equal(report.ok, false);
   assert.equal(report.diagnostics[0].code, "idea.create.failed");
   await assert.rejects(readFile(join(root, ...created.ideaDocumentPath.split("/"))), { code: "ENOENT" });
+  await assert.rejects(readFile(join(root, ...created.ledgerPath.split("/"))), { code: "ENOENT" });
   await assert.rejects(readFile(join(root, ...created.statusPath.split("/"))), { code: "ENOENT" });
   assert.deepEqual(await readFile(join(root, ...existing.ideaDocumentPath.split("/"))), originalIdea);
   assert.deepEqual(

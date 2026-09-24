@@ -3,6 +3,12 @@ import { lstat, mkdir, readFile, rm, rmdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 import { loadConfig } from "./config.js";
+import {
+  DEPLOYMENT_TEMPLATE,
+  IDEA_TEMPLATE,
+  IMPLEMENTATION_TEMPLATE,
+  LEDGER_TEMPLATE,
+} from "./idea-templates.js";
 import { isValidUlid, serializeIdeaStatus } from "./ideas.js";
 import { IDEAS_ROOT, ideaPaths } from "./layout.js";
 import { whatsNext } from "./whatsnext.js";
@@ -168,9 +174,10 @@ export async function createIdea({
       paths.idealPath,
     ];
     const files = [
-      [paths.ideaDocumentPath, ""],
-      [paths.implementationDocumentPath, ""],
-      [paths.deploymentDocumentPath, ""],
+      [paths.ideaDocumentPath, IDEA_TEMPLATE],
+      [paths.implementationDocumentPath, IMPLEMENTATION_TEMPLATE],
+      [paths.deploymentDocumentPath, DEPLOYMENT_TEMPLATE],
+      [paths.ledgerPath, LEDGER_TEMPLATE],
       [paths.statusPath, serializeIdeaStatus({ version: 1, id })],
     ];
     const createdDirectories = [];
@@ -208,6 +215,7 @@ export async function createIdea({
             ideaDocumentPath: paths.ideaDocumentPath,
             implementationDocumentPath: paths.implementationDocumentPath,
             deploymentDocumentPath: paths.deploymentDocumentPath,
+            ledgerPath: paths.ledgerPath,
           },
         },
       };

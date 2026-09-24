@@ -60,6 +60,7 @@ test("renders a created idea scaffold", () => {
       createdIdea: {
         id: "01M38K00000000000000000001",
         ideaPath: ".silvermoon/ideas/01M38K00000000000000000001",
+        ledgerPath: ".silvermoon/ideas/01M38K00000000000000000001/ledger.md",
         statusPath: ".silvermoon/ideas/01M38K00000000000000000001/status.yaml",
       },
     },
@@ -72,6 +73,10 @@ test("renders a created idea scaffold", () => {
   assert.match(
     output.logs.join("\n"),
     /\.silvermoon\/ideas\/01M38K00000000000000000001\/status\.yaml/,
+  );
+  assert.match(
+    output.logs.join("\n"),
+    /\.silvermoon\/ideas\/01M38K00000000000000000001\/ledger\.md/,
   );
 });
 

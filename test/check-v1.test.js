@@ -52,6 +52,7 @@ primaryBranch: main
   await writeFile(join(root, ...paths.ideaDocumentPath.split("/")), "# Fixture\n");
   await writeFile(join(root, ...paths.implementationDocumentPath.split("/")), "");
   await writeFile(join(root, ...paths.deploymentDocumentPath.split("/")), "");
+  await writeFile(join(root, ...paths.ledgerPath.split("/")), "# Ledger\n");
   await writeFile(
     join(root, ...paths.statusPath.split("/")),
     serializeIdeaStatus({ version: 1, id, alias: "fixture" }),
@@ -134,6 +135,25 @@ test("rejects conflicting check targets", async () => {
   assert.equal(report.diagnostics[0].code, "check.target.conflict");
 });
 
+test("rejects a missing required ledger in candidate snapshots", async () => {
+  const root = await createRepository();
+  const ledger = join(root, ...ideaPaths(id).ledgerPath.split("/"));
+  await rm(ledger);
+
+  const head = await checkRepository({ root });
+  const worktree = await checkRepository({ root, worktree: true });
+  git(root, "add", "--all");
+  const staged = await checkRepository({ root, staged: true });
+
+  assert.equal(head.ok, true);
+  for (const report of [worktree, staged]) {
+    assert.equal(report.ok, false);
+    assert.ok(
+      report.diagnostics.some(({ code }) => code === "idea.ledger.missing-file"),
+    );
+  }
+});
+
 test("rejects a changed acceptance field in staged and worktree candidates", async () => {
   const root = await createRepository();
   await writeFile(
@@ -172,6 +192,7 @@ primaryBranch: main
   await writeFile(join(root, ...paths.ideaDocumentPath.split("/")), "# Fixture\n");
   await writeFile(join(root, ...paths.implementationDocumentPath.split("/")), "");
   await writeFile(join(root, ...paths.deploymentDocumentPath.split("/")), "");
+  await writeFile(join(root, ...paths.ledgerPath.split("/")), "# Ledger\n");
   const unrelatedTree = git(root, "mktree");
   await writeFile(
     join(root, ...paths.statusPath.split("/")),

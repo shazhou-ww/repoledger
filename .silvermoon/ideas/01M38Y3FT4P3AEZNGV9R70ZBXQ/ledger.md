@@ -1,43 +1,37 @@
----
-idealRevision: 11db398caa85063aa1f7c22023c92b889080f3fd
-implementationRevision: c09e4a2c041719ef3fdfa8b41ebac52ee49f9c99
-deploymentRevision: 7cee6a97d3645205a276e73e6e01a6b360320311
----
-
 # Ledger
 
-## Current
+## Implementation
 
-- State: deploying
-- Focus: verify the layered-world model in the external world
-- Blocked: no
+### Steps
 
-## Work
+当前 contract 未单独定义 implementation steps。
 
-- [x] I01 fixed metadata layout
-- [x] I02 Silvermoon v1 configuration
-- [x] I03 self-contained idea validation
-- [x] I04 three nested world revisions
-- [x] I05 cascading revision matrix
-- [x] I06 ordered decision-bound state
-- [x] I07 atomic create scaffold and rollback
-- [x] I08 snapshot consistency
-- [x] I09 same-world supporting artifacts
-- [x] I10 canonical world terminology
-- [x] I11 implementation criteria verification
-- [x] I12 skill and `whats-next` guidance
-- [x] I13 navigation and non-force publication safety
-- [x] I14 clean break to the current layout
-- [x] I15 complete repository validation
+### Acceptance criteria
 
-## Checks
+- [x] **I01:** 固定 metadata layout
+- [x] **I02:** Silvermoon v1 配置
+- [x] **I03:** 自包含 idea validation
+- [x] **I04:** 三层 revision
+- [x] **I05:** 级联矩阵
+- [x] **I06:** 状态推进
+- [x] **I07:** Create scaffold 与回滚
+- [x] **I08:** Snapshot 一致性
+- [x] **I09:** 文档与辅助材料归属
+- [x] **I10:** 世界术语
+- [x] **I11:** Criteria 与 evidence
+- [x] **I12:** Skill 与 whats-next guidance
+- [x] **I13:** 导航与 publication
+- [x] **I14:** Clean break 与当前表面
+- [x] **I15:** 完整验证
 
-- [x] Configuration and three-world layout tests
-- [x] Create, lifecycle, navigation, and publication trajectory tests
-- [x] Package smoke and skill tests
-- [x] `pnpm check`
+## Deployment
 
-## Next
+### Steps
 
-1. Execute the deployment checks in `outer/Deployment.md`.
-2. Request explicit deployment acceptance for the current deployment revision.
+当前 contract 未单独定义 deployment steps。
+
+### Acceptance criteria
+
+- [ ] **D01:** 新仓库 lifecycle
+- [ ] **D02:** 生产级联验证
+- [ ] **D03:** 发布包与 skill
