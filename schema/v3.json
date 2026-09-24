@@ -27,30 +27,57 @@
     "ideaStatus": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["version", "id", "alias"],
+      "required": [
+        "version",
+        "id"
+      ],
       "properties": {
-        "version": { "const": 1 },
-        "id": { "$ref": "#/$defs/ulid" },
+        "version": {
+          "const": 1
+        },
+        "id": {
+          "$ref": "#/$defs/ulid"
+        },
         "alias": {
           "type": "string",
           "minLength": 1,
           "maxLength": 120,
           "pattern": "^(?!\\s)(?!.*\\s$)[^\\u0000-\\u001f\\u007f-\\u009f]+$"
         },
-        "abandoned": { "const": true },
-        "approvedRevision": { "$ref": "#/$defs/objectId" },
-        "implementationAcceptedRevision": { "$ref": "#/$defs/objectId" },
-        "deploymentAcceptedRevision": { "$ref": "#/$defs/objectId" }
+        "abandoned": {
+          "const": true
+        },
+        "approvedRevision": {
+          "$ref": "#/$defs/objectId"
+        },
+        "implementationAcceptedRevision": {
+          "$ref": "#/$defs/objectId"
+        },
+        "deploymentAcceptedRevision": {
+          "$ref": "#/$defs/objectId"
+        }
       }
     }
   },
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "primaryRepository", "primaryBranch"],
+  "required": [
+    "version",
+    "primaryRepository",
+    "primaryBranch"
+  ],
   "properties": {
-    "version": { "const": 3 },
-    "ideasDirectory": { "$ref": "#/$defs/ideasDirectory" },
-    "primaryRepository": { "$ref": "#/$defs/repository" },
-    "primaryBranch": { "$ref": "#/$defs/branch" }
+    "version": {
+      "const": 3
+    },
+    "ideasDirectory": {
+      "$ref": "#/$defs/ideasDirectory"
+    },
+    "primaryRepository": {
+      "$ref": "#/$defs/repository"
+    },
+    "primaryBranch": {
+      "$ref": "#/$defs/branch"
+    }
   }
 }

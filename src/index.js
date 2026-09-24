@@ -13,18 +13,21 @@ import {
 import { inspectIdeaLayout } from "./idea-layout.js";
 
 function ideaSummary(idea) {
-  return {
+  const value = {
     id: idea.id,
-    alias: idea.alias,
     revision: idea.revision,
     state: idea.state,
   };
+  if (idea.alias !== undefined) value.alias = idea.alias;
+  return value;
 }
 
 async function inspectSnapshot({
   baseRevision,
+  gitRoot = root,
   historyCommit,
   root,
+  snapshotTree,
   target = "local",
   validateCandidate = false,
 }) {
@@ -34,8 +37,10 @@ async function inspectSnapshot({
     ? await inspectIdeaLayout({
       baseRevision,
       config: loaded.config,
+      gitRoot,
       historyCommit,
       root: repositoryRoot,
+      snapshotTree,
       validateCandidate,
     })
     : { diagnostics: [], ideas: [] };
@@ -98,15 +103,26 @@ export async function checkRepository({
   if (remote) {
     try {
       const head = resolveCommit(repositoryRoot, "HEAD");
-      const bootstrap = await withTemporaryWorktree(repositoryRoot, head, (worktreeRoot) =>
-        inspectSnapshot({ root: worktreeRoot, target: "remote" }),
+      const bootstrap = await withTemporaryWorktree(repositoryRoot, head, (worktreeRoot, tree) =>
+        inspectSnapshot({
+          gitRoot: repositoryRoot,
+          root: worktreeRoot,
+          snapshotTree: tree,
+          target: "remote",
+        }),
       );
       if (!bootstrap.config) {
         return finishTarget({ inspected: bootstrap, root: repositoryRoot, target: "remote" });
       }
       const primary = fetchPrimary(repositoryRoot, bootstrap.config);
-      const inspected = await withTemporaryWorktree(repositoryRoot, primary, (worktree) =>
-        inspectSnapshot({ historyCommit: primary, root: worktree, target: "remote" }),
+      const inspected = await withTemporaryWorktree(repositoryRoot, primary, (worktree, tree) =>
+        inspectSnapshot({
+          gitRoot: repositoryRoot,
+          historyCommit: primary,
+          root: worktree,
+          snapshotTree: tree,
+          target: "remote",
+        }),
       );
       return finishTarget({
         commit: primary,
@@ -142,10 +158,12 @@ export async function checkRepository({
     }
     try {
       const parent = runGit(repositoryRoot, ["rev-parse", `${resolvedCommit}^1`]);
-      const inspected = await withTemporaryWorktree(repositoryRoot, resolvedCommit, (worktree) =>
+      const inspected = await withTemporaryWorktree(repositoryRoot, resolvedCommit, (worktree, tree) =>
         inspectSnapshot({
           baseRevision: parent.ok ? parent.stdout : null,
+          gitRoot: repositoryRoot,
           root: worktree,
+          snapshotTree: tree,
           target,
           validateCandidate: true,
         }),
@@ -172,7 +190,9 @@ export async function checkRepository({
       const inspected = await withTemporaryTree(repositoryRoot, snapshot.tree, (worktree) =>
         inspectSnapshot({
           baseRevision: "HEAD",
+          gitRoot: repositoryRoot,
           root: worktree,
+          snapshotTree: snapshot.tree,
           target: "staged",
           validateCandidate: true,
         }),
@@ -198,7 +218,9 @@ export async function checkRepository({
       const inspected = await withTemporaryTree(repositoryRoot, snapshot.tree, (worktree) =>
         inspectSnapshot({
           baseRevision: "HEAD",
+          gitRoot: repositoryRoot,
           root: worktree,
+          snapshotTree: snapshot.tree,
           target: "worktree",
           validateCandidate: true,
         }),
@@ -228,4 +250,6 @@ export {
   serializeIdeaStatus,
   validateIdeaStatus,
 } from "./ideas.js";
+export { createIdea, generateUlid } from "./create-idea.js";
+export { implementationCriterionIds, verifyCriteriaEvidence } from "./evidence.js";
 export { whatsNext } from "./whatsnext.js";

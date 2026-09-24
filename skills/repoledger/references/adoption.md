@@ -21,7 +21,7 @@ Commit the configuration and directory on primary, then run:
 ```sh
 repoledger check --commit HEAD
 repoledger check --remote
-repoledger whatsnext
+repoledger whats-next
 ```
 
 ## Idea storage
@@ -50,10 +50,14 @@ id: 01M36QGPNTXEPP61DA4KP4AVZF
 alias: publish-documentation
 ```
 
-Status may additionally contain canonical `abandoned: true`,
+Status may additionally contain an optional exact, unique `alias`, canonical `abandoned: true`,
 `approvedRevision`, `implementationAcceptedRevision`, and
 `deploymentAcceptedRevision` in that order. Alias comparison is exact and
 case-sensitive, and aliases must be unique in observed primary.
+
+For a new empty scaffold, run `repoledger create-idea --json`. It generates the
+ULID, empty `Idea.md`, and canonical alias-less status; it does not stage,
+commit, push, or approve the idea.
 
 ## Converting v1 or v2
 

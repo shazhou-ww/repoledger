@@ -69,7 +69,7 @@ the release namespace.
    working tree.
 4. When the release is a deployment criterion of an active Repoledger idea,
    record implementation acceptance for the approved current idea revision,
-   publish that status-only commit, and require `repoledger whatsnext <idea>` to
+   publish that status-only commit, and require `repoledger whats-next <idea>` to
    return `deploy-idea`. Never create the release tag while the idea still
    derives `implementing`.
 5. Fetch the current primary branch and tags.

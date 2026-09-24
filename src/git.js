@@ -1,12 +1,13 @@
 import { spawnSync } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { repositoryNamespace } from "./repository.js";
+let commandObserver = null;
 
 export function runGit(root, args, { env } = {}) {
+  if (commandObserver) commandObserver([...args]);
   const result = spawnSync("git", ["-C", root, ...args], {
     encoding: "utf8",
     env,
@@ -19,6 +20,16 @@ export function runGit(root, args, { env } = {}) {
     stderr: result.stderr?.trim() ?? "",
     stdout: result.stdout?.trim() ?? "",
   };
+}
+
+export async function observeGitCommands(observer, callback) {
+  if (commandObserver) throw new Error("Git command observation is already active");
+  commandObserver = observer;
+  try {
+    return await callback();
+  } finally {
+    commandObserver = null;
+  }
 }
 
 export function sanitizeGitMessage(value) {
@@ -107,6 +118,83 @@ function paths(stdout) {
   return stdout.split(/\r?\n/).filter(Boolean);
 }
 
+const CHANGE_KINDS = {
+  A: "added",
+  C: "copied",
+  D: "deleted",
+  M: "modified",
+  R: "renamed",
+  T: "type-changed",
+  U: "unmerged",
+};
+
+const CONFLICT_KINDS = {
+  AA: "both-added",
+  AU: "added-by-us",
+  DD: "both-deleted",
+  DU: "deleted-by-us",
+  UA: "added-by-them",
+  UD: "deleted-by-them",
+  UU: "both-modified",
+};
+
+function recordFields(record, count) {
+  const fields = [];
+  let offset = 2;
+  for (let index = 0; index < count; index += 1) {
+    const separator = record.indexOf(" ", offset);
+    if (separator < 0) throw new Error(`Malformed Git status record: ${record}`);
+    fields.push(record.slice(offset, separator));
+    offset = separator + 1;
+  }
+  return { fields, path: record.slice(offset) };
+}
+
+function changeEntry(path, code, originalPath) {
+  const entry = { path, kind: CHANGE_KINDS[code] ?? "unknown" };
+  if (originalPath !== undefined) entry.originalPath = originalPath;
+  return entry;
+}
+
+function sortChanges(changes) {
+  changes.sort((left, right) => left.path < right.path ? -1 : left.path > right.path ? 1 : 0);
+}
+
+export function parseWorktreeChanges(source) {
+  const result = { staged: [], unstaged: [], untracked: [], conflicted: [] };
+  const records = source.split("\0");
+  for (let index = 0; index < records.length; index += 1) {
+    const record = records[index];
+    if (!record) continue;
+    if (record.startsWith("? ")) {
+      result.untracked.push({ path: record.slice(2) });
+      continue;
+    }
+    if (record.startsWith("! ") || record.startsWith("# ")) continue;
+    if (record.startsWith("u ")) {
+      const { fields, path } = recordFields(record, 9);
+      result.conflicted.push({ path, kind: CONFLICT_KINDS[fields[0]] ?? "unmerged" });
+      continue;
+    }
+    if (record.startsWith("1 ") || record.startsWith("2 ")) {
+      const renamed = record.startsWith("2 ");
+      const { fields, path } = recordFields(record, renamed ? 8 : 7);
+      const [indexCode, worktreeCode] = fields[0];
+      const originalPath = renamed ? records[++index] : undefined;
+      if (indexCode !== ".") {
+        result.staged.push(changeEntry(path, indexCode, originalPath));
+      }
+      if (worktreeCode !== ".") {
+        result.unstaged.push(changeEntry(path, worktreeCode));
+      }
+      continue;
+    }
+    throw new Error(`Unsupported Git status record: ${record}`);
+  }
+  for (const changes of Object.values(result)) sortChanges(changes);
+  return result;
+}
+
 export function resolveCommit(root, revision) {
   return requireGit(
     root,
@@ -134,23 +222,32 @@ export function indexSnapshot(root) {
   };
 }
 
-export function repositoryTrackingRef(repository, branch) {
-  return `refs/repoledger/remotes/${repositoryNamespace(repository)}/heads/${branch}`;
-}
-
 export function fetchRepositoryBranch(root, repository, branch) {
-  const localRef = repositoryTrackingRef(repository, branch);
-  requireGit(
-    root,
-    [
-      "fetch",
-      "--no-tags",
-      repository,
-      `+refs/heads/${branch}:${localRef}`,
-    ],
-    `Cannot fetch ${branch}`,
-  );
-  return requireGit(root, ["rev-parse", localRef], `Cannot resolve fetched ${branch}`);
+  const remoteRef = `refs/heads/${branch}`;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const advertised = requireGit(
+      root,
+      ["ls-remote", "--refs", repository, remoteRef],
+      `Cannot inspect ${branch}`,
+    );
+    const [primary, advertisedRef] = advertised.split(/\s+/);
+    if (!primary || advertisedRef !== remoteRef) {
+      throw new Error(`Cannot resolve remote branch ${branch}`);
+    }
+    requireGit(
+      root,
+      [
+        "fetch",
+        "--no-tags",
+        "--no-write-fetch-head",
+        repository,
+        remoteRef,
+      ],
+      `Cannot fetch ${branch}`,
+    );
+    if (runGit(root, ["cat-file", "-e", `${primary}^{commit}`]).ok) return primary;
+  }
+  throw new Error(`Remote branch ${branch} moved repeatedly while fetching`);
 }
 
 export function fetchPrimary(root, config) {
@@ -162,32 +259,26 @@ export function fetchPrimary(root, config) {
 }
 
 export async function withTemporaryWorktree(root, commit, callback) {
-  const directory = await mkdtemp(join(tmpdir(), "repoledger-worktree-"));
-  let added = false;
-  try {
-    requireGit(root, ["worktree", "add", "--detach", "--no-checkout", directory, commit], "Cannot create isolated worktree");
-    added = true;
-    requireGit(directory, ["reset", "--hard", commit], "Cannot populate isolated worktree");
-    return await callback(directory);
-  } finally {
-    if (added) runGit(root, ["worktree", "remove", "--force", directory]);
-    await rm(directory, { recursive: true, force: true });
-    runGit(root, ["worktree", "prune"]);
-  }
+  const tree = requireGit(root, ["rev-parse", `${commit}^{tree}`], `Cannot resolve tree for ${commit}`);
+  return withTemporaryTree(root, tree, callback);
 }
 
 export async function withTemporaryTree(root, tree, callback) {
-  const directory = await mkdtemp(join(tmpdir(), "repoledger-tree-"));
-  let added = false;
+  const temporaryRoot = await mkdtemp(join(tmpdir(), "repoledger-tree-"));
+  const directory = join(temporaryRoot, "snapshot");
+  const env = { ...process.env, GIT_INDEX_FILE: join(temporaryRoot, "index") };
   try {
-    requireGit(root, ["worktree", "add", "--detach", "--no-checkout", directory, "HEAD"], "Cannot create isolated tree worktree");
-    added = true;
-    requireGit(directory, ["read-tree", tree], "Cannot populate isolated index");
-    requireGit(directory, ["checkout-index", "--all", "--force"], "Cannot populate isolated tree worktree");
-    return await callback(directory);
+    await mkdir(directory);
+    requireGit(root, ["read-tree", tree], "Cannot populate isolated index", { env });
+    const prefix = `${directory.replaceAll("\\", "/")}/`;
+    requireGit(
+      root,
+      ["checkout-index", "--all", "--force", `--prefix=${prefix}`],
+      "Cannot populate isolated tree snapshot",
+      { env },
+    );
+    return await callback(directory, tree);
   } finally {
-    if (added) runGit(root, ["worktree", "remove", "--force", directory]);
-    await rm(directory, { recursive: true, force: true });
-    runGit(root, ["worktree", "prune"]);
+    await rm(temporaryRoot, { recursive: true, force: true });
   }
 }

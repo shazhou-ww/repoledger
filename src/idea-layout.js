@@ -121,6 +121,8 @@ export async function inspectIdeaLayout({
   config,
   historyCommit,
   root,
+  gitRoot = root,
+  snapshotTree,
   validateCandidate = false,
 }) {
   const diagnostics = [];
@@ -151,7 +153,7 @@ export async function inspectIdeaLayout({
 
   let objectIdLength;
   try {
-    objectIdLength = gitObjectIdLength(root);
+    objectIdLength = gitObjectIdLength(gitRoot);
   } catch (caught) {
     return {
       diagnostics: [error(
@@ -252,21 +254,29 @@ export async function inspectIdeaLayout({
         "Use the same canonical ULID in the folder, filename, and status id.",
       ));
     }
-    const aliasOwner = aliases.get(status.alias);
-    if (aliasOwner) {
-      diagnostics.push(error(
-        "idea.alias.duplicate",
-        `${statusFile.relativePath}#alias`,
-        `Alias ${status.alias} is shared by ${aliasOwner} and ${id}.`,
-        "Assign a unique exact case-sensitive alias in the observed primary.",
-      ));
-    } else {
-      aliases.set(status.alias, id);
+    if (status.alias !== undefined) {
+      const aliasOwner = aliases.get(status.alias);
+      if (aliasOwner) {
+        diagnostics.push(error(
+          "idea.alias.duplicate",
+          `${statusFile.relativePath}#alias`,
+          `Alias ${status.alias} is shared by ${aliasOwner} and ${id}.`,
+          "Assign a unique exact case-sensitive alias in the observed primary.",
+        ));
+      } else {
+        aliases.set(status.alias, id);
+      }
     }
 
     let revision;
     try {
-      revision = worktreePathTree(root, folder.relativePath);
+      if (snapshotTree) {
+        const resolved = runGit(gitRoot, ["rev-parse", `${snapshotTree}:${folder.relativePath}`]);
+        if (!resolved.ok) throw new Error(resolved.stderr || `Cannot resolve ${folder.relativePath}`);
+        revision = resolved.stdout;
+      } else {
+        revision = worktreePathTree(root, folder.relativePath);
+      }
     } catch (caught) {
       diagnostics.push(error(
         "idea.revision.unavailable",
@@ -276,9 +286,8 @@ export async function inspectIdeaLayout({
       ));
       continue;
     }
-    validateRevisionObjects(root, statusFile.relativePath, status, diagnostics);
+    validateRevisionObjects(gitRoot, statusFile.relativePath, status, diagnostics);
     const idea = {
-      alias: status.alias,
       id,
       path: folder.path,
       relativePath: folder.relativePath,
@@ -287,10 +296,11 @@ export async function inspectIdeaLayout({
       status,
       statusPath: statusFile.relativePath,
     };
+    if (status.alias !== undefined) idea.alias = status.alias;
     if (validateCandidate) {
-      validateCandidateRevisions(root, baseRevision, idea, diagnostics, objectIdLength);
+      validateCandidateRevisions(gitRoot, baseRevision, idea, diagnostics, objectIdLength);
     }
-    if (historyCommit) validateRevisionHistory(root, historyCommit, idea, diagnostics);
+    if (historyCommit) validateRevisionHistory(gitRoot, historyCommit, idea, diagnostics);
     ideas.push(idea);
   }
 

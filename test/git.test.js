@@ -10,12 +10,14 @@ import {
   commitChangedPaths,
   fetchPrimary,
   indexSnapshot,
-  repositoryTrackingRef,
+  observeGitCommands,
+  parseWorktreeChanges,
   resolveCommit,
   sanitizeGitMessage,
   worktreePathTree,
   worktreeSnapshot,
   withTemporaryTree,
+  withTemporaryWorktree,
 } from "../src/git.js";
 
 const temporaryDirectories = [];
@@ -73,12 +75,11 @@ async function createRepository() {
 test("fetches primary by URL without a named Git remote", async () => {
   const { config, root } = await createRepository();
   assert.equal(git(root, "remote"), "");
+  const refs = git(root, "for-each-ref", "--format=%(refname) %(objectname)");
 
   const primary = fetchPrimary(root, config);
-  assert.equal(
-    git(root, "rev-parse", repositoryTrackingRef(repository, "main")),
-    primary,
-  );
+  git(root, "cat-file", "-e", `${primary}^{commit}`);
+  assert.equal(git(root, "for-each-ref", "--format=%(refname) %(objectname)"), refs);
 });
 
 test("redacts credentials and sensitive query values from Git messages", () => {
@@ -88,6 +89,25 @@ test("redacts credentials and sensitive query values from Git messages", () => {
   assert.doesNotMatch(sanitized, /user:secret|abc123|ghp_/);
   assert.match(sanitized, /https:\/\/\[redacted\]@example\.test/);
   assert.match(sanitized, /token=\[redacted\]/);
+});
+
+test("parses porcelain v2 worktree changes into stable arrays", () => {
+  const hash = "a".repeat(40);
+  const source = [
+    `2 R. N... 100644 100644 100644 ${hash} ${hash} R100 renamed.txt`,
+    "old.txt",
+    `1 .M N... 100644 100644 100644 ${hash} ${hash} modified.txt`,
+    "? new.txt",
+    `u UU N... 100644 100644 100644 100644 ${hash} ${hash} ${hash} conflict.txt`,
+    "",
+  ].join("\0");
+
+  assert.deepEqual(parseWorktreeChanges(source), {
+    staged: [{ path: "renamed.txt", kind: "renamed", originalPath: "old.txt" }],
+    unstaged: [{ path: "modified.txt", kind: "modified" }],
+    untracked: [{ path: "new.txt" }],
+    conflicted: [{ path: "conflict.txt", kind: "both-modified" }],
+  });
 });
 
 test("resolves commits and reports root commit paths", async () => {
@@ -133,4 +153,22 @@ test("materializes staged and full worktree snapshots without changing caller st
   assert.equal(git(root, "status", "--short"), status);
   assert.equal(git(root, "branch", "--show-current"), "main");
   assert.equal(git(root, "stash", "list"), "");
+});
+
+test("materializes immutable commits without Git worktree commands", async () => {
+  const { root } = await createRepository();
+  const commands = [];
+
+  await observeGitCommands(
+    (args) => commands.push(args),
+    () => withTemporaryWorktree(root, "HEAD", async (snapshot) => {
+      assert.equal(await readFile(join(snapshot, "README.md"), "utf8"), "fixture\n");
+    }),
+  );
+
+  assert.equal(
+    commands.some(([command]) => command === "worktree"),
+    false,
+    JSON.stringify(commands),
+  );
 });

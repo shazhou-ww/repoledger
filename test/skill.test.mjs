@@ -21,6 +21,18 @@ async function findSkillFiles(directory) {
   return matches;
 }
 
+async function findMarkdownFiles(directory) {
+  const entries = await readdir(directory, { withFileTypes: true });
+  const matches = [];
+  for (const entry of entries) {
+    if ([".git", "ideas", "node_modules"].includes(entry.name)) continue;
+    const path = resolve(directory, entry.name);
+    if (entry.isDirectory()) matches.push(...(await findMarkdownFiles(path)));
+    if (entry.isFile() && entry.name.endsWith(".md")) matches.push(path);
+  }
+  return matches;
+}
+
 test("exposes one consolidated repoledger skill", async () => {
   const skillFiles = await findSkillFiles(repositoryRoot);
   const repoledgerSkills = [];
@@ -43,13 +55,14 @@ test("exposes one consolidated repoledger skill", async () => {
   assert.deepEqual(document.toJS(), {
     name: "repoledger",
     description:
-      "Navigate repository-owned ideas with repoledger whatsnext, execute one safe action, and reobserve only after an observable delta.",
+      "Navigate repository-owned ideas with repoledger whats-next, execute one safe action, and reobserve only after an observable delta.",
     "argument-hint": "[idea ULID or alias]",
     "user-invocable": true,
   });
 
   for (const required of [
-    "repoledger whatsnext [idea] --json",
+    "repoledger whats-next [idea] --json",
+    "repoledger create-idea --json",
     "Execute only the highest-priority action",
     "Preserve unknown, unrelated, or user-authored changes",
     "Never use force-push",
@@ -57,6 +70,11 @@ test("exposes one consolidated repoledger skill", async () => {
     "## Implementation acceptance criteria",
     "## Deployment acceptance criteria",
     "Do not use task-list checkboxes",
+    "criteriaEvidence",
+    "criteria.evidence.missing",
+    "verifyCriteriaEvidence",
+    "I01",
+    "I14",
     "repoledger check --worktree --json",
     "repoledger check --staged --json",
     "observedPrimaryCommit",
@@ -65,7 +83,10 @@ test("exposes one consolidated repoledger skill", async () => {
   ]) {
     assert.ok(source.includes(required), `repoledger skill is missing: ${required}`);
   }
-  assert.doesNotMatch(source, /repoledger task |repoledger status|taskLanguage/);
+  assert.doesNotMatch(
+    source,
+    /repoledger task |repoledger status|repoledger whatsnext|taskLanguage/,
+  );
   assert.doesNotMatch(source, /^\s*- \[[ xX]\]/m);
 
   for (const [, target] of source.matchAll(/\[[^\]]+\]\((\.\/[^)#]+)(?:#[^)]+)?\)/g)) {
@@ -109,6 +130,21 @@ test("documents explicit vNext adoption and conversion", async () => {
     assert.match(source, /Implementation acceptance criteria/);
     assert.match(source, /Deployment acceptance criteria/);
     assert.match(source, /check --worktree/);
+    assert.match(source, /create-idea/);
+    assert.match(source, /whats-next/);
+    assert.doesNotMatch(source, /repoledger whatsnext/);
   }
   assert.match(normalized, /no runtime compatibility mode or in-place migration command/);
+});
+
+test("uses only approved command spellings in non-historical Markdown", async () => {
+  const files = await findMarkdownFiles(repositoryRoot);
+  for (const path of files) {
+    const source = await readFile(path, "utf8");
+    assert.doesNotMatch(
+      source,
+      /repoledger whatsnext|repoledger newidea|repoledger new-idea/,
+      path,
+    );
+  }
 });

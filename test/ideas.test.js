@@ -30,6 +30,20 @@ implementationAcceptedRevision: 0123456789abcdef0123456789abcdef01234567
   assert.equal(serializeIdeaStatus(status, { objectIdLength: 40 }), source);
 });
 
+test("parses and serializes canonical status without an alias", () => {
+  const source = `version: 1
+id: 01M36QGPNTXEPP61DA4KP4AVZF
+`;
+  const status = { version: 1, id };
+
+  assert.deepEqual(parseIdeaStatus(source), status);
+  assert.equal(serializeIdeaStatus(status), source);
+  assert.throws(
+    () => serializeIdeaStatus({ ...status, alias: "" }),
+    /alias/i,
+  );
+});
+
 test("validates canonical ULIDs and idea status fields", () => {
   assert.equal(isValidUlid(id), true);
   for (const invalid of [

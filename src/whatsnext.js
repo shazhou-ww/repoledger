@@ -1,7 +1,12 @@
 import { resolve } from "node:path";
 
 import { loadConfig } from "./config.js";
-import { fetchPrimary, runGit, withTemporaryWorktree } from "./git.js";
+import {
+  fetchPrimary,
+  parseWorktreeChanges,
+  runGit,
+  withTemporaryWorktree,
+} from "./git.js";
 import { inspectIdeaLayout } from "./idea-layout.js";
 
 const ACTIVE_STATES = new Set(["preparing", "implementing", "deploying"]);
@@ -10,31 +15,45 @@ function diagnostic(code, message, remediation, path) {
   return { code, level: "error", ...(path ? { path } : {}), message, remediation };
 }
 
-function failed(root, diagnostics) {
-  return { command: "whatsnext", ok: false, root, diagnostics, result: null };
+function failed(root, diagnostics, request, observedPrimaryCommit = null) {
+  return {
+    command: "whats-next",
+    ok: false,
+    root,
+    diagnostics,
+    result: request
+      ? { observedPrimaryCommit, request, selectedIdea: null, action: null }
+      : null,
+  };
+}
+
+function ideaName(idea) {
+  return idea.alias ?? idea.id;
 }
 
 function summary(idea) {
-  return {
+  const value = {
     id: idea.id,
-    alias: idea.alias,
     revision: idea.revision,
     state: idea.state,
   };
+  if (idea.alias !== undefined) value.alias = idea.alias;
+  return value;
 }
 
 function action(code, message, details = {}) {
   return { code, message, details };
 }
 
-function success(root, observedPrimaryCommit, selectedIdea, nextAction) {
+function success(root, observedPrimaryCommit, request, selectedIdea, nextAction) {
   return {
-    command: "whatsnext",
+    command: "whats-next",
     ok: true,
     root,
     diagnostics: [],
     result: {
       observedPrimaryCommit,
+      request,
       selectedIdea: selectedIdea ? summary(selectedIdea) : null,
       action: nextAction,
     },
@@ -45,34 +64,34 @@ export function stateAction(idea) {
   if (idea.state === "abandoned") {
     return action(
       "review-abandoned",
-      `Review abandoned idea ${idea.alias} and decide whether to keep it abandoned or revise it.`,
+      `Review abandoned idea ${ideaName(idea)} and decide whether to keep it abandoned or revise it.`,
       { statusPath: idea.statusPath },
     );
   }
   if (idea.state === "preparing") {
     return action(
       "prepare-idea",
-      `Clarify idea ${idea.alias}, update its definition, and record approval for revision ${idea.revision}.`,
+      `Clarify idea ${ideaName(idea)}, update its definition, and record approval for revision ${idea.revision}.`,
       { ideaPath: idea.relativePath, revision: idea.revision, statusPath: idea.statusPath },
     );
   }
   if (idea.state === "implementing") {
     return action(
       "implement-idea",
-      `Implement idea ${idea.alias} and accept repository results for revision ${idea.revision}.`,
+      `Implement idea ${ideaName(idea)} and accept repository results for revision ${idea.revision}.`,
       { ideaPath: idea.relativePath, revision: idea.revision, statusPath: idea.statusPath },
     );
   }
   if (idea.state === "deploying") {
     return action(
       "deploy-idea",
-      `Drive the external world from primary for idea ${idea.alias} and accept deployment for revision ${idea.revision}.`,
+      `Drive the external world from primary for idea ${ideaName(idea)} and accept deployment for revision ${idea.revision}.`,
       { ideaPath: idea.relativePath, revision: idea.revision, statusPath: idea.statusPath },
     );
   }
   return action(
     "review-completed",
-    `Review completed idea ${idea.alias} and decide whether to revise it or create a new idea.`,
+    `Review completed idea ${ideaName(idea)} and decide whether to revise it or create a new idea.`,
     { ideaPath: idea.relativePath, revision: idea.revision, statusPath: idea.statusPath },
   );
 }
@@ -93,24 +112,7 @@ function worktreeAction(root, config, observedPrimaryCommit) {
     );
   }
 
-  const conflicts = runGit(root, ["diff", "--name-only", "--diff-filter=U", "--"]);
-  if (!conflicts.ok) {
-    return action(
-      "resolve-conflicts",
-      "Git conflicts could not be inspected; repair the worktree without discarding either side.",
-      { error: conflicts.stderr },
-    );
-  }
-  const conflictPaths = conflicts.stdout.split(/\r?\n/).filter(Boolean);
-  if (conflictPaths.length > 0) {
-    return action(
-      "resolve-conflicts",
-      "Resolve worktree conflicts without discarding either side, then run whatsnext again.",
-      { paths: conflictPaths },
-    );
-  }
-
-  const status = runGit(root, ["status", "--porcelain=v1", "--untracked-files=all"]);
+  const status = runGit(root, ["status", "--porcelain=v2", "-z", "--untracked-files=all"]);
   if (!status.ok) {
     return action(
       "inspect-worktree-changes",
@@ -118,12 +120,28 @@ function worktreeAction(root, config, observedPrimaryCommit) {
       { error: status.stderr },
     );
   }
-  const changes = status.stdout.split(/\r?\n/).filter(Boolean);
-  if (changes.length > 0) {
+  let changes;
+  try {
+    changes = parseWorktreeChanges(status.stdout);
+  } catch (caught) {
+    return action(
+      "inspect-worktree-changes",
+      "Worktree changes could not be parsed; inspect Git state before continuing.",
+      { error: caught.message },
+    );
+  }
+  if (changes.conflicted.length > 0) {
+    return action(
+      "resolve-conflicts",
+      "Resolve worktree conflicts without discarding either side, then run whats-next again.",
+      changes,
+    );
+  }
+  if (changes.staged.length > 0 || changes.unstaged.length > 0 || changes.untracked.length > 0) {
     return action(
       "inspect-worktree-changes",
       "Inspect the exact worktree diff; preserve unknown work and commit, isolate, or explicitly handle each path.",
-      { changes },
+      changes,
     );
   }
 
@@ -147,7 +165,13 @@ function worktreeAction(root, config, observedPrimaryCommit) {
     return action(
       "publish-primary",
       `Validate and publish local primary ${local.stdout} with expected remote tip ${observedPrimaryCommit}.`,
-      { commit: local.stdout, expectedRemoteTip: observedPrimaryCommit },
+      {
+        repository: config.primaryRepository,
+        branch: config.primaryBranch,
+        commit: local.stdout,
+        expectedRemoteTip: observedPrimaryCommit,
+        validation: { target: "commit", revision: local.stdout },
+      },
     );
   }
   return action(
@@ -157,8 +181,13 @@ function worktreeAction(root, config, observedPrimaryCommit) {
   );
 }
 
-export async function whatsNext({ idea: selector, root = process.cwd() } = {}) {
+export async function whatsNext({ create = false, idea: selector, root = process.cwd() } = {}) {
   const repositoryRoot = resolve(root);
+  const request = create
+    ? { kind: "create-idea" }
+    : selector === undefined
+      ? { kind: "navigate" }
+      : { kind: "select-idea", selector };
   let local;
   try {
     local = await withTemporaryWorktree(repositoryRoot, "HEAD", (worktree) =>
@@ -169,9 +198,9 @@ export async function whatsNext({ idea: selector, root = process.cwd() } = {}) {
       "head.observation-failed",
       caught.message,
       "Restore a valid committed HEAD snapshot and retry.",
-    )]);
+    )], request);
   }
-  if (!local.config) return failed(repositoryRoot, local.diagnostics);
+  if (!local.config) return failed(repositoryRoot, local.diagnostics, request);
 
   let observedPrimaryCommit;
   try {
@@ -181,7 +210,7 @@ export async function whatsNext({ idea: selector, root = process.cwd() } = {}) {
       "primary.refresh-failed",
       caught.message,
       "Check network, authorization, repository URL, and primary branch, then retry.",
-    )]);
+    )], request);
   }
 
   let observed;
@@ -189,13 +218,15 @@ export async function whatsNext({ idea: selector, root = process.cwd() } = {}) {
     observed = await withTemporaryWorktree(
       repositoryRoot,
       observedPrimaryCommit,
-      async (worktree) => {
+      async (worktree, tree) => {
         const loaded = await loadConfig({ root: worktree });
         if (!loaded.config) return { config: null, diagnostics: loaded.diagnostics, ideas: [] };
         const layout = await inspectIdeaLayout({
           config: loaded.config,
+          gitRoot: repositoryRoot,
           historyCommit: observedPrimaryCommit,
           root: worktree,
+          snapshotTree: tree,
         });
         return { config: loaded.config, ...layout };
       },
@@ -205,30 +236,42 @@ export async function whatsNext({ idea: selector, root = process.cwd() } = {}) {
       "primary.observation-failed",
       caught.message,
       "Repair the fetched primary snapshot and retry.",
-    )]);
+    )], request, observedPrimaryCommit);
   }
-  if (observed.diagnostics.length > 0) return failed(repositoryRoot, observed.diagnostics);
+  const observationDiagnostics = create
+    ? observed.diagnostics.filter(({ code }) => code !== "layout.ideas.missing")
+    : observed.diagnostics;
+  if (observationDiagnostics.length > 0) {
+    return failed(repositoryRoot, observationDiagnostics, request, observedPrimaryCommit);
+  }
 
   const hygiene = worktreeAction(repositoryRoot, local.config, observedPrimaryCommit);
-  if (hygiene) return success(repositoryRoot, observedPrimaryCommit, null, hygiene);
+  if (hygiene) return success(repositoryRoot, observedPrimaryCommit, request, null, hygiene);
+
+  if (create) {
+    return success(repositoryRoot, observedPrimaryCommit, request, null, action(
+      "create-idea",
+      "Create one new idea scaffold in the configured ideas directory.",
+    ));
+  }
 
   if (!selector) {
     const active = observed.ideas.filter(({ state }) => ACTIVE_STATES.has(state));
     if (active.length > 1) {
-      return success(repositoryRoot, observedPrimaryCommit, null, action(
+      return success(repositoryRoot, observedPrimaryCommit, request, null, action(
         "select-active-idea",
         "Select one active idea by ULID or unique alias.",
         { ideas: active.map(summary) },
       ));
     }
     if (active.length === 1) {
-      return success(repositoryRoot, observedPrimaryCommit, active[0], action(
+      return success(repositoryRoot, observedPrimaryCommit, request, active[0], action(
         "continue-active-idea",
-        `Continue active idea ${active[0].alias}.`,
+        `Continue active idea ${ideaName(active[0])}.`,
         { idea: summary(active[0]) },
       ));
     }
-    return success(repositoryRoot, observedPrimaryCommit, null, action(
+    return success(repositoryRoot, observedPrimaryCommit, request, null, action(
       "create-idea",
       "Discuss the next goal and create one new idea folder with its sibling status file.",
     ));
@@ -239,10 +282,10 @@ export async function whatsNext({ idea: selector, root = process.cwd() } = {}) {
     return failed(repositoryRoot, [diagnostic(
       "idea.not-found",
       `Idea ${selector} does not exist in observed primary ${observedPrimaryCommit}.`,
-      "Choose a ULID or exact alias reported by repoledger whatsnext.",
+      "Choose a ULID or exact alias reported by repoledger whats-next.",
       selector,
-    )]);
+    )], request, observedPrimaryCommit);
   }
 
-  return success(repositoryRoot, observedPrimaryCommit, selected, stateAction(selected));
+  return success(repositoryRoot, observedPrimaryCommit, request, selected, stateAction(selected));
 }

@@ -65,6 +65,19 @@ test("inspects paired idea folders and derives their current tree revision", asy
   assert.equal(inspected.ideas[0].revision, git(root, "rev-parse", `HEAD:ideas/${id}`));
 });
 
+test("inspects an idea without inventing an alias", async () => {
+  const root = await createRepository();
+  await writeFile(
+    join(root, "ideas", `${id}.status.yaml`),
+    serializeIdeaStatus({ version: 1, id }),
+  );
+
+  const inspected = await inspectIdeaLayout({ config, root });
+
+  assert.deepEqual(inspected.diagnostics, []);
+  assert.equal(Object.hasOwn(inspected.ideas[0], "alias"), false);
+});
+
 test("includes uncommitted idea content in the derived tree revision", async () => {
   const root = await createRepository();
   const original = git(root, "rev-parse", `HEAD:ideas/${id}`);

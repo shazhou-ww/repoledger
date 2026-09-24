@@ -53,12 +53,12 @@ export function validateIdeaStatus(value, { objectIdLength } = {}) {
   for (const key of Object.keys(value)) {
     if (!STATUS_KEYS.has(key)) throw ideaStatusError(`unknown field: ${key}`);
   }
-  for (const key of ["version", "id", "alias"]) {
+  for (const key of ["version", "id"]) {
     if (!Object.hasOwn(value, key)) throw ideaStatusError(`missing ${key}`);
   }
   if (value.version !== 1) throw ideaStatusError("version must be 1");
   if (!isValidUlid(value.id)) throw ideaStatusError("id must be a canonical ULID");
-  if (!isValidAlias(value.alias)) {
+  if (Object.hasOwn(value, "alias") && !isValidAlias(value.alias)) {
     throw ideaStatusError("alias must be 1 to 120 trimmed characters without controls");
   }
   if (Object.hasOwn(value, "abandoned") && value.abandoned !== true) {
@@ -88,8 +88,8 @@ export function serializeIdeaStatus(value, options) {
   const canonical = {
     version: 1,
     id: value.id,
-    alias: value.alias,
   };
+  if (Object.hasOwn(value, "alias")) canonical.alias = value.alias;
   if (value.abandoned === true) canonical.abandoned = true;
   for (const key of REVISION_KEYS) {
     if (Object.hasOwn(value, key)) canonical[key] = value[key];

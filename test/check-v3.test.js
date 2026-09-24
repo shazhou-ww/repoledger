@@ -7,6 +7,7 @@ import { pathToFileURL } from "node:url";
 import { afterEach, test } from "node:test";
 
 import { checkRepository } from "../src/index.js";
+import { observeGitCommands } from "../src/git.js";
 import { serializeIdeaStatus } from "../src/ideas.js";
 
 const temporaryDirectories = [];
@@ -72,6 +73,21 @@ test("checks the committed HEAD idea snapshot", async () => {
     revision: git(root, "rev-parse", `HEAD:ideas/${id}`),
     state: "preparing",
   });
+});
+
+test("omits alias from checker summaries when status has none", async () => {
+  const root = await createRepository();
+  await writeFile(
+    join(root, "ideas", `${id}.status.yaml`),
+    serializeIdeaStatus({ version: 1, id }),
+  );
+  git(root, "add", ".");
+  git(root, "commit", "-m", "Remove fixture alias");
+
+  const report = await checkRepository({ root });
+
+  assert.equal(report.ok, true);
+  assert.equal(Object.hasOwn(report.result.ideas[0], "alias"), false);
 });
 
 test("checks isolated staged and commit snapshots", async () => {
@@ -192,4 +208,60 @@ test("reads configuration from the selected snapshot target", async () => {
   assert.equal(worktree.diagnostics[0].code, "config.migration-required");
   assert.equal(staged.ok, false);
   assert.equal(staged.diagnostics[0].code, "config.migration-required");
+});
+
+test("immutable check targets do not invoke Git worktree commands", async () => {
+  const root = await createRepository();
+  const commands = [];
+
+  const reports = await observeGitCommands(
+    (args) => commands.push(args),
+    () => Promise.all([
+      checkRepository({ root }),
+      checkRepository({ commit: "HEAD", root }),
+      checkRepository({ remote: true, root }),
+    ]),
+  );
+
+  assert.ok(reports.every(({ ok }) => ok));
+  assert.equal(commands.some(([command]) => command === "worktree"), false);
+});
+
+test("immutable check failures do not invoke Git worktree commands", async () => {
+  {
+    const root = await createRepository();
+    await writeFile(join(root, "repoledger.yaml"), "version: 2\n");
+    git(root, "add", ".");
+    git(root, "commit", "-m", "Invalid config candidate");
+    const commands = [];
+    const report = await observeGitCommands(
+      (args) => commands.push(args),
+      () => checkRepository({ root }),
+    );
+    assert.equal(report.ok, false);
+    assert.equal(report.diagnostics[0].code, "config.migration-required");
+    assert.equal(commands.some(([command]) => command === "worktree"), false);
+  }
+  {
+    const root = await createRepository();
+    await writeFile(
+      join(root, "ideas", `${id}.status.yaml`),
+      serializeIdeaStatus({
+        version: 1,
+        id,
+        alias: "fixture",
+        approvedRevision: "0".repeat(40),
+      }),
+    );
+    git(root, "add", ".");
+    git(root, "commit", "-m", "Invalid acceptance candidate");
+    const commands = [];
+    const report = await observeGitCommands(
+      (args) => commands.push(args),
+      () => checkRepository({ commit: "HEAD", root }),
+    );
+    assert.equal(report.ok, false);
+    assert.ok(report.diagnostics.some(({ code }) => code === "idea.revision.candidate-mismatch"));
+    assert.equal(commands.some(([command]) => command === "worktree"), false);
+  }
 });

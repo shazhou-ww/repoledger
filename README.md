@@ -2,17 +2,19 @@
 
 Derive the next action for repository-owned ideas from Git facts.
 
-Repoledger vNext has two public commands:
+Repoledger vNext has three public commands:
 
 ```sh
-repoledger whatsnext [idea]
+repoledger whats-next [idea]
+repoledger create-idea
 repoledger check [--remote | --commit <revision> | --staged | --worktree]
 ```
 
-`whatsnext` fetches and observes but never edits, checks out, merges, commits,
+`whats-next` fetches and observes but never edits, checks out, merges, commits,
 stashes, deletes, resets, fast-forwards, or pushes. It returns one
 highest-priority action. `check` validates storage and Git evidence for humans,
-hooks, and CI.
+hooks, and CI. `create-idea` runs the same hygiene preflight, then creates one
+empty idea scaffold without staging, committing, pushing, or recording approval.
 
 ## Install
 
@@ -71,8 +73,9 @@ implementationAcceptedRevision: 0123456789abcdef0123456789abcdef01234567
 deploymentAcceptedRevision: 0123456789abcdef0123456789abcdef01234567
 ```
 
-`version`, `id`, and `alias` are required. Optional fields, in canonical order,
-are `abandoned: true` and the three revision fields shown above. Explicit
+`version` and `id` are required. `alias` is optional; when present it is an
+exact, unique, case-sensitive selector. Other optional fields, in canonical
+order, are `abandoned: true` and the three revision fields shown above. Explicit
 `abandoned: false`, derived state, criteria mirrors, source locators, unknown
 keys, aliases/anchors, comments, and noncanonical YAML are rejected.
 
@@ -87,9 +90,9 @@ State is derived in order:
 ## Navigate
 
 ```sh
-repoledger whatsnext
-repoledger whatsnext 01M36QGPNTXEPP61DA4KP4AVZF
-repoledger whatsnext publish-documentation --json
+repoledger whats-next
+repoledger whats-next 01M36QGPNTXEPP61DA4KP4AVZF
+repoledger whats-next publish-documentation --json
 ```
 
 Without a selector, Repoledger asks you to choose among multiple active ideas,
@@ -100,6 +103,19 @@ primary branch, conflicts, dirty worktree, and local/remote primary ancestry.
 JSON reports contain `observedPrimaryCommit`, `selectedIdea`, and exactly one
 `action`. Use the observed commit as the expected remote tip for later writes.
 If primary moves, fetch and reobserve rather than replaying a stale decision.
+
+## Create An Idea
+
+```sh
+repoledger create-idea --json
+```
+
+After branch, conflict, dirty-worktree, and primary-ancestry hygiene passes, the
+command generates a canonical ULID, an empty `Idea.md`, and a canonical sibling
+status containing only `version` and `id`. It does not require or invent an
+alias. The new files are intentionally untracked, so the next
+`whats-next <ULID>` reports `inspect-worktree-changes` until you review and
+publish them through ordinary Git.
 
 Repoledger has no approval or acceptance mutation commands. After an explicit
 decision, edit the sibling status file, run `repoledger check --staged`, commit

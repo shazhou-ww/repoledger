@@ -78,7 +78,7 @@ development machine.
 Apply this section when the release is a deployment criterion of an active
 Repoledger idea. Independent package releases skip it.
 
-1. Run `repoledger whatsnext <idea> --json` after the validated release commit
+1. Run `repoledger whats-next <idea> --json` after the validated release commit
    is published to primary.
 2. Require the selected idea to be the approved current revision and the action
    to be `implement-idea`. If guidance reports worktree, sync, or another higher

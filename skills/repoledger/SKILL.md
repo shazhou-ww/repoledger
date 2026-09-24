@@ -1,6 +1,6 @@
 ---
 name: repoledger
-description: "Navigate repository-owned ideas with repoledger whatsnext, execute one safe action, and reobserve only after an observable delta."
+description: "Navigate repository-owned ideas with repoledger whats-next, execute one safe action, and reobserve only after an observable delta."
 argument-hint: "[idea ULID or alias]"
 user-invocable: true
 ---
@@ -13,14 +13,14 @@ external action through ordinary tools and Git.
 
 ## Start From Primary
 
-1. Run `repoledger whatsnext [idea] --json` from the repository root. Pass the
+1. Run `repoledger whats-next [idea] --json` from the repository root. Pass the
    selector only when the user supplied or previously selected one.
 2. Treat `observedPrimaryCommit`, `selectedIdea`, and `action` as one immutable
    observation. Do not combine guidance from different reports.
 3. Execute only the highest-priority action. Do not skip worktree, conflict,
    sync, or selection guidance to reach a later idea-state action.
 
-`whatsnext` may fetch and inspect. It never checkout, merges, edits, commits,
+`whats-next` may fetch and inspect. It never checkout, merges, edits, commits,
 stashes, deletes, resets, fast-forwards, or pushes.
 
 ## Preserve Work
@@ -33,17 +33,18 @@ stashes, deletes, resets, fast-forwards, or pushes.
 - Never use force-push, `reset --hard`, broad clean commands, or silent history
   rewrites to satisfy guidance.
 - Publish with the observed primary tip as the expected remote tip. On rejection
-  or concurrent movement, fetch and call `whatsnext` again; never replay a stale
+  or concurrent movement, fetch and call `whats-next` again; never replay a stale
   approval or acceptance automatically.
 
 ## Execute Actions
 
 - `select-active-idea`: show the ordered candidates and obtain one explicit
   ULID or alias selection.
-- `continue-active-idea`: call `whatsnext <id>` to obtain state guidance.
-- `create-idea`: discuss the goal, create one canonical ULID folder and its
-  sibling status file. Core treats the folder as an opaque Git tree. Use
-  `Idea.md` by default and keep all shared expectations inside the folder.
+- `continue-active-idea`: call `whats-next <id>` to obtain state guidance.
+- `create-idea`: run `repoledger create-idea --json`. After hygiene passes it
+  creates a canonical ULID folder with an empty `Idea.md` and an alias-less
+  sibling status. It never stages, commits, pushes, or records approval. Review
+  the resulting untracked paths before adding substantive idea content.
 - `switch-to-primary`, `resolve-conflicts`, `inspect-worktree-changes`,
   `fast-forward-primary`, `integrate-primary`, `publish-primary`: perform the
   exact Git hygiene step without discarding either history or unknown work.
@@ -81,6 +82,42 @@ belongs only in the sibling status file. The headings are a skill authoring
 convention, not a core storage requirement; a project skill may organize the
 opaque idea tree more specifically.
 
+## Verify Criteria Evidence
+
+Before the first implementation publication, enumerate the current idea's
+implementation criteria by their stable IDs (`I01` through `I14` for the
+current ergonomics idea). Produce a visible verification artifact outside the
+idea tree with this shape:
+
+```json
+{
+  "criteriaEvidence": [
+    {
+      "criterion": "I01",
+      "evidence": [{ "type": "test", "locator": "test name or result" }]
+    }
+  ]
+}
+```
+
+Keep entries in criterion order and require at least one nonempty `test`,
+`check`, or `artifact` locator for every criterion. If any entry is missing,
+report `criteria.evidence.missing`, remain in `implement-idea`, and do not write
+implementation acceptance or push an implementation-acceptance commit. Do not
+store this progress with checkboxes or by editing the idea definition.
+
+Validate the visible artifact with the package API before acceptance:
+
+```js
+import { verifyCriteriaEvidence } from "repoledger";
+
+const report = verifyCriteriaEvidence(ideaSource, artifact);
+if (!report.ok) {
+  console.error(JSON.stringify(report.diagnostics));
+  process.exitCode = 1;
+}
+```
+
 ## Write Status Facts
 
 Repoledger has no approval, acceptance, or abandonment mutation commands.
@@ -101,7 +138,7 @@ when the idea folder changes.
 
 ## Advance The Loop
 
-Call `whatsnext` again only after an expected repository delta, an unexpected
+Call `whats-next` again only after an expected repository delta, an unexpected
 input change, or a newly arrived external result. End the current turn when
 waiting for human/external input. Report an actionable error with its recovery
 condition, or report no progress and stop if guidance completed without a

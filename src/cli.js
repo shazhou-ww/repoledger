@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { Command, CommanderError, Option } from "commander";
 
 import { checkRepository } from "./index.js";
+import { createIdea } from "./create-idea.js";
 import { whatsNext } from "./whatsnext.js";
 
 const { version: VERSION } = JSON.parse(
@@ -28,17 +29,31 @@ function renderDiagnostics(report, io) {
   }
 }
 
+function renderIdeaIdentity(idea) {
+  return idea.alias === undefined ? idea.id : `${idea.id} (${idea.alias})`;
+}
+
 function renderWhatsNext(result, io) {
   io.log(`${result.action.code}: ${result.action.message}`);
   io.log(`  primary  ${result.observedPrimaryCommit}`);
   if (result.selectedIdea) {
-    io.log(`  idea     ${result.selectedIdea.id} (${result.selectedIdea.alias})`);
+    io.log(`  idea     ${renderIdeaIdentity(result.selectedIdea)}`);
     io.log(`  state    ${result.selectedIdea.state}`);
     io.log(`  revision ${result.selectedIdea.revision}`);
   }
   for (const idea of result.action.details?.ideas ?? []) {
-    io.log(`  option   ${idea.id} (${idea.alias})  ${idea.state}`);
+    io.log(`  option   ${renderIdeaIdentity(idea)}  ${idea.state}`);
   }
+}
+
+function renderCreateIdea(result, io) {
+  if (!result.createdIdea) {
+    renderWhatsNext(result, io);
+    return;
+  }
+  io.log(`created: ${result.createdIdea.id}`);
+  io.log(`  idea    ${result.createdIdea.ideaPath}`);
+  io.log(`  status  ${result.createdIdea.statusPath}`);
 }
 
 export function render(report, json, io) {
@@ -51,8 +66,12 @@ export function render(report, json, io) {
     io.error("FAILED");
     return;
   }
-  if (report.command === "whatsnext") {
+  if (report.command === "whats-next") {
     renderWhatsNext(report.result, io);
+    return;
+  }
+  if (report.command === "create-idea") {
+    renderCreateIdea(report.result, io);
     return;
   }
   io.log(`OK: ${report.command}`);
@@ -67,6 +86,7 @@ export function createProgram(io = console) {
     .name("repoledger")
     .description("Derive and validate repository-owned idea state.")
     .version(VERSION, "-v, --version", "display the installed version")
+    .addHelpCommand(false)
     .showHelpAfterError("(run with --help for usage)")
     .showSuggestionAfterError()
     .configureHelp({ sortOptions: true, sortSubcommands: true })
@@ -78,9 +98,10 @@ export function createProgram(io = console) {
     .exitOverride()
     .addHelpText("after", `
 Examples:
-  $ repoledger whatsnext
-  $ repoledger whatsnext <idea>
-  $ repoledger whatsnext <idea> --json
+  $ repoledger whats-next
+  $ repoledger whats-next <idea>
+  $ repoledger whats-next <idea> --json
+  $ repoledger create-idea
   $ repoledger check
   $ repoledger check --worktree
   $ repoledger check --staged
@@ -89,10 +110,20 @@ Examples:
 
   addCommonOptions(
     program
-      .command("whatsnext [idea]")
+      .command("whats-next [idea]")
       .description("fetch primary and render the highest-priority next action"),
   ).action(async (idea, options) => {
     const report = await whatsNext({ idea, root: options.root });
+    render(report, options.json, io);
+    program.setOptionValue("resultCode", report.ok ? 0 : 1);
+  });
+
+  addCommonOptions(
+    program
+      .command("create-idea")
+      .description("create one empty idea scaffold after primary hygiene"),
+  ).action(async (options) => {
+    const report = await createIdea({ root: options.root });
     render(report, options.json, io);
     program.setOptionValue("resultCode", report.ok ? 0 : 1);
   });

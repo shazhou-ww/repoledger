@@ -86,6 +86,7 @@ test("keeps the version 3 schema aligned with runtime identity constraints", asy
   const schema = JSON.parse(
     await readFile(new URL("../schema/v3.json", import.meta.url), "utf8"),
   );
+  assert.deepEqual(schema.$defs.ideaStatus.required, ["version", "id"]);
   const repositoryPattern = new RegExp(schema.$defs.repository.pattern);
   for (const repository of [
     "https://example.com/owner/repository.git",

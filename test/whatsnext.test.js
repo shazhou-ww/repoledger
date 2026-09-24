@@ -7,6 +7,7 @@ import { pathToFileURL } from "node:url";
 import { afterEach, test } from "node:test";
 
 import { serializeIdeaStatus } from "../src/ideas.js";
+import { observeGitCommands } from "../src/git.js";
 import { stateAction, whatsNext } from "../src/whatsnext.js";
 
 const temporaryDirectories = [];
@@ -59,26 +60,118 @@ primaryBranch: main
   return { remote, repository, root };
 }
 
-test("selects a single active idea before state guidance", async () => {
+test("[selector-none] selects a single active idea before state guidance", async () => {
   const { root } = await createRepository();
   const report = await whatsNext({ root });
 
   assert.equal(report.ok, true);
+  assert.deepEqual(report.result.request, { kind: "navigate" });
   assert.equal(report.result.selectedIdea.id, id);
   assert.equal(report.result.action.code, "continue-active-idea");
 });
 
-test("prioritizes dirty worktree hygiene over idea state guidance", async () => {
+test("observes primary without Git worktree commands", async () => {
+  const { root } = await createRepository();
+  const commands = [];
+
+  const report = await observeGitCommands(
+    (args) => commands.push(args),
+    () => whatsNext({ idea: id, root }),
+  );
+
+  assert.equal(report.ok, true);
+  assert.equal(commands.some(([command]) => command === "worktree"), false);
+});
+
+test("reports invalid primary layout without Git worktree commands", async () => {
+  const { repository, root } = await createRepository();
+  await rm(join(root, "ideas"), { recursive: true });
+  git(root, "add", "--all");
+  git(root, "commit", "-m", "Remove idea layout");
+  git(root, "push", repository, "main");
+  const commands = [];
+
+  const report = await observeGitCommands(
+    (args) => commands.push(args),
+    () => whatsNext({ root }),
+  );
+
+  assert.equal(report.ok, false);
+  assert.equal(report.diagnostics[0].code, "layout.ideas.missing");
+  assert.equal(commands.some(([command]) => command === "worktree"), false);
+});
+
+test("[dirty] prioritizes dirty worktree hygiene over idea state guidance", async () => {
   const { root } = await createRepository();
   await writeFile(join(root, "local.txt"), "preserve me\n");
   const report = await whatsNext({ idea: "fixture", root });
 
   assert.equal(report.ok, true);
+  assert.deepEqual(report.result.request, { kind: "select-idea", selector: "fixture" });
+  assert.equal(report.result.selectedIdea, null);
   assert.equal(report.result.action.code, "inspect-worktree-changes");
-  assert.ok(report.result.action.details.changes.some((change) => change.includes("local.txt")));
+  assert.deepEqual(report.result.action.details, {
+    staged: [],
+    unstaged: [],
+    untracked: [{ path: "local.txt" }],
+    conflicted: [],
+  });
 });
 
-test("renders preparing guidance for a clean synchronized primary", async () => {
+test("[structured-changes] reports staged, unstaged, and untracked changes as stable arrays", async () => {
+  const { repository, root } = await createRepository();
+  await writeFile(join(root, "old.txt"), "rename me\n");
+  await writeFile(join(root, "modified.txt"), "original\n");
+  git(root, "add", ".");
+  git(root, "commit", "-m", "Add change fixtures");
+  git(root, "push", repository, "main");
+  git(root, "mv", "old.txt", "renamed.txt");
+  await writeFile(join(root, "modified.txt"), "modified\n");
+  await writeFile(join(root, "new.txt"), "untracked\n");
+
+  const report = await whatsNext({ idea: id, root });
+
+  assert.equal(report.result.action.code, "inspect-worktree-changes");
+  assert.deepEqual(report.result.action.details, {
+    staged: [{ path: "renamed.txt", kind: "renamed", originalPath: "old.txt" }],
+    unstaged: [{ path: "modified.txt", kind: "modified" }],
+    untracked: [{ path: "new.txt" }],
+    conflicted: [],
+  });
+});
+
+test("[conflict] reports merge conflicts with structured conflict details", async () => {
+  const { repository, root } = await createRepository();
+  await writeFile(join(root, "conflict.txt"), "base\n");
+  git(root, "add", ".");
+  git(root, "commit", "-m", "Add conflict fixture");
+  git(root, "push", repository, "main");
+  git(root, "checkout", "-b", "other");
+  await writeFile(join(root, "conflict.txt"), "other\n");
+  git(root, "add", ".");
+  git(root, "commit", "-m", "Change other side");
+  git(root, "checkout", "main");
+  await writeFile(join(root, "conflict.txt"), "main\n");
+  git(root, "add", ".");
+  git(root, "commit", "-m", "Change main side");
+  const merged = spawnSync("git", ["-C", root, "merge", "other"], {
+    encoding: "utf8",
+    windowsHide: true,
+  });
+  assert.notEqual(merged.status, 0);
+
+  const report = await whatsNext({ idea: id, root });
+
+  assert.equal(report.result.action.code, "resolve-conflicts");
+  assert.deepEqual(report.result.action.details, {
+    staged: [],
+    unstaged: [],
+    untracked: [],
+    conflicted: [{ path: "conflict.txt", kind: "both-modified" }],
+  });
+});
+
+test("[selector-known] renders preparing guidance for a clean synchronized primary", async () => {
   const { root } = await createRepository();
   const report = await whatsNext({ idea: id, root });
 
@@ -88,13 +181,70 @@ test("renders preparing guidance for a clean synchronized primary", async () => 
   assert.equal(report.result.action.details.revision, report.result.selectedIdea.revision);
 });
 
-test("reports an unknown explicit idea without guessing", async () => {
+test("[alias-absent] selects an alias-less idea by ULID without inventing display text", async () => {
+  const { repository, root } = await createRepository();
+  await writeFile(
+    join(root, "ideas", `${id}.status.yaml`),
+    serializeIdeaStatus({ version: 1, id }),
+  );
+  git(root, "add", ".");
+  git(root, "commit", "-m", "Remove fixture alias");
+  git(root, "push", repository, "main");
+
+  const report = await whatsNext({ idea: id, root });
+
+  assert.equal(report.ok, true);
+  assert.equal(Object.hasOwn(report.result.selectedIdea, "alias"), false);
+  assert.equal(report.result.action.code, "prepare-idea");
+  assert.match(report.result.action.message, new RegExp(id));
+  assert.doesNotMatch(report.result.action.message, /undefined/);
+
+  const missing = await whatsNext({ idea: "missing-alias", root });
+  assert.equal(missing.ok, false);
+  assert.equal(missing.diagnostics[0].code, "idea.not-found");
+});
+
+test("[selector-unknown] reports an unknown explicit idea without guessing", async () => {
   const { root } = await createRepository();
   const report = await whatsNext({ idea: "unknown", root });
 
   assert.equal(report.ok, false);
-  assert.equal(report.result, null);
+  assert.deepEqual(report.result.request, { kind: "select-idea", selector: "unknown" });
+  assert.equal(report.result.selectedIdea, null);
+  assert.equal(report.result.action, null);
   assert.equal(report.diagnostics[0].code, "idea.not-found");
+});
+
+test("preserves an unknown selector behind dirty and branch hygiene", async () => {
+  {
+    const { root } = await createRepository();
+    await writeFile(join(root, "dirty.txt"), "dirty\n");
+    const report = await whatsNext({ idea: "unknown", root });
+    assert.deepEqual(report.result.request, { kind: "select-idea", selector: "unknown" });
+    assert.equal(report.result.selectedIdea, null);
+    assert.equal(report.result.action.code, "inspect-worktree-changes");
+    assert.deepEqual(report.diagnostics, []);
+  }
+  {
+    const { root } = await createRepository();
+    git(root, "checkout", "-b", "feature");
+    const report = await whatsNext({ idea: "unknown", root });
+    assert.deepEqual(report.result.request, { kind: "select-idea", selector: "unknown" });
+    assert.equal(report.result.selectedIdea, null);
+    assert.equal(report.result.action.code, "switch-to-primary");
+    assert.deepEqual(report.diagnostics, []);
+  }
+});
+
+test("explicit create intent bypasses active-idea selection after hygiene", async () => {
+  const { root } = await createRepository();
+
+  const report = await whatsNext({ create: true, root });
+
+  assert.equal(report.ok, true);
+  assert.deepEqual(report.result.request, { kind: "create-idea" });
+  assert.equal(report.result.selectedIdea, null);
+  assert.equal(report.result.action.code, "create-idea");
 });
 
 test("maps every derived state to one deterministic action", () => {
@@ -170,7 +320,7 @@ test("runs worktree hygiene before creating an idea when none are active", async
   assert.equal(report.result.action.code, "inspect-worktree-changes");
 });
 
-test("prioritizes configured primary branch before state guidance", async () => {
+test("[branch-mismatch] prioritizes configured primary branch before state guidance", async () => {
   const { root } = await createRepository();
   git(root, "checkout", "-b", "feature");
 
@@ -179,7 +329,7 @@ test("prioritizes configured primary branch before state guidance", async () => 
   assert.equal(report.result.action.code, "switch-to-primary");
 });
 
-test("adopts relocated primary coordinates across two observations", async () => {
+test("[primary-relocation] adopts relocated primary coordinates across two observations", async () => {
   const { repository, root } = await createRepository();
   const base = join(root, "..");
   const secondary = join(base, "secondary.git");
@@ -218,14 +368,23 @@ primaryBranch: trunk
   assert.equal(second.result.action.details.expected, "refs/heads/trunk");
 });
 
-test("routes clean ahead, behind, and diverged primary ancestry", async () => {
+test("[ahead] [behind] [diverged] [publish-coordinates] routes clean primary ancestry", async () => {
   {
     const { root } = await createRepository();
+    const expectedRemoteTip = git(root, "rev-parse", "HEAD");
     await writeFile(join(root, "ahead.txt"), "ahead\n");
     git(root, "add", ".");
     git(root, "commit", "-m", "Local ahead");
+    const commit = git(root, "rev-parse", "HEAD");
     const report = await whatsNext({ idea: id, root });
     assert.equal(report.result.action.code, "publish-primary");
+    assert.deepEqual(report.result.action.details, {
+      repository: "https://example.test/owner/repository.git",
+      branch: "main",
+      commit,
+      expectedRemoteTip,
+      validation: { target: "commit", revision: commit },
+    });
   }
 
   {
@@ -254,4 +413,42 @@ test("routes clean ahead, behind, and diverged primary ancestry", async () => {
     const report = await whatsNext({ idea: id, root });
     assert.equal(report.result.action.code, "integrate-primary");
   }
+});
+
+test("[publish-concurrent-move] rejects a stale ordinary push", async () => {
+  const { repository, root } = await createRepository();
+  const initial = git(root, "rev-parse", "HEAD");
+  await writeFile(join(root, "local.txt"), "local\n");
+  git(root, "add", ".");
+  git(root, "commit", "-m", "Local publication candidate");
+  const local = git(root, "rev-parse", "HEAD");
+  const report = await whatsNext({ idea: id, root });
+  assert.equal(report.result.action.code, "publish-primary");
+
+  git(root, "reset", "--hard", initial);
+  await writeFile(join(root, "competing.txt"), "competing\n");
+  git(root, "add", ".");
+  git(root, "commit", "-m", "Competing primary commit");
+  const competing = git(root, "rev-parse", "HEAD");
+  git(root, "push", repository, "main");
+  git(root, "reset", "--hard", local);
+
+  const pushed = spawnSync(
+    "git",
+    [
+      "-C",
+      root,
+      "push",
+      report.result.action.details.repository,
+      `${report.result.action.details.commit}:refs/heads/${report.result.action.details.branch}`,
+    ],
+    { encoding: "utf8", windowsHide: true },
+  );
+
+  assert.notEqual(pushed.status, 0);
+  assert.match(pushed.stderr, /rejected|non-fast-forward/i);
+  assert.equal(
+    git(root, "ls-remote", repository, "refs/heads/main").split(/\s+/)[0],
+    competing,
+  );
 });

@@ -6,7 +6,7 @@ Load and follow [`repoledger`](skills/repoledger/SKILL.md) when the user invokes
 `/repoledger` or asks to navigate or continue a repository idea. Apply the
 repository profile in [`docs/repository-tasks.md`](docs/repository-tasks.md).
 
-- Start with `repoledger whatsnext [idea] --json` and execute only its
+- Start with `repoledger whats-next [idea] --json` and execute only its
   highest-priority action.
 - Preserve unknown work and both sides of concurrent history; never force-push,
   reset, clean, or silently replay a stale decision.

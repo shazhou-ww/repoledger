@@ -10,7 +10,8 @@ The shared authority is `https://github.com/shazhou-ww/repoledger.git` on
 optional transport and are not protocol state.
 
 ```sh
-repoledger whatsnext [idea] --json
+repoledger whats-next [idea] --json
+repoledger create-idea --json
 repoledger check
 repoledger check --worktree
 repoledger check --staged
@@ -23,7 +24,7 @@ primary moves, reobserve instead of replaying approval or acceptance.
 
 ## Decisions And Publication
 
-`whatsnext` is read-only. Human approvals, implementation acceptance,
+`whats-next` is read-only. Human approvals, implementation acceptance,
 deployment acceptance, and abandonment are ordinary edits to one sibling idea
 status file after an explicit decision. Validate the candidate and publish a
 normal non-force commit. Prefer status-only decision commits when practical.
