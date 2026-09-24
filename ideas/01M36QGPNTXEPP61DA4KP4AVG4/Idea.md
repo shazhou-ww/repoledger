@@ -5,7 +5,7 @@ Language: zh-CN
 
 ## Goal
 
-修复 vNext code review 中确认的五项边界问题，使 acceptance revision 在所有 Git candidate
+修复 vNext code review 中确认的六项边界问题，使 acceptance revision 在所有 Git candidate
 形态下都被一致校验，使 `whatsnext` 在创建 idea 前仍遵守 worktree hygiene，使 primary
 authority 切换具有明确语义，并让公开 API、runtime 与 JSON Schema 对 object ID 和 layout
 使用同一契约。
@@ -13,9 +13,10 @@ authority 切换具有明确语义，并让公开 API、runtime 与 JSON Schema 
 ## Context
 
 Repoledger `0.9.1` 已实现 content-addressed ideas、纯状态推导、只读 `whatsnext` 和 v3
-checker，完整 `pnpm check` 通过。进一步使用临时 Git repository 探测未覆盖边界时，确认
+checker，完整 `pnpm check` 通过。进一步使用临时 Git repository 探测和协议复核时，确认
 现有自动化测试没有覆盖 root commit、project-level create guidance、primary relocation、
-无 repository context 的公开 helper，以及 nested status 等场景。
+无 repository context 的公开 helper，并发现 idea-folder 内容与 acceptance-criteria authoring
+contract 仍需收敛。
 
 以下复现均针对 commit `768b68ddf323082bd248b6921d9c39080fb20f2c`，在临时目录中完成，
 不会修改被审阅 repository。
@@ -303,6 +304,64 @@ Git tree 可计算性。
 - README、adoption 和 skill 当前把 `Idea.md` 描述为 core-required，需要降级为项目约定或
   示例。
 
+## Issue 6：Acceptance criteria 未区分阶段且使用 checkbox 表达状态
+
+### Impact
+
+现有 migrated Idea.md 大多沿用单一 `## Acceptance criteria`，并通过 `[ ]` / `[x]` 表达完成
+状态。这有两个问题：
+
+- `whatsnext` 在 `implementing` 与 `deploying` 阶段无法从 idea definition 清楚判断当前应
+  检查哪一类 criteria。
+- Checkbox 把进展状态写入 idea folder；勾选本身会改变 ideaRevision，使刚记录的 acceptance
+  自动失效，与 sibling status 承载整体 acceptance 的模型冲突。
+
+### Reproduction
+
+1. 打开任一从 v2 task 转换而来的 Idea.md。
+2. 观察只有一个 `## Acceptance criteria` 章节，且条目采用 `[x]` 或 `[ ]`。
+3. 在 implementing 完成后勾选 checkbox 并提交。
+4. 计算 idea folder tree OID，观察 checkbox 更新产生了新 ideaRevision，使原先记录的
+   implementation acceptance 不再匹配。
+
+### Actual
+
+Criteria 的阶段归属不明确，完成状态同时存在于 Idea.md checkbox 和 sibling status revision
+两个位置；skill 又声明 `Idea.md has no required headings`，无法给 Agent 稳定的 authoring
+约定。
+
+### Expected
+
+Repoledger skill 应使用两个明确章节：
+
+```markdown
+## Implementation acceptance criteria
+
+- 本体迭代完成条件。
+
+## Deployment acceptance criteria
+
+- 驱动客体完成条件。
+```
+
+Criteria 使用普通列表，不使用 task-list checkbox。它们只定义“怎样算完成”，不表达当前
+完成状态。Implementation/deployment 的整体 acceptance 仍只由 sibling status 中对应 revision
+表达。
+
+Core checker 不要求这些章节存在，也不解析 criteria 语义；idea folder 仍是 opaque Git tree。
+章节与普通列表是 Repoledger skill 的默认 authoring contract，项目 skill 可以进一步约束或
+组织内容。
+
+### Decision
+
+- 修改 Repoledger skill：创建和维护 Idea.md 时，将 criteria 分别放入
+  `Implementation acceptance criteria` 和 `Deployment acceptance criteria`。
+- 不允许 Agent 通过勾选/取消 checkbox 记录进度；判断阶段满足后直接更新 sibling status 的
+  整体 acceptance revision。
+- README 与 adoption 文档同步说明“core 无固定内容 schema”和“skill 有默认 authoring
+  convention”的边界。
+- 增加 skill/docs tests，防止重新引入单一 AC 章节或 checkbox 状态。
+
 ## Scope
 
 - 修复以上五项行为，并保持既有 v3 数据模型与公开命令面。
@@ -319,28 +378,36 @@ Git tree 可计算性。
 - 强制 feature branch、commit trailer 或 per-idea work lock。
 - 把本轮加固扩展成新的托管平台依赖。
 
-## Acceptance criteria
+## Implementation acceptance criteria
 
-- [ ] Root commit 中新增的每个 acceptance revision 都必须等于同一 candidate snapshot 的
+- Root commit 中新增的每个 acceptance revision 都必须等于同一 candidate snapshot 的
   current idea tree；`check --commit`、`check --staged`、`check --worktree` 和 required CI
   都不能漏检。
-- [ ] 所有 `whatsnext` 调用先执行统一 worktree hygiene；dirty、conflicted、非
+- 所有 `whatsnext` 调用先执行统一 worktree hygiene；dirty、conflicted、非
   configured-primary、behind、ahead 和 diverged 都先输出相应 guidance，只有安全 worktree
   才输出 selection、`create-idea` 或 state guidance。
-- [ ] Default `check` 只检查 HEAD，`check --worktree` 检查假想完整 worktree commit 并使用
+- Default `check` 只检查 HEAD，`check --worktree` 检查假想完整 worktree commit 并使用
   candidate config 指向的 primary，`check --staged` 只检查 index；`whatsnext` 不接受
   `--worktree`。
-- [ ] Primary relocation 通过连续两次 observation 处理：先按旧 HEAD config 同步包含新配置
+- Primary relocation 通过连续两次 observation 处理：先按旧 HEAD config 同步包含新配置
   的 primary commit，再按新 HEAD config 观察新 primary；任何单次 report 都不混合 authority。
-- [ ] 公开 `validateIdeaStatus`、`serializeIdeaStatus` 和 `deriveIdeaState` 拒绝非 40/64 位 OID；
+- 公开 `validateIdeaStatus`、`serializeIdeaStatus` 和 `deriveIdeaState` 拒绝非 40/64 位 OID；
   repository-aware validation 继续要求当前 object format 的精确长度和 tree type。
-- [ ] Idea folder 被视为 opaque Git tree，不强制 `Idea.md`、固定章节、criteria 格式或文件名；
+- Idea folder 被视为 opaque Git tree，不强制 `Idea.md`、固定章节、criteria 格式或文件名；
   nested `.status.yaml` 只是普通内容，Git symlink 不被跟随，只有 sibling status 由 core 解释。
-- [ ] 新增测试覆盖四个缺陷复现与 idea-folder permissiveness，并覆盖相邻合法场景，避免修复
+- Repoledger skill 默认把 criteria 分为 implementation/deployment 两个章节，并使用普通列表；
+  Idea.md 不通过 checkbox 表达完成状态，core checker 不解析这些章节。
+- 新增测试覆盖四个缺陷复现、idea-folder permissiveness 和 criteria authoring contract，
+  并覆盖相邻合法场景，避免修复
   破坏 root idea creation、project-level selection、HEAD/worktree/staged target、正常 config、
   public helper 与项目自定义 narrative artifact。
-- [ ] `pnpm check`、pack contents、installed-package smoke、Markdown links 和 skill validation
+- `pnpm check`、pack contents、installed-package smoke、Markdown links 和 skill validation
   全部通过。
+
+## Deployment acceptance criteria
+
+- 本 idea 不要求额外的外部部署动作；implementation acceptance 后，可在确认 primary 上的
+  修复与文档均可用时，直接记录同一 ideaRevision 的 deployment acceptance。
 
 ## Constraints
 
