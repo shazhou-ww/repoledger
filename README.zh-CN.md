@@ -28,7 +28,8 @@ silvermoon create-idea
 silvermoon check [--remote | --commit <revision> | --staged | --worktree]
 ```
 
-`whats-next` 会 fetch 并观察，但绝不会编辑、checkout、merge、commit、stash、删除、
+`whats-next` 先输出完整的 doctor 风格 adoption 报告；所有阻塞要求满足后才路由 idea
+生命周期。它会 fetch 并观察，但绝不会编辑、checkout、merge、commit、stash、删除、
 reset、fast-forward 或 push；它只返回一个最高优先级行动。`check` 为人类、hook 和
 CI 验证存储及 Git 事实。`create-idea` 先执行同样的仓库卫生预检，再创建一个结构化
 idea 脚手架；它不会 stage、commit、push 或记录 approval。
@@ -37,10 +38,12 @@ idea 脚手架；它不会 stage、commit、push 或记录 approval。
 
 ```sh
 npm install --save-dev silvermoon
-npx skills add shazhou-ww/silvermoon --skill silvermoon
+npx skills add ./node_modules/silvermoon/skills --skill silvermoon --agent github-copilot --yes --copy
 ```
 
 需要 Node.js 22 或更高版本，并且能够通过 Git 访问配置的 primary branch。
+npm 包内包含 canonical skill；注册和更新由 `npx skills` 负责。Silvermoon 只读诊断
+exact content alignment，不修改 registered skill。
 
 ## 配置
 

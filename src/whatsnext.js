@@ -1,5 +1,6 @@
 import { resolve } from "node:path";
 
+import { inspectAdoption } from "./adoption.js";
 import { loadConfig } from "./config.js";
 import {
   fetchPrimary,
@@ -227,7 +228,7 @@ function worktreeAction(root, config, observedPrimaryCommit) {
   );
 }
 
-export async function whatsNext({ create = false, idea: selector, root = process.cwd() } = {}) {
+async function lifecycleWhatsNext({ create = false, idea: selector, root = process.cwd() } = {}) {
   const repositoryRoot = resolve(root);
   const request = create
     ? { kind: "create-idea" }
@@ -334,4 +335,45 @@ export async function whatsNext({ create = false, idea: selector, root = process
   }
 
   return success(repositoryRoot, observedPrimaryCommit, request, selected, stateAction(selected));
+}
+
+export async function whatsNext({
+  create = false,
+  enforceOnboarding = false,
+  idea: selector,
+  root = process.cwd(),
+} = {}) {
+  const repositoryRoot = resolve(root);
+  const onboarding = await inspectAdoption({ root: repositoryRoot, selector });
+  const request = create
+    ? { kind: "create-idea" }
+    : selector === undefined
+      ? { kind: "navigate" }
+      : { kind: "select-idea", selector };
+  if (enforceOnboarding && onboarding.status !== "ready") {
+    return {
+      command: "whats-next",
+      ok: true,
+      root: repositoryRoot,
+      diagnostics: [],
+      result: {
+        observedPrimaryCommit: null,
+        request,
+        selectedIdea: null,
+        onboarding,
+        action: action(
+          "adopt-silvermoon",
+          "Complete the blocking Silvermoon onboarding findings before idea lifecycle work.",
+          {
+            blockingFindings: onboarding.findings.filter(({ blocking }) => blocking),
+            recommendedAction: onboarding.recommendedAction,
+            recheck: onboarding.recheck,
+          },
+        ),
+      },
+    };
+  }
+  const report = await lifecycleWhatsNext({ create, idea: selector, root: repositoryRoot });
+  if (report.result) report.result.onboarding = onboarding;
+  return report;
 }

@@ -32,7 +32,9 @@ silvermoon create-idea
 silvermoon check [--remote | --commit <revision> | --staged | --worktree]
 ```
 
-`whats-next` fetches and observes but never edits, checks out, merges, commits,
+`whats-next` first emits a complete doctor-style adoption report and routes
+idea work only after every blocking requirement is satisfied. It fetches and
+observes but never edits, checks out, merges, commits,
 stashes, deletes, resets, fast-forwards, or pushes. It returns one
 highest-priority action. `check` validates storage and Git facts for humans,
 hooks, and CI. `create-idea` runs the same hygiene preflight, then creates one
@@ -43,10 +45,13 @@ approval.
 
 ```sh
 npm install --save-dev silvermoon
-npx skills add shazhou-ww/silvermoon --skill silvermoon
+npx skills add ./node_modules/silvermoon/skills --skill silvermoon --agent github-copilot --yes --copy
 ```
 
 Requires Node.js 22 or newer and Git access to the configured primary branch.
+The npm package contains the canonical skill. Skill registration and updates
+belong to `npx skills`; Silvermoon only diagnoses exact content alignment and
+never changes the registered skill.
 
 ## Configure
 
@@ -61,6 +66,9 @@ primaryBranch: main
 Repository URLs are canonical credential-free HTTPS shared state. Credentials,
 named remotes, and URL rewrites remain local Git concerns. Metadata paths are
 fixed and cannot be overridden by configuration.
+
+Create or repair this file with ordinary repository editing tools. Silvermoon
+reports configuration findings but does not own an onboarding mutation command.
 
 ## Store Ideas
 
@@ -152,7 +160,13 @@ alias, it renders state guidance. Every invocation first checks the configured
 primary branch, conflicts, dirty worktree, and local/remote primary ancestry.
 
 JSON reports contain `observedPrimaryCommit`, `selectedIdea`, and exactly one
-`action`. Use the observed commit as the expected remote tip for later writes.
+`action`. They also contain `onboarding`, whose requirements carry stable IDs,
+statuses, blocking flags, dependencies, observed facts, structured remediation,
+a recommended action, and a recheck command. Execution source is
+`source-checkout`, `project-local`, `temporary`, `global`, or `unknown`.
+Temporary execution can bootstrap diagnosis; normal idea work requires the
+exact project dependency, installed package, and matching repository skill.
+Use the observed commit as the expected remote tip for later writes.
 If primary moves, fetch and reobserve rather than replaying a stale decision.
 
 ## Create An Idea

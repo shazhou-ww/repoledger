@@ -13,6 +13,7 @@
   "files": [
     "assets/silvermoon.svg",
     "bin",
+    "skills/silvermoon",
     "src",
     "README.md",
     "README.zh-CN.md",

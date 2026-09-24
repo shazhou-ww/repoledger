@@ -22,7 +22,12 @@ and Git.
 2. Treat the command, request, `observedPrimaryCommit`, `selectedIdea`, and
    action or created idea as one immutable observation. Do not combine guidance
    from different reports.
-3. Execute only the highest-priority action. Do not skip worktree, conflict,
+3. Read the complete `onboarding` doctor report. It lists every requirement,
+   status, blocking flag, dependency, structured remediation, recommended
+   action, and recheck command. For `adopt-silvermoon`, execute only the
+   recommended explicit remediation (or safely resolve its conflict), then
+   recheck; do not route idea work while blocking findings remain.
+4. Execute only the highest-priority action. Do not skip worktree, conflict,
    sync, or selection guidance to reach a later idea-state action. An explicit
    create request is not idea selection: after resolving a blocking hygiene
    action, retry `create-idea`, not selector-less `whats-next`.
@@ -30,6 +35,10 @@ and Git.
 `whats-next` may fetch and inspect. It never checkout, merges, edits, commits,
 stashes, deletes, resets, fast-forwards, or pushes. `create-idea` runs the same
 hygiene preflight and, only when it passes, creates the structured idea scaffold.
+Dependency installation and skill registration are separate explicit
+operations. The packaged skill is canonical, while registration and updates
+belong to the supported `npx skills add` interface. Silvermoon reports
+configuration and skill findings but owns no onboarding mutation command.
 
 ## Preserve Work
 
