@@ -8,9 +8,9 @@ deploymentRevision: 07210a74bffb8a39a4995d94bb8cc3e01e6216e7
 
 ## Current
 
-- State: implementing
-- Focus: request implementation acceptance
-- Blocked: explicit human acceptance required
+- State: deploying
+- Focus: request deployment acceptance
+- Blocked: explicit human deployment acceptance required
 
 ## Work
 
@@ -32,8 +32,12 @@ deploymentRevision: 07210a74bffb8a39a4995d94bb8cc3e01e6216e7
 - [x] Skill validation passed.
 - [x] `silvermoon check --worktree --json` passed with unchanged world revisions.
 - [x] `git diff --check` passed.
+- [x] D01: published `whats-next`, skill, and ledger expose the action and continuation context.
+- [x] D02: add, edit, and removal tests preserve all world revisions; remote state remains deploying until an explicit decision.
+- [x] D03: package smoke confirms the criteria evidence exports are absent; current guidance has no root evidence requirement.
+- [x] `silvermoon check --remote --json` passed at primary commit `9545f3387c50a3b8962e0cf73541654cfbb20a88`.
 
 ## Next
 
-1. Publish the validated implementation candidate.
-2. Request explicit acceptance for implementation revision `925b1af1bb4a3a21cc46c05d0461e15cb59f6e8d`.
+1. Publish this deployment verification update.
+2. Request explicit acceptance for deployment revision `07210a74bffb8a39a4995d94bb8cc3e01e6216e7`.
