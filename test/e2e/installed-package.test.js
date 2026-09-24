@@ -68,16 +68,54 @@ try {
   run("git", ["init", "--initial-branch=main"], bootstrap);
   npm(["init", "-y"], bootstrap);
   npm(["install", "--ignore-scripts", "--no-audit", "--no-fund", tarball], bootstrap);
+  const bootstrapStatusBefore = run(
+    "git",
+    ["status", "--porcelain=v1", "--untracked-files=all"],
+    bootstrap,
+  );
   const bootstrapReport = JSON.parse(
     npm(["exec", "--", "silvermoon", "whats-next", "--json"], bootstrap),
   );
+  const bootstrapStatusAfter = run(
+    "git",
+    ["status", "--porcelain=v1", "--untracked-files=all"],
+    bootstrap,
+  );
+  assert.equal(bootstrapStatusAfter, bootstrapStatusBefore);
   assert.equal(bootstrapReport.result.action.code, "adopt-silvermoon");
   assert.equal(bootstrapReport.result.onboarding.executionSource.kind, "project-local");
+  assert.deepEqual(
+    bootstrapReport.result.onboarding.requirements.map(({ id: requirement }) =>
+      requirement
+    ),
+    [
+      "repository.git",
+      "runtime.execution-source",
+      "package.manifest",
+      "package.installed",
+      "skill.repository-local",
+      "repository.configuration",
+    ],
+  );
   assert.deepEqual(
     bootstrapReport.result.onboarding.findings.map(({ id }) => id),
     ["package.manifest", "skill.repository-local", "repository.configuration"],
   );
+  assert.ok(
+    bootstrapReport.result.onboarding.requirements.every(({ dependencies }) =>
+      Array.isArray(dependencies)
+    ),
+  );
+  assert.ok(
+    bootstrapReport.result.onboarding.findings.every(({ blocking, remediation }) =>
+      blocking === true && remediation
+    ),
+  );
   assert.equal(bootstrapReport.result.onboarding.recommendedAction.executable, "npm");
+  assert.deepEqual(
+    bootstrapReport.result.onboarding.recheck.args,
+    ["--no-install", "silvermoon", "whats-next", "--json"],
+  );
 
   const consumer = join(temporaryRoot, "consumer");
   const primary = join(temporaryRoot, "primary.git");
