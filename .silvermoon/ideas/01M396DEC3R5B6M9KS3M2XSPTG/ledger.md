@@ -27,15 +27,15 @@
 
 ### Steps
 
-- [ ] **D-S01:** 验证 fresh repository 创建流程
-- [ ] **D-S02:** 验证必需 ledger 的拒绝与迁移路径
-- [ ] **D-S03:** 验证 Agent continuation 行为
-- [ ] **D-S04:** 验证 package 与共享主分支候选
+- [x] **D-S01:** 验证 fresh repository 创建流程
+- [x] **D-S02:** 验证必需 ledger 的拒绝与迁移路径
+- [x] **D-S03:** 验证 Agent continuation 行为
+- [x] **D-S04:** 验证 package 与共享主分支候选
 
 ### Acceptance criteria
 
-- [ ] **D-AC01:** 已安装 CLI 生成相同 scaffold
-- [ ] **D-AC02:** 真实仓库不接受缺失 ledger
-- [ ] **D-AC03:** Agent 能从双阶段 ledger 继续工作
-- [ ] **D-AC04:** Lifecycle 与 ledger 状态保持隔离
-- [ ] **D-AC05:** 发布候选表面一致
+- [x] **D-AC01:** 已安装 CLI 生成相同 scaffold
+- [x] **D-AC02:** 真实仓库不接受缺失 ledger
+- [x] **D-AC03:** Agent 能从双阶段 ledger 继续工作
+- [x] **D-AC04:** Lifecycle 与 ledger 状态保持隔离
+- [x] **D-AC05:** 发布候选表面一致
