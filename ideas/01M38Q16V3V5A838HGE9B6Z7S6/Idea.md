@@ -50,6 +50,12 @@ Silvermoon 的产品定位是“你项目的器灵”。它不是只服务人的
 - 在 README 的首要产品介绍中表达“Silvermoon 是你项目的器灵”这一定位，说明它同时面向
   人和 Agent，以项目事实为依据检查状态、守住决策边界并回答 `what's next`；避免把它描述成
   私人助理、聊天 Agent、后台服务或会替用户自主决策的执行者。
+- 以用户提供的原创线稿 [`silvermoon.svg`](./silvermoon.svg) 为基础制作 README 头图：
+  清理头发区域影响阅读的孤立碎点，并在不改变人物轮廓与主要笔触的前提下，将适合保留的
+  离散点连接为细线；保留原始 SVG 作为可追溯的设计输入。
+- 为头图生成适合浅色和深色背景的 SVG 交付版本，在 README 使用 GitHub 支持的响应式
+  `<picture>`/`prefers-color-scheme` 方案自动选择，并提供稳定 fallback、合理尺寸和描述性
+  alt text。成品不得依赖脚本、外部字体、远程资源或 GitHub 不支持的 SVG 内嵌行为。
 - 将 GitHub repository 及默认远端坐标改名为 `silvermoon`，更新所有受影响的 canonical
   URL、badge、workflow、发布标签命名空间和自动化权限边界，并验证旧 URL 重定向不会被误当作
   新的 canonical identity。
@@ -86,6 +92,13 @@ Silvermoon 的产品定位是“你项目的器灵”。它不是只服务人的
   项目指令和所有当前文档、示例、链接、badge 及发布说明均使用新名称；迁移说明准确列出
   用户必须采取的动作。README 的开篇明确使用“你项目的器灵”作为核心产品隐喻，并准确解释
   Silvermoon 如何同时服务人和 Agent、检查项目状态、回答 `what's next` 及停在人类决策边界。
+- **README 头图：** 线稿在浅色和深色 GitHub README 中均有清晰对比度，页面能随系统主题
+  自动选择正确版本并在不支持 `<picture>` 的渲染器中显示 fallback。分别以窄屏和桌面宽度
+  检查时，图像保持比例、不过度放大、不横向溢出；头发区域不再出现用户指出的干扰性孤立
+  碎点，连线粗细与主体线稿协调。用户对清理后的视觉结果进行主观验收。
+- **SVG 安全与可维护性：** 发布版本具有准确 `viewBox`，不包含脚本、事件处理器、外部引用、
+  嵌入位图、字体依赖或编辑器私有冗余；优化前后在目标 README 尺寸下保持预期轮廓和细节，
+  Markdown/link 检查覆盖所有浅色、深色和 fallback 资源路径。
 - **残留审计：** 对 tracked files 执行大小写敏感和不敏感的 `repoledger` 搜索。每个剩余
   命中都属于明确列举的不可变历史事实或已批准、带期限的兼容测试/迁移说明；不存在未解释的
   当前品牌、公开 contract、文件名、配置名、代码标识或 URL 命中。
@@ -133,6 +146,8 @@ Silvermoon 的产品定位是“你项目的器灵”。它不是只服务人的
 - **Architecture review — required before repository/config migration:** maintainer 审查
   package、CLI、配置发现、schema、repository identity、skill 和 release pipeline 的迁移顺序、
   authority 边界与回滚方案。
+- **Visual review — required before accepting the README artwork:** 用户审查清理后的线稿、
+  头发碎点/连线处理、浅色与深色效果以及窄屏/桌面 README 渲染，批准最终头图版本。
 - **Deployment review — required before external rename/publication:** repository/package owner
   审查 GitHub 改名步骤、npm 名称实时可用性、immutable tag、workflow 权限和发布 smoke 计划。
 - **Delivery acceptance — required:** 用户或 accountable owner 审查已发布实现、残留审计、
