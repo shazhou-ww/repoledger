@@ -53,6 +53,10 @@ Current 或 Next 摘要。Silvermoon lifecycle 仍只从 world revisions 与显�
 `### Deployment steps` 和 `### Deployment acceptance criteria`。这样所有 heading 在
 整份文档中保持唯一，同时仍能清楚区分两个阶段的 steps 与 acceptance criteria。
 
+仓库中已经存在的 idea 文档也采用同一规则：仍以 `# Idea` 开头的 `Idea.md` 必须根据其
+实际契约内容改为具体标题；每份现有 `ledger.md` 都必须迁移为上述四个唯一三级标题。
+修复完成后，模板、skill 示例与所有 repository-owned idea 文档不再保留这两类问题。
+
 ## Scope
 
 ### In scope
@@ -71,6 +75,9 @@ Current 或 Next 摘要。Silvermoon lifecycle 仍只从 world revisions 与显�
 - 将默认 `ledger.md` 的四个三级标题改为 `Implementation steps`、
   `Implementation acceptance criteria`、`Deployment steps` 和
   `Deployment acceptance criteria`，并同步相关示例、文档与精确内容测试。
+- 将仓库中仍使用 `# Idea` 的现有 `Idea.md` 改为与各自内容一致的具体标题。
+- 将仓库中所有现有 `ledger.md` 的四个三级标题迁移为带阶段名称的唯一标题，不改变
+  checkbox、stable ID、条目顺序或完成事实。
 
 ### Out of scope
 
@@ -93,6 +100,9 @@ Current 或 Next 摘要。Silvermoon lifecycle 仍只从 world revisions 与显�
   契约时必须将整条提示替换为具体标题。
 - ledger heading 在整份文档中必须唯一；三级标题必须包含所属阶段名称，并继续位于对应
   的 `## Implementation` 或 `## Deployment` 下。
+- 现有文档迁移不得把通用标题提示原样写入已经细化的 `Idea.md`；这些文档必须使用从其
+  当前契约内容得出的具体标题。
+- 现有 ledger 迁移只改变 heading 文本，不得重置或新增既有工作状态。
 
 ## Open questions
 
