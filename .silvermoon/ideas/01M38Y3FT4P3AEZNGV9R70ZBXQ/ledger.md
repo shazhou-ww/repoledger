@@ -35,3 +35,15 @@
 - [ ] **D01:** 新仓库 lifecycle
 - [ ] **D02:** 生产级联验证
 - [ ] **D03:** 发布包与 skill
+
+### Blockers
+
+- 2026-09-24: `npm/silvermoon/v0.0.1` at
+  `aaf002b55ca551b7a8ca23b9566af823786b210c` triggered workflow run
+  `35993795780`. Release planning, unit, contract, integration, skill,
+  tarball, and installed-package checks passed; `npm publish` failed with
+  `E404` because `silvermoon@0.0.1` does not yet exist or the npm trusted
+  publisher cannot access it. Repository policy forbids local publication and
+  npm tokens. Establish the initial npm package and its trusted publisher
+  through an approved bootstrap path, then rerun the same workflow without
+  moving or recreating the release tag.
