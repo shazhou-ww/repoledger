@@ -55,14 +55,16 @@ test("exposes one consolidated repoledger skill", async () => {
   assert.deepEqual(document.toJS(), {
     name: "repoledger",
     description:
-      "Navigate repository-owned ideas with repoledger whats-next, execute one safe action, and reobserve only after an observable delta.",
-    "argument-hint": "[idea ULID or alias]",
+      "Navigate or create repository-owned ideas, execute one safe action, and reobserve only after an observable delta.",
+    "argument-hint": "[new | idea ULID or alias]",
     "user-invocable": true,
   });
 
   for (const required of [
+    "/repoledger new",
     "repoledger whats-next [idea] --json",
     "repoledger create-idea --json",
+    "retry `create-idea`, not selector-less `whats-next`",
     "Execute only the highest-priority action",
     "Preserve unknown, unrelated, or user-authored changes",
     "Never use force-push",

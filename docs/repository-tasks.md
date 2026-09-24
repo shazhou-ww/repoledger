@@ -22,6 +22,13 @@ repoledger check --remote
 Use the report's `observedPrimaryCommit` as the expected remote tip. When
 primary moves, reobserve instead of replaying approval or acceptance.
 
+Choose the entry command from the user's intent. Explicit new-idea requests use
+`repoledger create-idea --json` even when unrelated active ideas exist; all
+navigation uses `repoledger whats-next [idea] --json`. Both commands apply the
+same branch, conflict, worktree, and ancestry hygiene. If hygiene blocks an
+explicit creation, perform only that blocking action and then retry
+`create-idea` so active-idea selection cannot replace the pending create intent.
+
 ## Decisions And Publication
 
 `whats-next` is read-only. Human approvals, implementation acceptance,

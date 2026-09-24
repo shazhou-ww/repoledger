@@ -1,27 +1,35 @@
 ---
 name: repoledger
-description: "Navigate repository-owned ideas with repoledger whats-next, execute one safe action, and reobserve only after an observable delta."
-argument-hint: "[idea ULID or alias]"
+description: "Navigate or create repository-owned ideas, execute one safe action, and reobserve only after an observable delta."
+argument-hint: "[new | idea ULID or alias]"
 user-invocable: true
 ---
 
 # Repoledger
 
-Use Repoledger as a read-only navigator over the configured remote primary.
-The CLI derives idea state; the Agent performs the suggested repository or
-external action through ordinary tools and Git.
+Use Repoledger to navigate or explicitly create ideas against the configured
+remote primary. The CLI derives idea state and checks repository hygiene; the
+Agent performs suggested repository or external actions through ordinary tools
+and Git.
 
 ## Start From Primary
 
-1. Run `repoledger whats-next [idea] --json` from the repository root. Pass the
-   selector only when the user supplied or previously selected one.
-2. Treat `observedPrimaryCommit`, `selectedIdea`, and `action` as one immutable
-   observation. Do not combine guidance from different reports.
+1. Preserve the user's intent when choosing the entry command:
+   - For `/repoledger new` or any other explicit request to create a new idea,
+     run `repoledger create-idea --json`.
+   - Otherwise run `repoledger whats-next [idea] --json`. Pass the selector only
+     when the user supplied or previously selected one.
+2. Treat the command, request, `observedPrimaryCommit`, `selectedIdea`, and
+   action or created idea as one immutable observation. Do not combine guidance
+   from different reports.
 3. Execute only the highest-priority action. Do not skip worktree, conflict,
-   sync, or selection guidance to reach a later idea-state action.
+   sync, or selection guidance to reach a later idea-state action. An explicit
+   create request is not idea selection: after resolving a blocking hygiene
+   action, retry `create-idea`, not selector-less `whats-next`.
 
 `whats-next` may fetch and inspect. It never checkout, merges, edits, commits,
-stashes, deletes, resets, fast-forwards, or pushes.
+stashes, deletes, resets, fast-forwards, or pushes. `create-idea` runs the same
+hygiene preflight and, only when it passes, creates the empty idea scaffold.
 
 ## Preserve Work
 
@@ -41,10 +49,12 @@ stashes, deletes, resets, fast-forwards, or pushes.
 - `select-active-idea`: show the ordered candidates and obtain one explicit
   ULID or alias selection.
 - `continue-active-idea`: call `whats-next <id>` to obtain state guidance.
-- `create-idea`: run `repoledger create-idea --json`. After hygiene passes it
-  creates a canonical ULID folder with an empty `Idea.md` and an alias-less
-  sibling status. It never stages, commits, pushes, or records approval. Review
-  the resulting untracked paths before adding substantive idea content.
+- `create-idea`: this action is internal to the explicit `create-idea` command's
+  preflight; do not replace the user's create intent with active-idea
+  selection. After hygiene passes, the command creates a canonical ULID folder
+  with an empty `Idea.md` and an alias-less sibling status. It never stages,
+  commits, pushes, or records approval. Review the resulting untracked paths
+  before adding substantive idea content.
 - `switch-to-primary`, `resolve-conflicts`, `inspect-worktree-changes`,
   `fast-forward-primary`, `integrate-primary`, `publish-primary`: perform the
   exact Git hygiene step without discarding either history or unknown work.
@@ -138,11 +148,12 @@ when the idea folder changes.
 
 ## Advance The Loop
 
-Call `whats-next` again only after an expected repository delta, an unexpected
-input change, or a newly arrived external result. End the current turn when
-waiting for human/external input. Report an actionable error with its recovery
-condition, or report no progress and stop if guidance completed without a
-delta. Never poll the same observation.
+Re-run the intent-preserving entry command only after an expected repository
+delta, an unexpected input change, or a newly arrived external result: use
+`create-idea` for a pending explicit creation and `whats-next` otherwise. End
+the current turn when waiting for human/external input. Report an actionable
+error with its recovery condition, or report no progress and stop if guidance
+completed without a delta. Never poll the same observation.
 
 Follow [adoption.md](./references/adoption.md) when creating or explicitly
 converting a repository to vNext.
