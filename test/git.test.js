@@ -64,7 +64,6 @@ async function createRepository() {
   return {
     config: {
       version: 1,
-      ideasDirectory: "ideas",
       primaryRepository: repository,
       primaryBranch: "main",
     },

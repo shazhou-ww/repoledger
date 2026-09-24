@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, test } from "node:test";
@@ -21,11 +21,12 @@ afterEach(async () => {
 async function writeConfig(source) {
   const root = await mkdtemp(join(tmpdir(), "silvermoon-config-v1-"));
   temporaryDirectories.push(root);
-  await writeFile(join(root, "silvermoon.yaml"), source);
+  await mkdir(join(root, ".silvermoon"));
+  await writeFile(join(root, ".silvermoon", "config.yaml"), source);
   return root;
 }
 
-test("loads canonical version 1 configuration with the default ideas directory", async () => {
+test("loads canonical version 1 configuration from the fixed metadata path", async () => {
   const source = `version: 1
 primaryRepository: https://example.com/owner/repository.git
 primaryBranch: main
@@ -35,64 +36,70 @@ primaryBranch: main
   assert.deepEqual(loaded.diagnostics, []);
   assert.deepEqual(loaded.config, {
     version: 1,
-    ideasDirectory: "ideas",
     primaryRepository: "https://example.com/owner/repository.git",
     primaryBranch: "main",
   });
-  assert.equal(
-    serializeConfig(loaded.config),
-    `version: 1
-ideasDirectory: ideas
-primaryRepository: https://example.com/owner/repository.git
-primaryBranch: main
-`,
-  );
+  assert.equal(serializeConfig(loaded.config), source);
 });
 
-test("loads an explicit canonical ideas directory", async () => {
-  const source = `version: 1
+test("rejects ideasDirectory and ignores previous layouts", async () => {
+  const root = await writeConfig(`version: 1
 ideasDirectory: project/ideas
 primaryRepository: https://example.com/owner/repository.git
 primaryBranch: main
-`;
-  const loaded = await loadConfig({ root: await writeConfig(source) });
-
-  assert.deepEqual(loaded.diagnostics, []);
-  assert.equal(loaded.config.ideasDirectory, "project/ideas");
-});
-
-test("treats a repository with only the previous product config as unconfigured", async () => {
-  const root = await mkdtemp(join(tmpdir(), "silvermoon-config-previous-product-"));
-  temporaryDirectories.push(root);
-  await writeFile(
-    join(root, "repoledger.yaml"),
-    "version: 3\nprimaryRepository: https://example.com/owner/repository.git\nprimaryBranch: main\n",
-  );
-
+`);
   const loaded = await loadConfig({ root });
-
   assert.equal(loaded.config, null);
-  assert.equal(loaded.diagnostics[0].code, "config.missing");
-  assert.equal(loaded.diagnostics[0].path, "silvermoon.yaml");
-});
+  assert.equal(loaded.diagnostics[0].code, "config.unknown-key");
 
-test("rejects unsupported Silvermoon configuration versions", async () => {
-  for (const version of [0, 2, 3]) {
-    const root = await writeConfig(`version: ${version}\ntasksDirectory: tasks\n`);
-    const loaded = await loadConfig({ root });
-    assert.equal(loaded.config, null);
-    assert.equal(
-      loaded.diagnostics.some(({ code }) => code === "config.unsupported-version"),
-      true,
+  for (const legacy of ["silvermoon.yaml", "repoledger.yaml"]) {
+    const legacyRoot = await mkdtemp(join(tmpdir(), "silvermoon-config-legacy-"));
+    temporaryDirectories.push(legacyRoot);
+    await writeFile(
+      join(legacyRoot, legacy),
+      "version: 1\nprimaryRepository: https://example.com/owner/repository.git\nprimaryBranch: main\n",
     );
+    const ignored = await loadConfig({ root: legacyRoot });
+    assert.equal(ignored.config, null);
+    assert.equal(ignored.diagnostics[0].code, "config.missing");
+    assert.equal(ignored.diagnostics[0].path, ".silvermoon/config.yaml");
   }
 });
 
-test("rejects invalid version 1 paths, unknown keys, and noncanonical order", async () => {
+test("rejects symlinked metadata roots and configuration files", async (context) => {
+  if (process.platform === "win32") {
+    context.skip("Windows symlink creation requires privileges unavailable in standard CI");
+    return;
+  }
+  const root = await mkdtemp(join(tmpdir(), "silvermoon-config-symlink-"));
+  const target = await mkdtemp(join(tmpdir(), "silvermoon-config-target-"));
+  temporaryDirectories.push(root, target);
+  await writeFile(
+    join(target, "config.yaml"),
+    "version: 1\nprimaryRepository: https://example.com/owner/repository.git\nprimaryBranch: main\n",
+  );
+  await symlink(target, join(root, ".silvermoon"), "dir");
+
+  const loaded = await loadConfig({ root });
+  assert.equal(loaded.config, null);
+  assert.equal(loaded.diagnostics[0].code, "config.invalid-file");
+});
+
+test("rejects unsupported versions, unknown keys, and noncanonical order", async () => {
   const fixtures = [
-    `version: 1\nideasDirectory: ../ideas\nprimaryRepository: https://example.com/owner/repository.git\nprimaryBranch: main\n`,
-    `version: 1\ntasksDirectory: tasks\nprimaryRepository: https://example.com/owner/repository.git\nprimaryBranch: main\n`,
-    `primaryRepository: https://example.com/owner/repository.git\nversion: 1\nprimaryBranch: main\n`,
+    `version: 2
+primaryRepository: https://example.com/owner/repository.git
+primaryBranch: main
+`,
+    `version: 1
+tasksDirectory: tasks
+primaryRepository: https://example.com/owner/repository.git
+primaryBranch: main
+`,
+    `primaryRepository: https://example.com/owner/repository.git
+version: 1
+primaryBranch: main
+`,
   ];
   for (const source of fixtures) {
     const loaded = await loadConfig({ root: await writeConfig(source) });
@@ -105,6 +112,8 @@ test("keeps the version 1 schema aligned with runtime identity constraints", asy
     await readFile(new URL("../schema/v1.json", import.meta.url), "utf8"),
   );
   assert.deepEqual(schema.$defs.ideaStatus.required, ["version", "id"]);
+  assert.equal(Object.hasOwn(schema.properties, "ideasDirectory"), false);
+  assert.equal(Object.hasOwn(schema.$defs, "ideasDirectory"), false);
   const repositoryPattern = new RegExp(schema.$defs.repository.pattern);
   for (const repository of [
     "https://example.com/owner/repository.git",

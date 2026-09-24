@@ -69,6 +69,11 @@ test("exposes one consolidated silvermoon skill", async () => {
     "Preserve unknown, unrelated, or user-authored changes",
     "Never use force-push",
     "Silvermoon has no approval, acceptance, or abandonment mutation commands",
+    "Ideal World (道心)",
+    "Inner World (内景)",
+    "Outer World (现世)",
+    "supporting files",
+    ".silvermoon/ideas/<ULID>/",
     "## Implementation acceptance criteria",
     "## Deployment acceptance criteria",
     "Do not use task-list checkboxes",
@@ -76,7 +81,7 @@ test("exposes one consolidated silvermoon skill", async () => {
     "criteria.evidence.missing",
     "implementationCriterionIds",
     "verifyCriteriaEvidence",
-    "I01",
+    "implementationRevision",
     "silvermoon check --worktree --json",
     "silvermoon check --staged --json",
     "observedPrimaryCommit",
@@ -129,6 +134,10 @@ test("documents explicit Silvermoon adoption and conversion", async () => {
   assert.match(adoption, /version: 1/);
   for (const source of [readme, adoption]) {
     assert.match(source, /opaque Git tree/);
+    assert.match(source, /\.silvermoon\/config\.yaml/);
+    assert.match(source, /Ideal World \(道心\)/);
+    assert.match(source, /Inner World \(内景\)/);
+    assert.match(source, /Outer World \(现世\)/);
     assert.match(source, /Implementation acceptance criteria/);
     assert.match(source, /Deployment acceptance criteria/);
     assert.match(source, /check --worktree/);

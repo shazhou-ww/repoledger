@@ -12,10 +12,6 @@
       "format": "uri",
       "pattern": "^https://(?:[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?|\\[[0-9a-f:.]+\\])(?::(?!443(?:/|$))[0-9]+)?/(?!/)(?!.*//)(?!.*\\\\)(?!.*(?:/\\.{1,2})(?:/|$))(?!.*%(?:2[eEfF]|5[cC]))(?!.*[?#])[^/](?:.*[^/])?$"
     },
-    "ideasDirectory": {
-      "type": "string",
-      "pattern": "^(?![A-Za-z]:)(?!/)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))(?!\\.$)(?!.*//)(?!.*\/$).+$"
-    },
     "ulid": {
       "type": "string",
       "pattern": "^[0-7][0-9A-HJKMNP-TV-Z]{25}$"
@@ -48,12 +44,15 @@
           "const": true
         },
         "approvedRevision": {
+          "description": "Accepted Ideal World (道心) tree object ID.",
           "$ref": "#/$defs/objectId"
         },
         "implementationAcceptedRevision": {
+          "description": "Accepted Inner World (内景) tree object ID.",
           "$ref": "#/$defs/objectId"
         },
         "deploymentAcceptedRevision": {
+          "description": "Accepted Outer World (现世) tree object ID.",
           "$ref": "#/$defs/objectId"
         }
       }
@@ -69,9 +68,6 @@
   "properties": {
     "version": {
       "const": 1
-    },
-    "ideasDirectory": {
-      "$ref": "#/$defs/ideasDirectory"
     },
     "primaryRepository": {
       "$ref": "#/$defs/repository"

@@ -3,8 +3,13 @@ import { relative, resolve } from "node:path";
 
 import { deriveIdeaState, isValidUlid, parseIdeaStatus } from "./ideas.js";
 import { gitObjectIdLength, runGit, worktreePathTree } from "./git.js";
+import { IDEAS_ROOT, ideaPaths } from "./layout.js";
 
-const STATUS_SUFFIX = ".status.yaml";
+const REVISION_BINDINGS = {
+  approvedRevision: "idealRevision",
+  implementationAcceptedRevision: "implementationRevision",
+  deploymentAcceptedRevision: "deploymentRevision",
+};
 
 function displayPath(root, path) {
   return relative(root, path).replaceAll("\\", "/");
@@ -24,11 +29,7 @@ async function metadata(path) {
 }
 
 function validateRevisionObjects(root, statusPath, status, diagnostics) {
-  for (const key of [
-    "approvedRevision",
-    "implementationAcceptedRevision",
-    "deploymentAcceptedRevision",
-  ]) {
+  for (const key of Object.keys(REVISION_BINDINGS)) {
     if (!status[key]) continue;
     const type = runGit(root, ["cat-file", "-t", status[key]]);
     if (!type.ok || type.stdout !== "tree") {
@@ -36,26 +37,22 @@ function validateRevisionObjects(root, statusPath, status, diagnostics) {
         "idea.revision.invalid-object",
         `${statusPath}#${key}`,
         `${key} must resolve to a Git tree object: ${status[key]}`,
-        "Use the current idea folder tree object ID from Git.",
+        "Use the current corresponding world tree object ID from Git.",
       ));
     }
   }
 }
 
 function validateRevisionHistory(root, commit, idea, diagnostics) {
-  for (const key of [
-    "approvedRevision",
-    "implementationAcceptedRevision",
-    "deploymentAcceptedRevision",
-  ]) {
-    const revision = idea.status[key];
+  for (const [statusKey, revisionKey] of Object.entries(REVISION_BINDINGS)) {
+    const revision = idea.status[statusKey];
     if (!revision) continue;
     const history = runGit(root, [
       "log",
       "--reverse",
       "--format=%H",
       "-S",
-      `${key}: ${revision}`,
+      `${statusKey}: ${revision}`,
       commit,
       "--",
       idea.statusPath,
@@ -69,19 +66,19 @@ function validateRevisionHistory(root, commit, idea, diagnostics) {
         shallow.ok && shallow.stdout === "true"
           ? "history.incomplete"
           : "idea.revision.history-missing",
-        `${idea.statusPath}#${key}`,
-        `Primary history does not prove when ${key} recorded ${revision}.`,
-        "Fetch complete primary history or repair the acceptance through a forward commit.",
+        `${idea.statusPath}#${statusKey}`,
+        `Primary history does not prove when ${statusKey} recorded ${revision}.`,
+        "Fetch complete primary history or repair the decision through a forward commit.",
       ));
       continue;
     }
-    const tree = runGit(root, ["rev-parse", `${evidenceCommit}:${idea.relativePath}`]);
+    const tree = runGit(root, ["rev-parse", `${evidenceCommit}:${idea.worlds[revisionKey].path}`]);
     if (!tree.ok || tree.stdout !== revision) {
       diagnostics.push(error(
         "idea.revision.history-mismatch",
-        `${idea.statusPath}#${key}`,
-        `${key} was not bound to the idea tree in commit ${evidenceCommit}.`,
-        "Record acceptance only for the idea tree in the same candidate commit.",
+        `${idea.statusPath}#${statusKey}`,
+        `${statusKey} was not bound to its world tree in commit ${evidenceCommit}.`,
+        "Record the decision only for the corresponding world tree in the same candidate commit.",
       ));
     }
   }
@@ -99,26 +96,83 @@ function validateCandidateRevisions(root, baseRevision, idea, diagnostics, objec
       }
     }
   }
-  for (const key of [
-    "approvedRevision",
-    "implementationAcceptedRevision",
-    "deploymentAcceptedRevision",
-  ]) {
-    if (idea.status[key] === previous[key] || idea.status[key] === undefined) continue;
-    if (idea.status[key] !== idea.revision) {
+  for (const [statusKey, revisionKey] of Object.entries(REVISION_BINDINGS)) {
+    if (
+      idea.status[statusKey] === previous[statusKey] ||
+      idea.status[statusKey] === undefined
+    ) continue;
+    const expected = idea.revisions[revisionKey];
+    if (idea.status[statusKey] !== expected) {
       diagnostics.push(error(
         "idea.revision.candidate-mismatch",
-        `${idea.statusPath}#${key}`,
-        `${key} must equal the idea tree in the same candidate snapshot.`,
-        `Use ${idea.revision} for the current idea revision or omit the stale mutation.`,
+        `${idea.statusPath}#${statusKey}`,
+        `${statusKey} must equal the corresponding world tree in the same candidate snapshot.`,
+        `Use ${expected} for ${revisionKey} or omit the stale mutation.`,
       ));
     }
   }
 }
 
+async function requireDirectory(root, path, diagnostics) {
+  const absolute = resolve(root, path);
+  const value = await metadata(absolute);
+  if (!value || !value.isDirectory() || value.isSymbolicLink()) {
+    diagnostics.push(error(
+      "idea.world.invalid-directory",
+      path,
+      `Required world path must be a repository-owned regular directory: ${path}`,
+      `Create ${path} as a regular directory without symlinks.`,
+    ));
+    return false;
+  }
+  return true;
+}
+
+async function requireDocument(root, path, diagnostics) {
+  const absolute = resolve(root, path);
+  const value = await metadata(absolute);
+  if (!value || !value.isFile() || value.isSymbolicLink()) {
+    diagnostics.push(error(
+      "idea.world.missing-document",
+      path,
+      `Required world entry must be a repository-owned regular file: ${path}`,
+      `Create ${path} as a regular file without symlinks.`,
+    ));
+    return false;
+  }
+  return true;
+}
+
+async function rejectSymlinks(root, path, diagnostics) {
+  const absolute = resolve(root, path);
+  for (const entry of await readdir(absolute, { withFileTypes: true })) {
+    const entryPath = `${path}/${entry.name}`;
+    const value = await lstat(resolve(root, entryPath));
+    if (value.isSymbolicLink()) {
+      diagnostics.push(error(
+        "idea.world.symlink",
+        entryPath,
+        `World content must not use symlinks: ${entryPath}`,
+        "Replace the symlink with repository-owned regular content.",
+      ));
+      continue;
+    }
+    if (value.isDirectory()) await rejectSymlinks(root, entryPath, diagnostics);
+  }
+}
+
+function resolveTree({ gitRoot, root, snapshotTree }, path) {
+  if (snapshotTree) {
+    const resolved = runGit(gitRoot, ["rev-parse", `${snapshotTree}:${path}`]);
+    if (!resolved.ok) throw new Error(resolved.stderr || `Cannot resolve ${path}`);
+    return resolved.stdout;
+  }
+  return worktreePathTree(root, path);
+}
+
 export async function inspectIdeaLayout({
   baseRevision,
-  config,
+  config: _config,
   historyCommit,
   root,
   gitRoot = root,
@@ -126,15 +180,15 @@ export async function inspectIdeaLayout({
   validateCandidate = false,
 }) {
   const diagnostics = [];
-  const ideasRoot = resolve(root, config.ideasDirectory);
+  const ideasRoot = resolve(root, IDEAS_ROOT);
   const ideasRootMetadata = await metadata(ideasRoot);
   if (!ideasRootMetadata) {
     return {
       diagnostics: [error(
         "layout.ideas.missing",
-        config.ideasDirectory,
-        `Configured ideas directory does not exist: ${config.ideasDirectory}`,
-        `Create ${config.ideasDirectory} as a repository-owned directory.`,
+        IDEAS_ROOT,
+        `Silvermoon ideas directory does not exist: ${IDEAS_ROOT}`,
+        `Create ${IDEAS_ROOT} as a repository-owned directory.`,
       )],
       ideas: [],
     };
@@ -143,9 +197,9 @@ export async function inspectIdeaLayout({
     return {
       diagnostics: [error(
         "layout.ideas.invalid",
-        config.ideasDirectory,
-        "The configured ideas path must be a repository-owned directory.",
-        `Replace ${config.ideasDirectory} with a regular directory.`,
+        IDEAS_ROOT,
+        "The Silvermoon ideas path must be a repository-owned regular directory.",
+        `Replace ${IDEAS_ROOT} with a regular directory.`,
       )],
       ideas: [],
     };
@@ -158,7 +212,7 @@ export async function inspectIdeaLayout({
     return {
       diagnostics: [error(
         "git.object-format.unavailable",
-        config.ideasDirectory,
+        IDEAS_ROOT,
         caught.message,
         "Run Silvermoon inside a Git repository with a supported object format.",
       )],
@@ -166,92 +220,106 @@ export async function inspectIdeaLayout({
     };
   }
 
-  const folders = new Map();
-  const statuses = new Map();
+  const aliases = new Map();
+  const ideas = [];
   const caseNames = new Map();
   for (const entry of await readdir(ideasRoot, { withFileTypes: true })) {
-    const path = resolve(ideasRoot, entry.name);
-    const pathMetadata = await lstat(path);
-    const relativePath = displayPath(root, path);
-    const rawId = entry.name.endsWith(STATUS_SUFFIX)
-      ? entry.name.slice(0, -STATUS_SUFFIX.length)
-      : entry.name;
-    const folded = rawId.toUpperCase();
+    const folderPath = resolve(ideasRoot, entry.name);
+    const folderMetadata = await lstat(folderPath);
+    const relativePath = displayPath(root, folderPath);
+    const folded = entry.name.toUpperCase();
     const existingCase = caseNames.get(folded);
-    if (existingCase && existingCase !== rawId) {
+    if (existingCase && existingCase !== entry.name) {
       diagnostics.push(error(
         "idea.id.case-collision",
         relativePath,
-        `Idea identities collide by case: ${existingCase} and ${rawId}.`,
+        `Idea identities collide by case: ${existingCase} and ${entry.name}.`,
         "Keep exactly one canonical uppercase ULID identity.",
       ));
     } else {
-      caseNames.set(folded, rawId);
+      caseNames.set(folded, entry.name);
     }
-    if (!isValidUlid(rawId)) {
+    if (!isValidUlid(entry.name)) {
       diagnostics.push(error(
         "idea.id.invalid",
         relativePath,
-        `Idea entries must use canonical ULID identities: ${entry.name}`,
-        "Rename the folder and sibling status file to the same canonical ULID.",
+        `Idea folders must use canonical ULID identities: ${entry.name}`,
+        "Rename the folder to one canonical uppercase ULID.",
       ));
       continue;
     }
-    if (entry.name.endsWith(STATUS_SUFFIX)) {
-      if (!pathMetadata.isFile() || pathMetadata.isSymbolicLink()) {
-        diagnostics.push(error(
-          "idea.status.invalid-file",
-          relativePath,
-          "Idea status must be a repository-owned regular file.",
-          "Replace it with a regular canonical YAML file.",
-        ));
-      } else {
-        statuses.set(rawId, { path, relativePath });
-      }
-    } else if (!pathMetadata.isDirectory() || pathMetadata.isSymbolicLink()) {
+    if (!folderMetadata.isDirectory() || folderMetadata.isSymbolicLink()) {
       diagnostics.push(error(
         "idea.folder.invalid",
         relativePath,
-        "Idea definition must be a repository-owned directory.",
+        "Idea must be a repository-owned regular directory.",
         "Replace it with a regular directory.",
-      ));
-    } else {
-      folders.set(rawId, { path, relativePath });
-    }
-  }
-
-  const aliases = new Map();
-  const ideas = [];
-  for (const id of [...new Set([...folders.keys(), ...statuses.keys()])].sort()) {
-    const folder = folders.get(id);
-    const statusFile = statuses.get(id);
-    if (!folder || !statusFile) {
-      diagnostics.push(error(
-        "idea.pair.missing",
-        folder?.relativePath ?? statusFile?.relativePath,
-        `Idea ${id} must have both a folder and sibling status file.`,
-        `Create the missing ${folder ? `${id}${STATUS_SUFFIX}` : `${id}/`} entry.`,
       ));
       continue;
     }
+
+    const paths = ideaPaths(entry.name);
+    for (const child of await readdir(folderPath, { withFileTypes: true })) {
+      if (child.name === "status.yaml" || child.name === "outer") continue;
+      diagnostics.push(error(
+        child.name.toLowerCase().includes("status")
+          ? "idea.status.unexpected-file"
+          : "idea.entry.unexpected",
+        `${paths.ideaPath}/${child.name}`,
+        `Unexpected entry at the idea root: ${child.name}`,
+        "Keep only status.yaml and outer/ at the idea root; put supporting files in their world.",
+      ));
+    }
+    const requiredDirectories = [
+      paths.outerPath,
+      paths.innerPath,
+      paths.idealPath,
+    ];
+    const requiredDocuments = [
+      paths.deploymentDocumentPath,
+      paths.implementationDocumentPath,
+      paths.ideaDocumentPath,
+    ];
+    const validDirectories = (await Promise.all(
+      requiredDirectories.map((path) => requireDirectory(root, path, diagnostics)),
+    )).every(Boolean);
+    const validDocuments = (await Promise.all(
+      requiredDocuments.map((path) => requireDocument(root, path, diagnostics)),
+    )).every(Boolean);
+    if (validDirectories) await rejectSymlinks(root, paths.outerPath, diagnostics);
+
+    const statusMetadata = await metadata(resolve(root, paths.statusPath));
+    if (!statusMetadata || !statusMetadata.isFile() || statusMetadata.isSymbolicLink()) {
+      diagnostics.push(error(
+        "idea.status.invalid-file",
+        paths.statusPath,
+        "Idea status must be a repository-owned regular file named status.yaml.",
+        `Create ${paths.statusPath} as canonical YAML.`,
+      ));
+      continue;
+    }
+
     let status;
     try {
-      status = parseIdeaStatus(await readFile(statusFile.path, "utf8"), { objectIdLength });
+      status = parseIdeaStatus(
+        await readFile(resolve(root, paths.statusPath), "utf8"),
+        { objectIdLength },
+      );
     } catch (caught) {
       diagnostics.push(error(
         "idea.status.invalid",
-        statusFile.relativePath,
+        paths.statusPath,
         caught.message,
-        "Rewrite the sibling status file in canonical form.",
+        "Rewrite status.yaml in canonical form.",
       ));
       continue;
     }
-    if (status.id !== id) {
+    if (status.id !== entry.name) {
       diagnostics.push(error(
         "idea.status.id-mismatch",
-        `${statusFile.relativePath}#id`,
-        `Status id ${status.id} does not match ${id}.`,
-        "Use the same canonical ULID in the folder, filename, and status id.",
+        `${paths.statusPath}#id`,
+        `Status id ${status.id} does not match ${entry.name}.`,
+        "Use the same canonical ULID in the folder and status id.",
       ));
     }
     if (status.alias !== undefined) {
@@ -259,42 +327,76 @@ export async function inspectIdeaLayout({
       if (aliasOwner) {
         diagnostics.push(error(
           "idea.alias.duplicate",
-          `${statusFile.relativePath}#alias`,
-          `Alias ${status.alias} is shared by ${aliasOwner} and ${id}.`,
-          "Assign a unique exact case-sensitive alias in the observed primary.",
+          `${paths.statusPath}#alias`,
+          `Alias ${status.alias} is shared by ${aliasOwner} and ${entry.name}.`,
+          "Assign a unique exact case-sensitive alias.",
         ));
       } else {
-        aliases.set(status.alias, id);
+        aliases.set(status.alias, entry.name);
       }
     }
+    if (
+      !validDirectories ||
+      !validDocuments ||
+      diagnostics.some(({ code, path }) =>
+        code === "idea.world.symlink" && path.startsWith(`${paths.outerPath}/`)
+      )
+    ) continue;
 
-    let revision;
+    let revisions;
     try {
-      if (snapshotTree) {
-        const resolved = runGit(gitRoot, ["rev-parse", `${snapshotTree}:${folder.relativePath}`]);
-        if (!resolved.ok) throw new Error(resolved.stderr || `Cannot resolve ${folder.relativePath}`);
-        revision = resolved.stdout;
-      } else {
-        revision = worktreePathTree(root, folder.relativePath);
-      }
+      revisions = {
+        idealRevision: resolveTree({ gitRoot, root, snapshotTree }, paths.idealPath),
+        implementationRevision: resolveTree(
+          { gitRoot, root, snapshotTree },
+          paths.innerPath,
+        ),
+        deploymentRevision: resolveTree(
+          { gitRoot, root, snapshotTree },
+          paths.outerPath,
+        ),
+      };
     } catch (caught) {
       diagnostics.push(error(
         "idea.revision.unavailable",
-        folder.relativePath,
+        paths.ideaPath,
         caught.message,
-        "Ensure the idea folder can be represented as a Git tree.",
+        "Ensure every world can be represented as a Git tree.",
       ));
       continue;
     }
-    validateRevisionObjects(gitRoot, statusFile.relativePath, status, diagnostics);
+
+    validateRevisionObjects(gitRoot, paths.statusPath, status, diagnostics);
+    const worlds = {
+      idealRevision: {
+        name: "Ideal World",
+        displayName: "道心",
+        path: paths.idealPath,
+        documentPath: paths.ideaDocumentPath,
+      },
+      implementationRevision: {
+        name: "Inner World",
+        displayName: "内景",
+        path: paths.innerPath,
+        documentPath: paths.implementationDocumentPath,
+      },
+      deploymentRevision: {
+        name: "Outer World",
+        displayName: "现世",
+        path: paths.outerPath,
+        documentPath: paths.deploymentDocumentPath,
+      },
+    };
     const idea = {
-      id,
-      path: folder.path,
-      relativePath: folder.relativePath,
-      revision,
-      state: deriveIdeaState(revision, status),
+      id: entry.name,
+      path: folderPath,
+      relativePath: paths.ideaPath,
+      revisions,
+      ...revisions,
+      state: deriveIdeaState(revisions, status),
       status,
-      statusPath: statusFile.relativePath,
+      statusPath: paths.statusPath,
+      worlds,
     };
     if (status.alias !== undefined) idea.alias = status.alias;
     if (validateCandidate) {

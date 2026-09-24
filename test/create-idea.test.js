@@ -9,6 +9,7 @@ import { afterEach, test } from "node:test";
 import { createIdea } from "../src/create-idea.js";
 import { observeGitCommands } from "../src/git.js";
 import { serializeIdeaStatus } from "../src/ideas.js";
+import { ideaPaths } from "../src/layout.js";
 import { whatsNext } from "../src/whatsnext.js";
 
 const temporaryDirectories = [];
@@ -53,14 +54,18 @@ async function createRepository() {
   git(root, "config", "user.email", "silvermoon@example.invalid");
   git(root, "config", "core.autocrlf", "false");
   const repository = pathToFileURL(remote).href;
-  await writeFile(join(root, "silvermoon.yaml"), `version: 1
+  await mkdir(join(root, ".silvermoon", "ideas"), { recursive: true });
+  await writeFile(join(root, ".silvermoon", "config.yaml"), `version: 1
 primaryRepository: https://example.test/owner/repository.git
 primaryBranch: main
 `);
-  await mkdir(join(root, "ideas", existingId), { recursive: true });
-  await writeFile(join(root, "ideas", existingId, "Idea.md"), "# Existing\n");
+  const existing = ideaPaths(existingId);
+  await mkdir(join(root, ...existing.idealPath.split("/")), { recursive: true });
+  await writeFile(join(root, ...existing.ideaDocumentPath.split("/")), "# Existing\n");
+  await writeFile(join(root, ...existing.implementationDocumentPath.split("/")), "");
+  await writeFile(join(root, ...existing.deploymentDocumentPath.split("/")), "");
   await writeFile(
-    join(root, "ideas", `${existingId}.status.yaml`),
+    join(root, ...existing.statusPath.split("/")),
     serializeIdeaStatus({ version: 1, id: existingId, alias: "existing" }),
   );
   git(root, "add", ".");
@@ -82,8 +87,8 @@ async function createEmptyRepository() {
   git(root, "config", "user.email", "silvermoon@example.invalid");
   git(root, "config", "core.autocrlf", "false");
   const repository = pathToFileURL(remote).href;
-  await writeFile(join(root, "silvermoon.yaml"), `version: 1
-ideasDirectory: docs/ideas
+  await mkdir(join(root, ".silvermoon"));
+  await writeFile(join(root, ".silvermoon", "config.yaml"), `version: 1
 primaryRepository: https://example.test/owner/repository.git
 primaryBranch: main
 `);
@@ -113,12 +118,22 @@ test("[unrelated-active-create] creates an exact alias-less scaffold without Git
   assert.deepEqual(report.result.request, { kind: "create-idea" });
   assert.deepEqual(report.result.createdIdea, {
     id: createdId,
-    ideaPath: `ideas/${createdId}`,
-    statusPath: `ideas/${createdId}.status.yaml`,
+    ideaPath: `.silvermoon/ideas/${createdId}`,
+    statusPath: `.silvermoon/ideas/${createdId}/status.yaml`,
+    ideaDocumentPath: `.silvermoon/ideas/${createdId}/outer/inner/ideal/Idea.md`,
+    implementationDocumentPath: `.silvermoon/ideas/${createdId}/outer/inner/Implementation.md`,
+    deploymentDocumentPath: `.silvermoon/ideas/${createdId}/outer/Deployment.md`,
   });
-  assert.equal(await readFile(join(root, "ideas", createdId, "Idea.md"), "utf8"), "");
+  const created = ideaPaths(createdId);
+  for (const path of [
+    created.ideaDocumentPath,
+    created.implementationDocumentPath,
+    created.deploymentDocumentPath,
+  ]) {
+    assert.equal(await readFile(join(root, ...path.split("/")), "utf8"), "");
+  }
   assert.equal(
-    await readFile(join(root, "ideas", `${createdId}.status.yaml`), "utf8"),
+    await readFile(join(root, ...created.statusPath.split("/")), "utf8"),
     `version: 1\nid: ${createdId}\n`,
   );
   assert.equal(git(root, "rev-parse", "HEAD"), head);
@@ -128,8 +143,10 @@ test("[unrelated-active-create] creates an exact alias-less scaffold without Git
   assert.deepEqual(
     git(root, "status", "--porcelain=v1", "--untracked-files=all").split(/\r?\n/).sort(),
     [
-      `?? ideas/${createdId}.status.yaml`,
-      `?? ideas/${createdId}/Idea.md`,
+      `?? .silvermoon/ideas/${createdId}/outer/Deployment.md`,
+      `?? .silvermoon/ideas/${createdId}/outer/inner/Implementation.md`,
+      `?? .silvermoon/ideas/${createdId}/outer/inner/ideal/Idea.md`,
+      `?? .silvermoon/ideas/${createdId}/status.yaml`,
     ].sort(),
   );
   assert.equal(commands.filter(([command]) => command === "fetch").length, 1);
@@ -151,41 +168,45 @@ test("[unrelated-active-create] creates an exact alias-less scaffold without Git
   assert.equal(published.result.action.code, "prepare-idea");
 });
 
-test("creates the first idea in a missing nested ideas directory", async () => {
+test("creates the first idea in the fixed missing ideas directory", async () => {
   const { root } = await createEmptyRepository();
 
   const report = await createIdea({ generateId: () => createdId, root });
 
   assert.equal(report.ok, true);
-  assert.equal(report.result.createdIdea.ideaPath, `docs/ideas/${createdId}`);
-  assert.equal(await readFile(join(root, "docs", "ideas", createdId, "Idea.md"), "utf8"), "");
+  const paths = ideaPaths(createdId);
+  assert.equal(report.result.createdIdea.ideaPath, paths.ideaPath);
+  assert.equal(await readFile(join(root, ...paths.ideaDocumentPath.split("/")), "utf8"), "");
   assert.equal(
-    await readFile(join(root, "docs", "ideas", `${createdId}.status.yaml`), "utf8"),
+    await readFile(join(root, ...paths.statusPath.split("/")), "utf8"),
     `version: 1\nid: ${createdId}\n`,
   );
 });
 
 test("[ulid-collision] retries an identity collision without changing existing bytes", async () => {
   const { root } = await createRepository();
-  const originalIdea = await readFile(join(root, "ideas", existingId, "Idea.md"));
-  const originalStatus = await readFile(join(root, "ideas", `${existingId}.status.yaml`));
+  const existing = ideaPaths(existingId);
+  const originalIdea = await readFile(join(root, ...existing.ideaDocumentPath.split("/")));
+  const originalStatus = await readFile(join(root, ...existing.statusPath.split("/")));
   const generated = [existingId, createdId];
 
   const report = await createIdea({ generateId: () => generated.shift(), root });
 
   assert.equal(report.ok, true);
   assert.equal(report.result.createdIdea.id, createdId);
-  assert.deepEqual(await readFile(join(root, "ideas", existingId, "Idea.md")), originalIdea);
+  assert.deepEqual(await readFile(join(root, ...existing.ideaDocumentPath.split("/"))), originalIdea);
   assert.deepEqual(
-    await readFile(join(root, "ideas", `${existingId}.status.yaml`)),
+    await readFile(join(root, ...existing.statusPath.split("/"))),
     originalStatus,
   );
 });
 
 test("[partial-write-failure] removes only owned scaffold paths after a partial status write", async () => {
   const { root } = await createRepository();
-  const originalIdea = await readFile(join(root, "ideas", existingId, "Idea.md"));
-  const originalStatus = await readFile(join(root, "ideas", `${existingId}.status.yaml`));
+  const existing = ideaPaths(existingId);
+  const created = ideaPaths(createdId);
+  const originalIdea = await readFile(join(root, ...existing.ideaDocumentPath.split("/")));
+  const originalStatus = await readFile(join(root, ...existing.statusPath.split("/")));
   const injected = Object.assign(new Error("injected status failure"), { code: "EIO" });
 
   const report = await createIdea({
@@ -193,7 +214,7 @@ test("[partial-write-failure] removes only owned scaffold paths after a partial 
     operations: {
       writeFile: async (path, value, options) => {
         await writeFile(path, value, options);
-        if (path.endsWith(".status.yaml")) throw injected;
+        if (path.endsWith("status.yaml")) throw injected;
       },
     },
     root,
@@ -201,17 +222,18 @@ test("[partial-write-failure] removes only owned scaffold paths after a partial 
 
   assert.equal(report.ok, false);
   assert.equal(report.diagnostics[0].code, "idea.create.failed");
-  await assert.rejects(readFile(join(root, "ideas", createdId, "Idea.md")), { code: "ENOENT" });
-  await assert.rejects(readFile(join(root, "ideas", `${createdId}.status.yaml`)), { code: "ENOENT" });
-  assert.deepEqual(await readFile(join(root, "ideas", existingId, "Idea.md")), originalIdea);
+  await assert.rejects(readFile(join(root, ...created.ideaDocumentPath.split("/"))), { code: "ENOENT" });
+  await assert.rejects(readFile(join(root, ...created.statusPath.split("/"))), { code: "ENOENT" });
+  assert.deepEqual(await readFile(join(root, ...existing.ideaDocumentPath.split("/"))), originalIdea);
   assert.deepEqual(
-    await readFile(join(root, "ideas", `${existingId}.status.yaml`)),
+    await readFile(join(root, ...existing.statusPath.split("/"))),
     originalStatus,
   );
 });
 
 test("preserves a concurrently changed status during rollback", async () => {
   const { root } = await createRepository();
+  const created = ideaPaths(createdId);
   const injected = Object.assign(new Error("injected concurrent write"), { code: "EIO" });
 
   const report = await createIdea({
@@ -219,7 +241,7 @@ test("preserves a concurrently changed status during rollback", async () => {
     operations: {
       writeFile: async (path, value, options) => {
         await writeFile(path, value, options);
-        if (path.endsWith(".status.yaml")) {
+        if (path.endsWith("status.yaml")) {
           await writeFile(path, "concurrent\n");
           throw injected;
         }
@@ -230,7 +252,29 @@ test("preserves a concurrently changed status during rollback", async () => {
 
   assert.equal(report.ok, false);
   assert.equal(
-    await readFile(join(root, "ideas", `${createdId}.status.yaml`), "utf8"),
+    await readFile(join(root, ...created.statusPath.split("/")), "utf8"),
+    "concurrent\n",
+  );
+});
+
+test("preserves a concurrently created status after EEXIST", async () => {
+  const { root } = await createRepository();
+  const created = ideaPaths(createdId);
+
+  const report = await createIdea({
+    generateId: () => createdId,
+    operations: {
+      writeFile: async (path, value, options) => {
+        if (path.endsWith("status.yaml")) await writeFile(path, "concurrent\n");
+        await writeFile(path, value, options);
+      },
+    },
+    root,
+  });
+
+  assert.equal(report.ok, false);
+  assert.equal(
+    await readFile(join(root, ...created.statusPath.split("/")), "utf8"),
     "concurrent\n",
   );
 });
@@ -253,7 +297,8 @@ test("does not allocate or write an idea when hygiene blocks creation", async ()
   assert.equal(report.result.action.code, "inspect-worktree-changes");
   assert.equal(report.result.createdIdea, undefined);
   assert.equal(generated, 0);
-  await assert.rejects(readFile(join(root, "ideas", `${createdId}.status.yaml`)), { code: "ENOENT" });
+  const created = ideaPaths(createdId);
+  await assert.rejects(readFile(join(root, ...created.statusPath.split("/"))), { code: "ENOENT" });
 });
 
 test("routes all create hygiene states without changing repository state", async () => {

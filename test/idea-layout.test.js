@@ -7,6 +7,7 @@ import { afterEach, test } from "node:test";
 
 import { inspectIdeaLayout } from "../src/idea-layout.js";
 import { serializeIdeaStatus } from "../src/ideas.js";
+import { ideaPaths } from "../src/layout.js";
 
 const temporaryDirectories = [];
 const id = "01M36QGPNTXEPP61DA4KP4AVZF";
@@ -28,6 +29,25 @@ afterEach(async () => {
   );
 });
 
+async function writeIdea(root, ideaId = id, status = {}) {
+  const paths = ideaPaths(ideaId);
+  await mkdir(join(root, ...paths.idealPath.split("/")), { recursive: true });
+  await writeFile(join(root, ...paths.ideaDocumentPath.split("/")), "# Ideal\n");
+  await writeFile(
+    join(root, ...paths.implementationDocumentPath.split("/")),
+    "# Implementation\n",
+  );
+  await writeFile(
+    join(root, ...paths.deploymentDocumentPath.split("/")),
+    "# Deployment\n",
+  );
+  await writeFile(
+    join(root, ...paths.statusPath.split("/")),
+    serializeIdeaStatus({ version: 1, id: ideaId, ...status }),
+  );
+  return paths;
+}
+
 async function createRepository() {
   const root = await mkdtemp(join(tmpdir(), "silvermoon-ideas-"));
   temporaryDirectories.push(root);
@@ -35,111 +55,159 @@ async function createRepository() {
   git(root, "config", "user.name", "silvermoon test");
   git(root, "config", "user.email", "silvermoon@example.invalid");
   git(root, "config", "core.autocrlf", "false");
-  const folder = join(root, "ideas", id);
-  await mkdir(folder, { recursive: true });
-  await writeFile(join(folder, "Idea.md"), "# Publish documentation\n");
-  await writeFile(
-    join(root, "ideas", `${id}.status.yaml`),
-    serializeIdeaStatus({ version: 1, id, alias: "publish-documentation" }),
-  );
+  await writeIdea(root, id, { alias: "publish-documentation" });
   git(root, "add", ".");
   git(root, "commit", "-m", "Create idea");
   return root;
 }
 
-const config = {
-  version: 1,
-  ideasDirectory: "ideas",
-  primaryRepository: "https://example.com/owner/repository.git",
-  primaryBranch: "main",
-};
-
-test("inspects paired idea folders and derives their current tree revision", async () => {
+test("derives three nested world tree revisions", async () => {
   const root = await createRepository();
-  const inspected = await inspectIdeaLayout({ config, root });
+  const paths = ideaPaths(id);
+  const inspected = await inspectIdeaLayout({ root });
 
   assert.deepEqual(inspected.diagnostics, []);
   assert.equal(inspected.ideas.length, 1);
-  assert.equal(inspected.ideas[0].id, id);
-  assert.equal(inspected.ideas[0].state, "preparing");
-  assert.equal(inspected.ideas[0].revision, git(root, "rev-parse", `HEAD:ideas/${id}`));
+  const [idea] = inspected.ideas;
+  assert.equal(idea.id, id);
+  assert.equal(idea.state, "preparing");
+  assert.equal(idea.idealRevision, git(root, "rev-parse", `HEAD:${paths.idealPath}`));
+  assert.equal(
+    idea.implementationRevision,
+    git(root, "rev-parse", `HEAD:${paths.innerPath}`),
+  );
+  assert.equal(
+    idea.deploymentRevision,
+    git(root, "rev-parse", `HEAD:${paths.outerPath}`),
+  );
 });
 
-test("inspects an idea without inventing an alias", async () => {
+test("allows auxiliary files and cascades only through containing worlds", async () => {
   const root = await createRepository();
+  const paths = ideaPaths(id);
+  const before = (await inspectIdeaLayout({ root })).ideas[0];
+
+  await writeFile(join(root, ...paths.idealPath.split("/"), "research.json"), "{}\n");
+  const idealChanged = (await inspectIdeaLayout({ root })).ideas[0];
+  assert.notEqual(idealChanged.idealRevision, before.idealRevision);
+  assert.notEqual(idealChanged.implementationRevision, before.implementationRevision);
+  assert.notEqual(idealChanged.deploymentRevision, before.deploymentRevision);
+
+  await rm(join(root, ...paths.idealPath.split("/"), "research.json"));
+  await writeFile(join(root, ...paths.innerPath.split("/"), "architecture.svg"), "<svg/>\n");
+  const innerChanged = (await inspectIdeaLayout({ root })).ideas[0];
+  assert.equal(innerChanged.idealRevision, before.idealRevision);
+  assert.notEqual(innerChanged.implementationRevision, before.implementationRevision);
+  assert.notEqual(innerChanged.deploymentRevision, before.deploymentRevision);
+
+  await rm(join(root, ...paths.innerPath.split("/"), "architecture.svg"));
+  await writeFile(join(root, ...paths.outerPath.split("/"), "runbook.txt"), "observe\n");
+  const outerChanged = (await inspectIdeaLayout({ root })).ideas[0];
+  assert.equal(outerChanged.idealRevision, before.idealRevision);
+  assert.equal(outerChanged.implementationRevision, before.implementationRevision);
+  assert.notEqual(outerChanged.deploymentRevision, before.deploymentRevision);
+});
+
+test("does not include status facts in world revisions", async () => {
+  const root = await createRepository();
+  const paths = ideaPaths(id);
+  const before = (await inspectIdeaLayout({ root })).ideas[0];
   await writeFile(
-    join(root, "ideas", `${id}.status.yaml`),
-    serializeIdeaStatus({ version: 1, id }),
+    join(root, ...paths.statusPath.split("/")),
+    serializeIdeaStatus({ version: 1, id, alias: "renamed" }),
   );
 
-  const inspected = await inspectIdeaLayout({ config, root });
-
-  assert.deepEqual(inspected.diagnostics, []);
-  assert.equal(Object.hasOwn(inspected.ideas[0], "alias"), false);
+  const after = (await inspectIdeaLayout({ root })).ideas[0];
+  assert.deepEqual(after.revisions, before.revisions);
 });
 
-test("includes uncommitted idea content in the derived tree revision", async () => {
-  const root = await createRepository();
-  const original = git(root, "rev-parse", `HEAD:ideas/${id}`);
-  await writeFile(join(root, "ideas", id, "Design.md"), "New definition\n");
-
-  const inspected = await inspectIdeaLayout({ config, root });
-
-  assert.equal(inspected.diagnostics.length, 0);
-  assert.notEqual(inspected.ideas[0].revision, original);
+test("derives preparing, implementing, and deploying from nested world changes", async () => {
+  const cases = [
+    {
+      expected: "preparing",
+      mutate: async (root, paths) => writeFile(
+        join(root, ...paths.idealPath.split("/"), "changed.txt"),
+        "ideal\n",
+      ),
+    },
+    {
+      expected: "implementing",
+      mutate: async (root, paths) => writeFile(
+        join(root, ...paths.innerPath.split("/"), "changed.txt"),
+        "inner\n",
+      ),
+    },
+    {
+      expected: "deploying",
+      mutate: async (root, paths) => writeFile(
+        join(root, ...paths.outerPath.split("/"), "changed.txt"),
+        "outer\n",
+      ),
+    },
+  ];
+  for (const fixture of cases) {
+    const root = await createRepository();
+    const paths = ideaPaths(id);
+    const current = (await inspectIdeaLayout({ root })).ideas[0];
+    await writeFile(
+      join(root, ...paths.statusPath.split("/")),
+      serializeIdeaStatus({
+        version: 1,
+        id,
+        alias: "publish-documentation",
+        approvedRevision: current.idealRevision,
+        implementationAcceptedRevision: current.implementationRevision,
+        deploymentAcceptedRevision: current.deploymentRevision,
+      }),
+    );
+    assert.equal((await inspectIdeaLayout({ root })).ideas[0].state, "completed");
+    await fixture.mutate(root, paths);
+    assert.equal(
+      (await inspectIdeaLayout({ root })).ideas[0].state,
+      fixture.expected,
+    );
+  }
 });
 
-test("treats idea-folder contents as an opaque Git tree", async () => {
+test("rejects missing world entries, duplicate aliases, and mismatched status ids", async () => {
   const root = await createRepository();
-  const folder = join(root, "ideas", id);
-  await rm(join(folder, "Idea.md"));
-  await writeFile(join(folder, "Brief.md"), "Project-defined idea format\n");
-  await writeFile(join(folder, "nested.status.yaml"), "Project-defined content\n");
-
-  const inspected = await inspectIdeaLayout({ config, root });
-
-  assert.deepEqual(inspected.diagnostics, []);
-  assert.equal(inspected.ideas.length, 1);
-});
-
-test("rejects missing pairs, duplicate aliases, and mismatched status ids", async () => {
-  const root = await createRepository();
+  const paths = ideaPaths(id);
+  await rm(join(root, ...paths.ideaDocumentPath.split("/")));
+  await writeFile(
+    join(root, ...paths.ideaPath.split("/"), "legacy.status.yaml"),
+    "version: 1\n",
+  );
   const second = "01M36QGPQ4H3R0K4N7Y6W2S8JC";
-  await mkdir(join(root, "ideas", second));
-  await writeFile(join(root, "ideas", second, "Idea.md"), "# Other\n");
-  await writeFile(
-    join(root, "ideas", `${second}.status.yaml`),
-    serializeIdeaStatus({ version: 1, id, alias: "publish-documentation" }),
-  );
-  const orphan = "01M36QGPR4H3R0K4N7Y6W2S8JC";
-  await mkdir(join(root, "ideas", orphan));
+  await writeIdea(root, second, { id, alias: "publish-documentation" });
 
-  const inspected = await inspectIdeaLayout({ config, root });
+  const inspected = await inspectIdeaLayout({ root });
   const codes = inspected.diagnostics.map(({ code }) => code);
-
+  assert.ok(codes.includes("idea.world.missing-document"));
+  assert.ok(codes.includes("idea.status.unexpected-file"));
   assert.ok(codes.includes("idea.status.id-mismatch"));
   assert.ok(codes.includes("idea.alias.duplicate"));
-  assert.ok(codes.includes("idea.pair.missing"));
 });
 
-test("validates acceptance revision evidence against primary history", async () => {
+test("validates each decision against its corresponding world in history", async () => {
   const root = await createRepository();
-  const revision = git(root, "rev-parse", `HEAD:ideas/${id}`);
+  const paths = ideaPaths(id);
+  const current = (await inspectIdeaLayout({ root })).ideas[0];
   await writeFile(
-    join(root, "ideas", `${id}.status.yaml`),
+    join(root, ...paths.statusPath.split("/")),
     serializeIdeaStatus({
       version: 1,
       id,
       alias: "publish-documentation",
-      approvedRevision: revision,
+      approvedRevision: current.idealRevision,
+      implementationAcceptedRevision: current.implementationRevision,
+      deploymentAcceptedRevision: current.deploymentRevision,
     }),
   );
   git(root, "add", ".");
-  git(root, "commit", "-m", "Approve idea");
+  git(root, "commit", "-m", "Accept worlds");
   const commit = git(root, "rev-parse", "HEAD");
 
-  const inspected = await inspectIdeaLayout({ config, historyCommit: commit, root });
-
+  const inspected = await inspectIdeaLayout({ historyCommit: commit, root });
   assert.deepEqual(inspected.diagnostics, []);
-  assert.equal(inspected.ideas[0].state, "implementing");
+  assert.equal(inspected.ideas[0].state, "completed");
 });

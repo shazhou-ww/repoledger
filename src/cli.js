@@ -39,7 +39,17 @@ function renderWhatsNext(result, io) {
   if (result.selectedIdea) {
     io.log(`  idea     ${renderIdeaIdentity(result.selectedIdea)}`);
     io.log(`  state    ${result.selectedIdea.state}`);
-    io.log(`  revision ${result.selectedIdea.revision}`);
+    io.log(`  ideal   ${result.selectedIdea.idealRevision}`);
+    io.log(`  inner   ${result.selectedIdea.implementationRevision}`);
+    io.log(`  outer   ${result.selectedIdea.deploymentRevision}`);
+  }
+  if (result.action.details?.world) {
+    const world = result.action.details.world;
+    io.log(`  world    ${world.name} (${world.displayName})`);
+    io.log(`  entry    ${world.documentPath}`);
+    io.log(`  support  ${world.auxiliaryRoot}`);
+    io.log(`  decision ${world.decisionField}: ${world.revision}`);
+    io.log(`  cascade  ${world.cascade}`);
   }
   for (const idea of result.action.details?.ideas ?? []) {
     io.log(`  option   ${renderIdeaIdentity(idea)}  ${idea.state}`);
