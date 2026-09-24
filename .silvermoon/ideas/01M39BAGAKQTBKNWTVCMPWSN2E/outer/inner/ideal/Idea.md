@@ -19,9 +19,10 @@ Silvermoon 要解决的问题应聚焦为三点。第一，让人少操心：Age
 工作跨设备、跨 session、跨托管平台延续：上下文属于项目，而不寄存在某次对话、某台
 机器或某个 Agent 中。
 
-项目名称还承载了一层简洁而有辨识度的背景。银月是《凡人修仙传》中的人物，最初作为
-器灵寄居于狼首玉如意，后来又寄居于韩立的青竹蜂云剑。这个人物关系与 Silvermoon 的
-产品定位相呼应，但它只应作为人物小传和趣味来源，不应扩展成需要读者了解原作的设定负担。
+项目名称还承载了一层简洁而有辨识度的背景。银月是《凡人修仙传》中的人物，来自灵界的
+银月狼族，是玲珑公主分裂出的两道元神之一。她在人界失去部分记忆后以银月之名作为器灵，
+先后寄居于狼首玉如意和韩立的青竹蜂云剑。这个人物关系与 Silvermoon 的产品定位相呼应，
+但它只应作为人物小传和趣味来源，不应扩展成需要读者了解原作的设定负担。
 
 ## Desired outcome
 
@@ -47,9 +48,9 @@ CLI、validation、adoption 和维护者信息在英文 `docs/` 中各有清晰�
   一致，以及实现跨设备、跨 session、跨托管平台的 continuity。
 - 将中文定位统一为“项目的器灵”，英文定位统一为 “the artifact spirit of the project”，
   并同步直接相关的用户可见产品文案。
-- 增加简短的人物小传，只介绍银月的器灵身份及其先后寄居的狼首玉如意
-  （a wolf-headed jade scepter）和青竹蜂云剑（the Bamboo Cloudswarm Swords），不展开
-  额外原作剧情。
+- 增加简短的人物小传，只介绍银月来自灵界的银月狼族、是玲珑公主的分魂之一，以及她作为
+  器灵先后寄居的狼首玉如意（a wolf-headed jade scepter）和青竹蜂云剑
+  （the Bamboo Cloudswarm Swords），不展开额外原作剧情。
 - 将只服务于文档的根级 `assets/` 迁入 `docs/assets/`，并更新仓库浏览、npm package、
   README 渲染和测试中的全部引用，使文档与其视觉资源具有同一个清晰归属。
 - 在人物小传附近使用迁移后的 `docs/assets/silvermoon-avatar.svg` 线稿头像，默认宽度约
@@ -81,7 +82,9 @@ CLI、validation、adoption 和维护者信息在英文 `docs/` 中各有清晰�
 - 世界观应有哲学意味但不能晦涩。每个文学或哲学表达都必须能对应明确的工程含义，未读过
   《凡人修仙传》的读者也应独立理解产品。
 - 人物小传使用主流英文译名 `jade scepter` 与 `Bamboo Cloudswarm Swords`；“狼首”在英文中
-  作为描述性修饰 `wolf-headed`，不虚构新的固定专名。
+  作为描述性修饰 `wolf-headed`，不虚构新的固定专名。英文身份表述使用正文可证实的
+  `the Silvermoon Wolf Clan in the Spirit Realm` 和 `one of the split souls of Ling Long`，
+  不依赖二手资料中不稳定的头衔译法。
 - README 不重复 docs 中的完整规范；docs 也不复制两份相互竞争的权威说明。迁移内容时必须
   保留现有行为保证和重要限制。
 - 文档体系应按读者意图组织，但避免把一个过长 README 机械拆成大量零碎页面。
