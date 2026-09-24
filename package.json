@@ -11,7 +11,7 @@
     ".": "./src/index.js"
   },
   "files": [
-    "assets",
+    "assets/silvermoon.svg",
     "bin",
     "src",
     "README.md",
