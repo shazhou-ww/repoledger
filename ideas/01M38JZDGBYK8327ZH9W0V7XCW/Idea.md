@@ -5,7 +5,7 @@ Language: zh-CN
 
 ## Goal
 
-在不削弱 `whatsnext` 单一最高优先 action、worktree hygiene、不可变 observation 和
+在不削弱 `whats-next` 单一最高优先 action、worktree hygiene、不可变 observation 和
 non-force publication 边界的前提下，减少 Agent 在真实任务循环中需要自行补全的上下文、
 重复检查和命令推断，使“观察、执行一步、重新观察”更明确、更高效且更容易被自动评估。
 
@@ -36,20 +36,20 @@ worktree、publication 和 acceptance 顺序，也让 implementation/deployment 
 这些问题不是取消 gate 的理由。目标是让 action 携带足够的机器可读上下文、让 intent 有明确
 表达方式，并优化 snapshot 实现，使 Agent 更少依赖隐式记忆和临场推断。
 
-## Command naming proposal
+## Command naming decision
 
-新增命令采用 `repoledger create-idea`，保留现有 `repoledger whatsnext`：
+公开命令采用 `repoledger create-idea` 和 `repoledger whats-next`：
 
 - `create-idea` 是完整、明确的 imperative，与现有 action code 同名，也直接说明会产生本地
   mutation；不采用语义不完整的 `new`、`newidea` 或 `new-idea`。
-- 不仅为了连字符形式一致而把稳定的 `whatsnext` 改名为 `whats-next`。该重命名没有行为收益，
-  却会破坏脚本、skill 和用户习惯。
-- 如果未来出现多个 idea mutation command，可在一次明确的 major redesign 中整体评估
+- `whats-next` 明确保留两个英文词的边界，并与 `create-idea` 统一使用 kebab-case。项目仍在开发
+  阶段，不为旧拼写 `whatsnext` 保留 alias、warning period 或 compatibility shim。
+- 如果未来出现多个 idea mutation command，可在一次独立设计中整体评估
   `repoledger idea create` / `repoledger idea next`；本 idea 不提前引入只有一个子命令的 group。
 
 ## Scope
 
-- 新增 `repoledger create-idea`，把“创建新 idea”变成明确 intent。它复用 `whatsnext` 的 primary
+- 新增 `repoledger create-idea`，把“创建新 idea”变成明确 intent。它复用 `whats-next` 的 primary
   observation 与全局 hygiene；即使存在 unrelated active idea，clean、synchronized primary 上
   也执行 scaffold，而 branch、conflict、dirty、behind、ahead 或 diverged 状态仍先返回唯一
   blocking guidance，不产生部分文件。
@@ -77,7 +77,7 @@ worktree、publication 和 acceptance 顺序，也让 implementation/deployment 
 
 ## Out of scope
 
-- 让 `whatsnext` 自动 checkout、merge、stage、commit、stash、push 或修改 status。
+- 让 `whats-next` 自动 checkout、merge、stage、commit、stash、push 或修改 status。
 - 让 `create-idea` 填写 idea 的实质内容、stage、commit、push、记录 approval/acceptance，或修改
   已存在的 idea。命令只创建自己的空 scaffold。
 - 引入隐藏 session state、server-side lease、work lock 或依赖特定 IDE conversation history。
@@ -91,52 +91,112 @@ worktree、publication 和 acceptance 顺序，也让 implementation/deployment 
 
 ## Implementation acceptance criteria
 
-- `repoledger create-idea` 是文档化的 public command；`repoledger whatsnext` 保持原名和默认
-  行为，不新增 `new`、`newidea`、`new-idea` 或 `whats-next` 作为竞争入口。
-- 无参数、无 alias 调用在 clean、synchronized configured primary 上生成 canonical ULID、空
-  `Idea.md` 和仅含 canonical `version`/`id` 的 sibling status；输出稳定的 id、idea path 和 status
-  path，但不生成占位 alias、标题、criteria 或 approval。
-- Alias 在 schema、runtime parser/serializer、layout、summary、human rendering 和 selector 中均
-  为 optional；已有 alias 的 repositories 与 exact alias selection 保持兼容，无 alias idea 只能
-  通过 ULID 选择，duplicate validation 只比较实际存在的 alias。
-- Scaffold creation 使用 exclusive writes 并处理 ULID collision；不得覆盖任何现有 path。中途失败
-  时只清理本次调用已创建的 path，不能删除或改写 unknown work。
-- 即使 primary 中已有 unrelated active idea，显式 `create-idea` intent 也可创建 scaffold；但
-  dirty/conflicted/non-primary/behind/ahead/diverged 时必须先返回同一 hygiene guidance，且 filesystem
-  零变化。默认无 intent 的 `whatsnext` 仍优先导航已有 active idea。
-- 成功创建只完成当前 scaffold action，不自动 stage、commit、push 或 reobserve；下一轮
-  `whatsnext <ULID>` 从 `preparing` 继续。
-- 每个 `whatsnext` JSON report 都能区分 requested context、authoritatively selected idea 和
-  当前 blocking action；hygiene 期间不会丢失调用者 selector，也不会把未验证 selector 提升为
-  `selectedIdea`。
-- `inspect-worktree-changes` details 使用稳定字段分别表示 staged、unstaged、untracked、conflict
-  和 rename/copy 状态；人类输出仍简洁，且不包含 Repoledger 无法证明的 ownership 判断。
-- `publish-primary` details 足以让 Agent 无需重新读取 config 即可执行 commit validation 和普通
-  non-force push，并继续携带 expected remote tip 作为并发边界。
-- Repoledger skill 在首次 implementation publication 前要求逐条核对 criteria 与 evidence，且不
-  用 checkbox 或 idea-definition mutation 记录核对进度。
-- Snapshot implementation 的 benchmark 或稳定计时 fixture 证明常用 HEAD、remote 和
-  `whatsnext` 路径减少临时 worktree 创建或显著降低运行时间；性能优化不得改变任何 target 的
-  candidate/config authority。
-- 回归测试覆盖 dirty/conflicted/branch mismatch/ahead/behind/diverged 下的 request context，显式
-  create intent 与 unrelated active idea，A 到 B primary relocation，以及结构化 publication
-  coordinates。
-- 所有新增 JSON 字段和 CLI command 有兼容性决定、human rendering、README、skill 和 package
-  smoke coverage；status alias optionality 对 API consumers 的影响被明确记录，旧 consumer 可忽略
-  新增字段，移除或重命名现有字段必须作为明确 breaking change。
-- `pnpm check`、`repoledger check --worktree`、`repoledger check --commit HEAD`、pack contents、
-  installed-package smoke、Markdown links 和 skill validation 全部通过。
+- **I01 CLI surface:** `repoledger --help` 只列出 `check`、`create-idea` 和 `whats-next` 三个
+  subcommand。CLI test 断言精确 command set；`whats-next --json` 的 report command 恰为
+  `whats-next`。调用 `whatsnext`、`new`、`newidea` 或 `new-idea` 均返回 usage exit code `2`，且
+  `git status --porcelain=v1` 前后完全相同。
+- **I02 Scaffold bytes:** 在 clean、synchronized configured primary fixture 中运行无参数
+  `repoledger create-idea --json` 返回 exit code `0`。`result.createdIdea.id` 匹配 canonical ULID
+  regex，`ideaPath` 和 `statusPath` 分别等于 configured ideas directory 下的 `<id>/` 与
+  `<id>.status.yaml`；`Idea.md` 恰为 0 bytes，status bytes 恰为
+  `version: 1\nid: <id>\n`。除这两个 untracked path 外，fixture 无其他文件、index、HEAD 或 ref
+  变化；即 before/after worktree manifest 的差集恰为这两个 path，index tree、HEAD、local refs
+  和 remote refs 完全相同。
+- **I03 Optional alias:** JSON Schema、`parseIdeaStatus`、`validateIdeaStatus` 和
+  `serializeIdeaStatus` 的 tests 分别接受仅含 `version`/`id` 的 status，以及额外含合法 alias 的
+  status。无 alias summary 的 JSON 省略 `alias` key，human output 不渲染空括号；ULID selector
+  成功。在只含该无 alias idea 的 fixture 中，selector `missing-alias` 返回 `idea.not-found`。在另
+  一 fixture 中，两个 status 使用 alias `duplicate` 时产生 `idea.alias.duplicate`。
+- **I04 Exclusive creation:** 测试注入的 ULID generator 第一次返回已有 identity、第二次返回新
+  identity 时，命令创建并返回第二个 identity，已有 folder/status bytes 不变。注入 status write
+  failure（包括 partial sibling write）时命令返回 exit code `1`，删除且仅删除本次调用创建的
+  status、空 `Idea.md` 和 folder；before manifest 中每个预先存在 path 的 SHA-256 与 after manifest
+  完全相同，after manifest 不含失败 identity 的任何 path。
+- **I05 Hygiene matrix:** Table-driven tests 分别构造 wrong branch、conflict、dirty、behind、ahead 和
+  diverged fixture。`create-idea --json` 依次返回 `switch-to-primary`、`resolve-conflicts`、
+  `inspect-worktree-changes`、`fast-forward-primary`、`publish-primary` 和 `integrate-primary`；每个
+  fixture 的 recursive path/SHA-256 manifest、index tree、HEAD、local refs 和 remote refs 前后
+  完全相同，且不存在新 ULID path。相同 primary 中即使已有 unrelated active idea，clean/
+  synchronized fixture 仍成功创建 scaffold；无 intent 的 `whats-next` 仍返回该 active idea 的
+  `continue-active-idea`。
+- **I06 Post-create loop:** 成功创建不调用 Git stage、commit、push 或第二次 observation。紧接着运行
+  `whats-next <ULID>` 必须因两个 untracked path 返回 `inspect-worktree-changes`，并保留 requested
+  ULID；通过普通 Git 提交并发布 scaffold 后再次运行，返回该 ULID 的 `prepare-idea`。
+- **I07 Request context:** `whats-next --json` 与 `create-idea` preflight 的每个 result 都包含且只包含
+  以下 request shape 之一：`{ kind: "navigate" }`、
+  `{ kind: "select-idea", selector: <exact input> }` 或 `{ kind: "create-idea" }`。Known-dirty、
+  unknown-dirty、known-wrong-branch 和 unknown-wrong-branch 四个 fixtures 均断言 request 原样保留、
+  `selectedIdea: null` 且 report 只有一个 hygiene action；对应 clean fixtures 才分别得到 selected
+  idea 或 `idea.not-found`。
+- **I08 Structured changes:** 固定 fixtures 使用 `old.txt -> renamed.txt` staged rename、
+  `modified.txt` unstaged modification、`new.txt` untracked file 和独立的 `conflict.txt` both-modified
+  conflict。`inspect-worktree-changes.details` 恰有 `staged`、`unstaged`、`untracked`、`conflicted`
+  四个 keys；各 array 按 `path` 升序，entries 分别精确为
+  `{ path: "renamed.txt", kind: "renamed", originalPath: "old.txt" }`、
+  `{ path: "modified.txt", kind: "modified" }`、`{ path: "new.txt" }` 和
+  `{ path: "conflict.txt", kind: "both-modified" }`。JSON 不含 raw porcelain string、`owner`、
+  `owned` 或其他推测归属字段。
+- **I09 Publication coordinates:** ahead fixture 的 `publish-primary.details` 精确包含 config 中的
+  canonical `repository`/`branch`、resolved `commit`、fetched `expectedRemoteTip`，以及
+  `validation: { target: "commit", revision: <commit> }`。测试直接使用这些字段完成 commit check
+  与 ordinary non-force push，不再次读取 config。并发 fixture 在 report 后先把 remote ref 从
+  `expectedRemoteTip` 推进到 competing commit，再执行原 push；push exit code 非零，remote ref 保持
+  competing commit，且没有 force-push invocation。
+- **I10 Criteria evidence gate:** 可见、非 idea-tree 的 verification artifact 包含
+  `criteriaEvidence` array，并按当前 Idea.md implementation criteria 顺序为每条保存
+  `{ criterion: <I01-I14 id>, evidence: [{ type: "test" | "check" | "artifact", locator: <nonempty string> }] }`。
+  Verifier 要求 criterion ids 按顺序精确等于 `I01` 至 `I14`、与 criteria 一一对应且每个 evidence
+  非空，否则返回
+  `criteria.evidence.missing`。`test/skill.test.mjs` 断言 skill 要求在 implementation publication 前
+  生成并验证该 artifact，且禁止用 checkbox 或修改 idea definition 记录进度；missing-last-evidence
+  trajectory fixture 断言无 status-write 和 push events。
+- **I11 Snapshot commands:** 通过注入 Git command recorder，tests 断言 default `check`、
+  `check --commit`、`check --remote` 和 `whats-next` 的 success fixtures，以及分别产生
+  `config.migration-required`、`idea.revision.candidate-mismatch` 和 primary layout diagnostic 的
+  failure fixtures，均不执行 `git worktree add/remove/prune`。`--staged` 与 `--worktree` 仍须通过
+  现有 candidate/config authority、SHA-1/SHA-256、symlink、root commit、untracked 和 acceptance
+  binding tests。
+- **I12 Behavior manifest:** Test suite 暴露并执行以下 17 个 case ids：`branch-mismatch`、`conflict`、
+  `dirty`、`behind`、`ahead`、`diverged`、`selector-none`、`selector-known`、`selector-unknown`、
+  `unrelated-active-create`、`primary-relocation`、`ulid-collision`、`partial-write-failure`、
+  `alias-absent`、`structured-changes`、`publish-coordinates`、`publish-concurrent-move`。Manifest test
+  断言排序后的实际 ids 与该集合完全相等；每个 case 断言 action code 和本 criterion 指定的 JSON/
+  Git state，不只断言 `ok: true`。
+- **I13 Docs and package:** README、Repoledger skill、adoption guide、CLI help 和 installed-package smoke
+  只使用 `whats-next`/`create-idea`。Pack test 断言 tarball 至少包含 `bin/repoledger.js`、
+  `src/cli.js`、`schema/v3.json` 和 `README.md`，且不含 `test/`、`ideas/`、`.github/` 或
+  `skills/`；installed smoke 从该 tarball 安装后断言 help 的精确 command set、创建无 alias scaffold
+  成功且 `whatsnext` 返回 exit code `2`。Repository-wide text test 排除 historical idea artifacts
+  后，不得出现作为可执行命令的 `repoledger whatsnext`、`newidea` 或 `new-idea`。
+- **I14 Project gates:** 同一 candidate 上依次运行 `pnpm check`、
+  `node bin/repoledger.js check --worktree --json`、提交后的
+  `node bin/repoledger.js check --commit HEAD --json`、`npm run pack:check`、
+  `npm run smoke:pack`、`node --test test/skill.test.mjs`、`npm run check:skills` 和
+  `git diff --check`；每条 command exit code 均为 `0`，两个 check JSON 均为 `ok: true` 且
+  `diagnostics: []`。Markdown link validation 由通过的 `test/skill.test.mjs` 明确断言。
 
 ## Deployment acceptance criteria
 
-- 从已发布 primary 安装 package 与 skill，在 disposable repository/remote 中完成至少一条代表性
-  loop：`create-idea` 先被 dirty hygiene 阻挡且零写入，清理后在已有 unrelated active idea 时生成
-  无 alias 的空 scaffold，随后 `whatsnext <ULID>` 进入 preparing，publication guidance 提供完整
-  安全坐标。
-- 代表性运行记录每轮 observation、唯一 action、实际执行和 observable delta，证明没有跳过
-  hygiene、没有依赖隐藏 conversation state、没有修改真实用户 repository 或 remote。
-- Windows 环境的重复运行确认 snapshot 优化没有遗留临时 worktree，并记录与实现前基线可比较
-  的耗时结果。
+- **D01 Installed loop:** 从发布后的 primary 打包并安装 package/skill 到 disposable repository。第一次
+  `create-idea --json` 在 dirty fixture 中返回 `inspect-worktree-changes`，before/after path manifest
+  完全相同；删除 fixture-owned dirty path 后第二次调用在已有 unrelated active idea 时创建无 alias
+  scaffold，path manifest 差集恰为返回的空 `Idea.md` 和 sibling status；立即
+  `whats-next <ULID>` 返回 `inspect-worktree-changes`；提交并 non-force 发布后再次调用返回
+  `prepare-idea`；制造 local-ahead commit 后 publication details 的 repository、branch、commit、
+  expected tip 和 validation target 全部与实际 Git state 相等。
+- **D02 Isolation artifact:** 每轮保存一个 object，恰含 `command`、`exitCode`、`stdout`、`stderr`、
+  `beforeRefs`、`afterRefs`、`beforePaths`、`afterPaths`、`disposableRemoteRefs` 和 `request`。Guidance
+  round 恰有一个 action；successful create round 恰有一个 `createdIdea` 且无 action。Verifier 断言
+  source checkout 与真实 project remote 的 refs/path manifests 前后相同，disposable remote 只发生
+  scripted commits，artifact 无 `environment` field，所有 repository URL 均为无 userinfo/query/
+  fragment 的 canonical fixture URL。
+- **D03 Windows operation evidence:** 在同一 disposable Windows fixture 上分别从 baseline commit
+  `349d20cd79e78146c3067aefe37ed01d388696d1` 与 candidate 运行相同 installed loop，并保存 Node/Git
+  versions、每轮 duration 和 Git invocation trace。Baseline trace 必须包含至少一个
+  `worktree add`；candidate trace 中 `worktree add`、`worktree remove` 和 `worktree prune` 的计数均
+  为 `0`。Candidate 每轮前后的 `git worktree list --porcelain` 完全相同，且 trace 中创建的每个
+  Repoledger temporary path 在该轮结束时均不存在；duration 只作观察值，不作为易抖动的 pass/fail
+  threshold。
 
 ## Constraints
 
