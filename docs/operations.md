@@ -16,6 +16,12 @@ continues a single active idea, or reports that a new idea can be created. A
 selector is either a canonical uppercase ULID or an exact, unique,
 case-sensitive alias.
 
+Each successful report includes the effective `language` tag and its `idea`,
+`project`, `global`, or `default` source. Its action guidance requires the
+Agent to use that language for world entries, same-world supporting artifacts,
+the ledger, and user-facing explanations. Commands, identifiers, schema fields,
+protocol markers, and verbatim tool output retain their original form.
+
 Every invocation first checks the configured primary branch, merge conflicts,
 worktree changes, and local/remote primary ancestry. It may fetch and inspect,
 but it never edits, checks out, merges, commits, stashes, deletes, resets,
@@ -27,11 +33,17 @@ Explicit creation uses:
 
 ```sh
 npx silvermoon create-idea --json
+npx silvermoon create-idea --language zh-cn --json
 ```
 
 Creation intent is distinct from active-idea selection. If hygiene blocks the
 command, perform only the reported remediation and retry `create-idea`; do not
 replace the request with selector-less navigation.
+
+`--language` is the only command-level language override. It normalizes a valid
+BCP 47 tag and writes it to the new idea's `status.yaml`. Without the option,
+creation writes no language field and the idea dynamically inherits project,
+user, or `en-US` defaults. `whats-next` and `check` do not accept the option.
 
 The generated files remain untracked for review. Complete `Idea.md`, optionally
 add a concise unique alias, inspect every path, and publish the initial idea

@@ -29,7 +29,13 @@ Create `.silvermoon/config.yaml`:
 version: 1
 primaryRepository: https://github.com/example/repository.git
 primaryBranch: main
+preferredLanguage: en
 ```
+
+`preferredLanguage` is optional. A specific idea can override it with
+`language` in `status.yaml`, and `create-idea --language <tag>` can set that
+override when the idea is created. Otherwise Silvermoon checks
+`~/.config/silvermoon/config.yaml` and finally defaults to `en-US`.
 
 Then create an idea and let the registered Silvermoon skill guide one safe
 next action at a time:

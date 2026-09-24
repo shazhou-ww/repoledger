@@ -10,6 +10,7 @@ import {
   LEDGER_TEMPLATE,
 } from "./idea-templates.js";
 import { isValidUlid, serializeIdeaStatus } from "./ideas.js";
+import { canonicalizeLanguageTag } from "./language.js";
 import { IDEAS_ROOT, ideaPaths } from "./layout.js";
 import { whatsNext } from "./whatsnext.js";
 
@@ -123,11 +124,42 @@ function failure(root, preflight, caught) {
 
 export async function createIdea({
   generateId = generateUlid,
+  language,
   operations = {},
   root = process.cwd(),
+  userHome,
 } = {}) {
   const repositoryRoot = resolve(root);
-  const preflight = await whatsNext({ create: true, root: repositoryRoot });
+  let canonicalLanguage;
+  if (language !== undefined) {
+    try {
+      canonicalLanguage = canonicalizeLanguageTag(language);
+    } catch (caught) {
+      return {
+        command: "create-idea",
+        ok: false,
+        root: repositoryRoot,
+        diagnostics: [{
+          code: "idea.language.invalid",
+          level: "error",
+          message: caught.message,
+          remediation: "Use a valid BCP 47 tag such as en or zh-CN.",
+        }],
+        result: {
+          observedPrimaryCommit: null,
+          request: { kind: "create-idea" },
+          selectedIdea: null,
+          action: null,
+          createdIdea: null,
+        },
+      };
+    }
+  }
+  const preflight = await whatsNext({
+    create: true,
+    root: repositoryRoot,
+    userHome,
+  });
   const routed = { ...preflight, command: "create-idea" };
   if (!preflight.ok || preflight.result.action?.code !== "create-idea") return routed;
 
@@ -178,7 +210,11 @@ export async function createIdea({
       [paths.implementationDocumentPath, IMPLEMENTATION_TEMPLATE],
       [paths.deploymentDocumentPath, DEPLOYMENT_TEMPLATE],
       [paths.ledgerPath, LEDGER_TEMPLATE],
-      [paths.statusPath, serializeIdeaStatus({ version: 1, id })],
+      [paths.statusPath, serializeIdeaStatus({
+        version: 1,
+        id,
+        ...(canonicalLanguage === undefined ? {} : { language: canonicalLanguage }),
+      })],
     ];
     const createdDirectories = [];
     const cleanupFiles = [];
@@ -216,6 +252,7 @@ export async function createIdea({
             implementationDocumentPath: paths.implementationDocumentPath,
             deploymentDocumentPath: paths.deploymentDocumentPath,
             ledgerPath: paths.ledgerPath,
+            ...(canonicalLanguage === undefined ? {} : { language: canonicalLanguage }),
           },
         },
       };

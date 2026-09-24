@@ -38,6 +38,7 @@ if (packed.status !== 0) {
     "schema/v1/config.schema.json",
     "schema/v1/definitions.schema.json",
     "schema/v1/idea-status.schema.json",
+    "schema/v1/user-config.schema.json",
     "skills/silvermoon/SKILL.md",
     "skills/silvermoon/references/adoption.md",
     "src/adoption.js",
@@ -50,7 +51,9 @@ if (packed.status !== 0) {
     "src/ideas.js",
     "src/index.js",
     "src/layout.js",
+    "src/language.js",
     "src/repository.js",
+    "src/user-config.js",
     "src/whatsnext.js",
     "src/yaml.js",
   ].sort();

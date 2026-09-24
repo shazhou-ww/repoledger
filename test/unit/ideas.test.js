@@ -22,6 +22,7 @@ test("parses and serializes canonical idea status YAML", () => {
   const source = `version: 1
 id: 01M36QGPNTXEPP61DA4KP4AVZF
 alias: publish-documentation
+language: zh-CN
 approvedRevision: 0123456789abcdef0123456789abcdef01234567
 implementationAcceptedRevision: 0123456789abcdef0123456789abcdef01234567
 `;
@@ -30,6 +31,7 @@ implementationAcceptedRevision: 0123456789abcdef0123456789abcdef01234567
     version: 1,
     id,
     alias: "publish-documentation",
+    language: "zh-CN",
     approvedRevision: revision,
     implementationAcceptedRevision: revision,
   };
@@ -68,6 +70,8 @@ test("validates canonical ULIDs and idea status fields", () => {
     { ...valid, version: 2 },
     { ...valid, alias: " leading" },
     { ...valid, alias: "line\nbreak" },
+    { ...valid, language: "zh-cn" },
+    { ...valid, language: "en_US" },
     { ...valid, abandoned: false },
     { ...valid, approvedRevision: "a" },
     { ...valid, approvedRevision: revision.toUpperCase() },

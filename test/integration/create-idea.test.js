@@ -213,6 +213,58 @@ test("creates the first idea in the fixed missing ideas directory", async () => 
   );
 });
 
+test("normalizes and persists only an explicit language override", async () => {
+  const explicit = await createEmptyRepository();
+  const report = await createIdea({
+    generateId: () => createdId,
+    language: "zh-cn",
+    root: explicit.root,
+  });
+  const paths = ideaPaths(createdId);
+  assert.equal(report.ok, true);
+  assert.equal(report.result.createdIdea.language, "zh-CN");
+  assert.equal(
+    await readFile(join(explicit.root, ...paths.statusPath.split("/")), "utf8"),
+    `version: 1\nid: ${createdId}\nlanguage: zh-CN\n`,
+  );
+
+  const inherited = await createEmptyRepository();
+  const inheritedReport = await createIdea({
+    generateId: () => createdId,
+    root: inherited.root,
+  });
+  assert.equal(inheritedReport.ok, true);
+  assert.equal(
+    Object.hasOwn(inheritedReport.result.createdIdea, "language"),
+    false,
+  );
+  assert.equal(
+    await readFile(join(inherited.root, ...paths.statusPath.split("/")), "utf8"),
+    `version: 1\nid: ${createdId}\n`,
+  );
+});
+
+test("rejects an invalid language before Git or filesystem mutation", async () => {
+  const { repository, root } = await createRepository();
+  const before = repositoryState(root, repository);
+  const commands = [];
+
+  const report = await observeGitCommands(
+    (args) => commands.push(args),
+    () => createIdea({
+      generateId: () => createdId,
+      language: "not_a_tag",
+      root,
+    }),
+  );
+
+  assert.equal(report.ok, false);
+  assert.equal(report.diagnostics[0].code, "idea.language.invalid");
+  assert.equal(report.result.createdIdea, null);
+  assert.deepEqual(commands, []);
+  assert.deepEqual(repositoryState(root, repository), before);
+});
+
 test("[ulid-collision] retries an identity collision without changing existing bytes", async () => {
   const { root } = await createRepository();
   const existing = ideaPaths(existingId);

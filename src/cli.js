@@ -57,6 +57,7 @@ function renderWhatsNext(result, io) {
     io.log(`  recheck  ${renderRemediation(result.onboarding.recheck)}`);
   }
   io.log(`${result.action.code}: ${result.action.message}`);
+  io.log(`  language ${result.language.tag} (${result.language.source})`);
   if (result.observedPrimaryCommit) io.log(`  primary  ${result.observedPrimaryCommit}`);
   if (result.selectedIdea) {
     io.log(`  idea     ${renderIdeaIdentity(result.selectedIdea)}`);
@@ -154,9 +155,13 @@ Examples:
   addCommonOptions(
     program
       .command("create-idea")
-      .description("create one structured idea scaffold after primary hygiene"),
+      .description("create one structured idea scaffold after primary hygiene")
+      .option("--language <tag>", "persist a canonical language override on the new idea"),
   ).action(async (options) => {
-    const report = await createIdea({ root: options.root });
+    const report = await createIdea({
+      language: options.language,
+      root: options.root,
+    });
     render(report, options.json, io);
     program.setOptionValue("resultCode", report.ok ? 0 : 1);
   });

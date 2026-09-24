@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -66,7 +66,16 @@ primaryBranch: main
   git(root, "init", "--bare", "--initial-branch=main", remote);
   git(root, "push", repository, "main");
   git(root, "config", `url.${repository}.insteadOf`, "https://example.test/owner/repository.git");
-  return { remote, repository, root };
+  return { base, remote, repository, root };
+}
+
+async function writeUserConfig(home, preferredLanguage) {
+  const directory = join(home, ".config", "silvermoon");
+  await mkdir(directory, { recursive: true });
+  await writeFile(
+    join(directory, "config.yaml"),
+    `version: 1\npreferredLanguage: ${preferredLanguage}\n`,
+  );
 }
 
 test("[selector-none] selects a single active idea before state guidance", async () => {
@@ -188,6 +197,8 @@ test("[selector-known] renders preparing guidance for a clean synchronized prima
   assert.equal(report.result.selectedIdea.state, "preparing");
   assert.equal(report.result.selectedIdea.ledgerPath, ideaPaths(id).ledgerPath);
   assert.equal(report.result.action.code, "prepare-idea");
+  assert.deepEqual(report.result.language, { tag: "en-US", source: "default" });
+  assert.match(report.result.action.message, /Use en-US for natural-language content/);
   assert.equal(report.result.action.details.world.name, "Ideal World");
   assert.equal(report.result.action.details.world.displayName, "道心");
   assert.equal(
@@ -199,6 +210,91 @@ test("[selector-known] renders preparing guidance for a clean synchronized prima
     report.result.action.details.world.documentPath,
     ideaPaths(id).ideaDocumentPath,
   );
+});
+
+test("resolves idea, project, global, and default language with reported sources", async () => {
+  const ideaFixture = await createRepository();
+  await writeUserConfig(ideaFixture.base, "de");
+  await writeFile(
+    join(ideaFixture.root, ".silvermoon", "config.yaml"),
+    `version: 1
+primaryRepository: https://example.test/owner/repository.git
+primaryBranch: main
+preferredLanguage: zh-CN
+`,
+  );
+  await writeIdea(ideaFixture.root, id, { alias: "fixture", language: "fr" });
+  git(ideaFixture.root, "add", ".");
+  git(ideaFixture.root, "commit", "-m", "Configure language layers");
+  git(ideaFixture.root, "push", ideaFixture.repository, "main");
+  const idea = await whatsNext({
+    idea: id,
+    root: ideaFixture.root,
+    userHome: ideaFixture.base,
+  });
+  assert.deepEqual(idea.result.language, { tag: "fr", source: "idea" });
+  assert.match(idea.result.action.message, /Use fr for natural-language content/);
+
+  const projectFixture = await createRepository();
+  await writeUserConfig(projectFixture.base, "de");
+  await writeFile(
+    join(projectFixture.root, ".silvermoon", "config.yaml"),
+    `version: 1
+primaryRepository: https://example.test/owner/repository.git
+primaryBranch: main
+preferredLanguage: zh-CN
+`,
+  );
+  git(projectFixture.root, "add", ".");
+  git(projectFixture.root, "commit", "-m", "Configure project language");
+  git(projectFixture.root, "push", projectFixture.repository, "main");
+  const project = await whatsNext({
+    idea: id,
+    root: projectFixture.root,
+    userHome: projectFixture.base,
+  });
+  assert.deepEqual(project.result.language, { tag: "zh-CN", source: "project" });
+
+  const globalFixture = await createRepository();
+  await writeUserConfig(globalFixture.base, "de");
+  const global = await whatsNext({
+    idea: id,
+    root: globalFixture.root,
+    userHome: globalFixture.base,
+  });
+  assert.deepEqual(global.result.language, { tag: "de", source: "global" });
+
+  const defaultFixture = await createRepository();
+  const fallback = await whatsNext({
+    idea: id,
+    root: defaultFixture.root,
+    userHome: defaultFixture.base,
+  });
+  assert.deepEqual(fallback.result.language, { tag: "en-US", source: "default" });
+});
+
+test("dynamically inherits changed user language without writing idea status", async () => {
+  const { base, root } = await createRepository();
+  const statusPath = join(root, ...ideaPaths(id).statusPath.split("/"));
+  const originalStatus = await readFile(statusPath, "utf8");
+  await writeUserConfig(base, "de");
+  const first = await whatsNext({ idea: id, root, userHome: base });
+  await writeUserConfig(base, "fr");
+  const second = await whatsNext({ idea: id, root, userHome: base });
+
+  assert.deepEqual(first.result.language, { tag: "de", source: "global" });
+  assert.deepEqual(second.result.language, { tag: "fr", source: "global" });
+  assert.equal(await readFile(statusPath, "utf8"), originalStatus);
+});
+
+test("rejects invalid explicit user language without falling back", async () => {
+  const { base, root } = await createRepository();
+  await writeUserConfig(base, "zh-cn");
+  const report = await whatsNext({ idea: id, root, userHome: base });
+
+  assert.equal(report.ok, false);
+  assert.equal(report.result.action, null);
+  assert.equal(report.diagnostics[0].code, "user-config.invalid-preferred-language");
 });
 
 test("[alias-absent] selects an alias-less idea by ULID without inventing display text", async () => {

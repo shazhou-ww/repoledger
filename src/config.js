@@ -2,6 +2,7 @@ import { lstat, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 import { CONFIG_PATH, METADATA_ROOT } from "./layout.js";
+import { isCanonicalLanguageTag } from "./language.js";
 import { validBranchName, validRepository } from "./repository.js";
 import { parseStrictYaml, stringifyCanonicalYaml } from "./yaml.js";
 
@@ -11,6 +12,7 @@ const CONFIG_KEYS = [
   "version",
   "primaryRepository",
   "primaryBranch",
+  "preferredLanguage",
 ];
 
 function configDiagnostic(code, path, message, remediation) {
@@ -57,11 +59,15 @@ export function validPrimaryBranch(_root, value) {
 }
 
 export function serializeConfig(config) {
-  return stringifyCanonicalYaml({
+  const canonical = {
     version: config.version,
     primaryRepository: config.primaryRepository,
     primaryBranch: config.primaryBranch,
-  });
+  };
+  if (config.preferredLanguage !== undefined) {
+    canonical.preferredLanguage = config.preferredLanguage;
+  }
+  return stringifyCanonicalYaml(canonical);
 }
 
 export async function loadConfig({ root }) {
@@ -159,12 +165,23 @@ export async function loadConfig({ root }) {
       "Use a branch such as main without refs/ or remote prefixes.",
     ));
   }
+  if (
+    Object.hasOwn(value, "preferredLanguage") &&
+    !isCanonicalLanguageTag(value.preferredLanguage)
+  ) {
+    diagnostics.push(configDiagnostic(
+      "config.invalid-preferred-language",
+      `${CONFIG_PATH}#preferredLanguage`,
+      "preferredLanguage must be a canonical BCP 47 language tag.",
+      "Use a canonical tag such as en or zh-CN.",
+    ));
+  }
   if (diagnostics.length === 0 && serializeConfig(value) !== normalizedSource) {
     diagnostics.push(configDiagnostic(
       "config.noncanonical",
       CONFIG_PATH,
       "The Silvermoon configuration is valid but not canonical.",
-      "Rewrite properties in version, primaryRepository, primaryBranch order with LF endings.",
+      "Rewrite properties in version, primaryRepository, primaryBranch, preferredLanguage order with LF endings.",
     ));
   }
 

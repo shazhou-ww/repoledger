@@ -28,6 +28,7 @@ test("loads canonical version 1 configuration from the fixed metadata path", asy
   const source = `version: 1
 primaryRepository: https://example.com/owner/repository.git
 primaryBranch: main
+preferredLanguage: zh-CN
 `;
   const loaded = await loadConfig({ root: await writeConfig(source) });
 
@@ -36,8 +37,32 @@ primaryBranch: main
     version: 1,
     primaryRepository: "https://example.com/owner/repository.git",
     primaryBranch: "main",
+    preferredLanguage: "zh-CN",
   });
   assert.equal(serializeConfig(loaded.config), source);
+});
+
+test("accepts an omitted preferred language and rejects invalid stored tags", async () => {
+  const inherited = await loadConfig({
+    root: await writeConfig(`version: 1
+primaryRepository: https://example.com/owner/repository.git
+primaryBranch: main
+`),
+  });
+  assert.deepEqual(inherited.diagnostics, []);
+  assert.equal(inherited.config.preferredLanguage, undefined);
+
+  for (const preferredLanguage of ["zh-cn", "en_US", ""]) {
+    const loaded = await loadConfig({
+      root: await writeConfig(`version: 1
+primaryRepository: https://example.com/owner/repository.git
+primaryBranch: main
+preferredLanguage: ${JSON.stringify(preferredLanguage)}
+`),
+    });
+    assert.equal(loaded.config, null);
+    assert.equal(loaded.diagnostics[0].code, "config.invalid-preferred-language");
+  }
 });
 
 test("rejects ideasDirectory and ignores previous layouts", async () => {

@@ -1,4 +1,5 @@
 import { parseStrictYaml, stringifyCanonicalYaml } from "./yaml.js";
+import { isCanonicalLanguageTag } from "./language.js";
 
 export const IDEA_STATES = [
   "preparing",
@@ -15,6 +16,7 @@ const STATUS_KEYS = new Set([
   "version",
   "id",
   "alias",
+  "language",
   "abandoned",
   "approvedRevision",
   "implementationAcceptedRevision",
@@ -61,6 +63,12 @@ export function validateIdeaStatus(value, { objectIdLength } = {}) {
   if (Object.hasOwn(value, "alias") && !isValidAlias(value.alias)) {
     throw ideaStatusError("alias must be 1 to 120 trimmed characters without controls");
   }
+  if (
+    Object.hasOwn(value, "language") &&
+    !isCanonicalLanguageTag(value.language)
+  ) {
+    throw ideaStatusError("language must be a canonical BCP 47 language tag");
+  }
   if (Object.hasOwn(value, "abandoned") && value.abandoned !== true) {
     throw ideaStatusError("abandoned must be omitted or true");
   }
@@ -90,6 +98,7 @@ export function serializeIdeaStatus(value, options) {
     id: value.id,
   };
   if (Object.hasOwn(value, "alias")) canonical.alias = value.alias;
+  if (Object.hasOwn(value, "language")) canonical.language = value.language;
   if (value.abandoned === true) canonical.abandoned = true;
   for (const key of REVISION_KEYS) {
     if (Object.hasOwn(value, key)) canonical[key] = value[key];

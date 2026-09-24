@@ -36,11 +36,33 @@ Create `.silvermoon/config.yaml`:
 version: 1
 primaryRepository: https://github.com/example/repository.git
 primaryBranch: main
+preferredLanguage: en
 ```
 
 The repository URL is credential-free, canonical shared state. Credentials,
 named remotes, and URL rewrites remain local Git concerns. Silvermoon metadata
 paths are fixed and cannot be overridden by configuration.
+
+## Configure Preferred Language
+
+All language values are canonical BCP 47 tags such as `en` or `zh-CN`.
+Silvermoon resolves natural-language output in this order:
+
+1. optional idea `status.yaml` `language`;
+2. optional project `.silvermoon/config.yaml` `preferredLanguage`;
+3. optional user `~/.config/silvermoon/config.yaml` `preferredLanguage`;
+4. `en-US`.
+
+The user configuration is outside the repository:
+
+```yaml
+version: 1
+preferredLanguage: zh-CN
+```
+
+Inherited values remain dynamic and are not copied into an idea. Use
+`create-idea --language <tag>` only when the new idea needs a stable override.
+`whats-next` reports both the effective tag and its source.
 
 ## Create The First Idea
 
@@ -48,6 +70,7 @@ Run:
 
 ```sh
 npx silvermoon create-idea --json
+npx silvermoon create-idea --language zh-cn --json
 ```
 
 The command first applies the same repository, worktree, conflict, and ancestry

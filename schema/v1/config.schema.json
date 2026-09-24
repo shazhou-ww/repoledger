@@ -19,6 +19,9 @@
     },
     "primaryBranch": {
       "$ref": "definitions.schema.json#/$defs/branch"
+    },
+    "preferredLanguage": {
+      "$ref": "definitions.schema.json#/$defs/languageTag"
     }
   }
 }

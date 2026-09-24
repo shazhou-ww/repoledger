@@ -9,6 +9,8 @@ import {
   withTemporaryWorktree,
 } from "./git.js";
 import { inspectIdeaLayout } from "./idea-layout.js";
+import { resolveLanguage } from "./language.js";
+import { loadUserConfig } from "./user-config.js";
 
 const ACTIVE_STATES = new Set(["preparing", "implementing", "deploying"]);
 
@@ -49,7 +51,14 @@ function action(code, message, details = {}) {
   return { code, message, details };
 }
 
-function success(root, observedPrimaryCommit, request, selectedIdea, nextAction) {
+function actionWithLanguage(nextAction, language) {
+  return {
+    ...nextAction,
+    message: `${nextAction.message} Use ${language.tag} for natural-language content and user-facing explanations.`,
+  };
+}
+
+function success(root, observedPrimaryCommit, request, selectedIdea, nextAction, language) {
   return {
     command: "whats-next",
     ok: true,
@@ -58,8 +67,9 @@ function success(root, observedPrimaryCommit, request, selectedIdea, nextAction)
     result: {
       observedPrimaryCommit,
       request,
+      language,
       selectedIdea: selectedIdea ? summary(selectedIdea) : null,
-      action: nextAction,
+      action: actionWithLanguage(nextAction, language),
     },
   };
 }
@@ -228,7 +238,12 @@ function worktreeAction(root, config, observedPrimaryCommit) {
   );
 }
 
-async function lifecycleWhatsNext({ create = false, idea: selector, root = process.cwd() } = {}) {
+async function lifecycleWhatsNext({
+  create = false,
+  idea: selector,
+  root = process.cwd(),
+  userHome,
+} = {}) {
   const repositoryRoot = resolve(root);
   const request = create
     ? { kind: "create-idea" }
@@ -292,14 +307,42 @@ async function lifecycleWhatsNext({ create = false, idea: selector, root = proce
     return failed(repositoryRoot, observationDiagnostics, request, observedPrimaryCommit);
   }
 
+  const loadedUserConfig = await loadUserConfig({ home: userHome });
+  if (loadedUserConfig.diagnostics.length > 0) {
+    return failed(
+      repositoryRoot,
+      loadedUserConfig.diagnostics,
+      request,
+      observedPrimaryCommit,
+    );
+  }
+  const requestedIdea = selectIdea(observed.ideas, selector);
+  const repositoryLanguage = {
+    project: observed.config.preferredLanguage,
+    global: loadedUserConfig.config?.preferredLanguage,
+  };
+  const languageFor = (idea) => resolveLanguage({
+    idea: idea?.status.language,
+    ...repositoryLanguage,
+  });
+
   const hygiene = worktreeAction(repositoryRoot, local.config, observedPrimaryCommit);
-  if (hygiene) return success(repositoryRoot, observedPrimaryCommit, request, null, hygiene);
+  if (hygiene) {
+    return success(
+      repositoryRoot,
+      observedPrimaryCommit,
+      request,
+      null,
+      hygiene,
+      languageFor(requestedIdea),
+    );
+  }
 
   if (create) {
     return success(repositoryRoot, observedPrimaryCommit, request, null, action(
       "create-idea",
       "Create one new three-world idea scaffold in .silvermoon/ideas/.",
-    ));
+    ), languageFor());
   }
 
   if (!selector) {
@@ -309,22 +352,22 @@ async function lifecycleWhatsNext({ create = false, idea: selector, root = proce
         "select-active-idea",
         "Select one active idea by ULID or unique alias.",
         { ideas: active.map(summary) },
-      ));
+      ), languageFor());
     }
     if (active.length === 1) {
       return success(repositoryRoot, observedPrimaryCommit, request, active[0], action(
         "continue-active-idea",
         `Continue active idea ${ideaName(active[0])}.`,
         { idea: summary(active[0]) },
-      ));
+      ), languageFor(active[0]));
     }
     return success(repositoryRoot, observedPrimaryCommit, request, null, action(
       "create-idea",
       "Discuss the next goal and create one self-contained three-world idea.",
-    ));
+    ), languageFor());
   }
 
-  const selected = selectIdea(observed.ideas, selector);
+  const selected = requestedIdea;
   if (!selected) {
     return failed(repositoryRoot, [diagnostic(
       "idea.not-found",
@@ -334,7 +377,14 @@ async function lifecycleWhatsNext({ create = false, idea: selector, root = proce
     )], request, observedPrimaryCommit);
   }
 
-  return success(repositoryRoot, observedPrimaryCommit, request, selected, stateAction(selected));
+  return success(
+    repositoryRoot,
+    observedPrimaryCommit,
+    request,
+    selected,
+    stateAction(selected),
+    languageFor(selected),
+  );
 }
 
 export async function whatsNext({
@@ -342,6 +392,7 @@ export async function whatsNext({
   enforceOnboarding = false,
   idea: selector,
   root = process.cwd(),
+  userHome,
 } = {}) {
   const repositoryRoot = resolve(root);
   const onboarding = await inspectAdoption({ root: repositoryRoot, selector });
@@ -351,6 +402,13 @@ export async function whatsNext({
       ? { kind: "navigate" }
       : { kind: "select-idea", selector };
   if (enforceOnboarding && onboarding.status !== "ready") {
+    const loadedUserConfig = await loadUserConfig({ home: userHome });
+    if (loadedUserConfig.diagnostics.length > 0) {
+      return failed(repositoryRoot, loadedUserConfig.diagnostics, request);
+    }
+    const language = resolveLanguage({
+      global: loadedUserConfig.config?.preferredLanguage,
+    });
     return {
       command: "whats-next",
       ok: true,
@@ -359,9 +417,10 @@ export async function whatsNext({
       result: {
         observedPrimaryCommit: null,
         request,
+        language,
         selectedIdea: null,
         onboarding,
-        action: action(
+        action: actionWithLanguage(action(
           "adopt-silvermoon",
           "Complete the blocking Silvermoon onboarding findings before idea lifecycle work.",
           {
@@ -369,11 +428,16 @@ export async function whatsNext({
             recommendedAction: onboarding.recommendedAction,
             recheck: onboarding.recheck,
           },
-        ),
+        ), language),
       },
     };
   }
-  const report = await lifecycleWhatsNext({ create, idea: selector, root: repositoryRoot });
+  const report = await lifecycleWhatsNext({
+    create,
+    idea: selector,
+    root: repositoryRoot,
+    userHome,
+  });
   if (report.result) report.result.onboarding = onboarding;
   return report;
 }

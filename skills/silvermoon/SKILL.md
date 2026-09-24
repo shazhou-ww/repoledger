@@ -19,9 +19,12 @@ and Git.
      run `silvermoon create-idea --json`.
    - Otherwise run `silvermoon whats-next [idea] --json`. Pass the selector only
      when the user supplied or previously selected one.
-2. Treat the command, request, `observedPrimaryCommit`, `selectedIdea`, and
-   action or created idea as one immutable observation. Do not combine guidance
-   from different reports.
+2. Treat the command, request, `observedPrimaryCommit`, `selectedIdea`,
+   effective `language`, and action or created idea as one immutable
+   observation. Do not combine guidance from different reports. Use the
+   reported language for natural-language world content, supporting artifacts,
+   ledger text, and user-facing explanations; preserve commands, identifiers,
+   schema fields, protocol markers, and verbatim tool output.
 3. Read the complete `onboarding` doctor report. It lists every requirement,
    status, blocking flag, dependency, structured remediation, recommended
    action, and recheck command. For `adopt-silvermoon`, execute only the
@@ -69,6 +72,10 @@ configuration and skill findings but owns no onboarding mutation command.
   and matching ledger placeholders synchronized until their lifecycle actions.
   An Agent may add a concise, unique alias derived from the user's request;
   do not interrupt the user only to ask them to name it.
+  When the user explicitly requests a stable language for the new idea, pass
+  `--language <tag>`; otherwise omit it so the idea dynamically inherits the
+  project, user, or `en-US` default. Never add a language override to
+  `whats-next` or `check`.
 - `switch-to-primary`, `resolve-conflicts`, `inspect-worktree-changes`,
   `fast-forward-primary`, `integrate-primary`, `publish-primary`: perform the
   exact Git hygiene step without discarding either history or unknown work.

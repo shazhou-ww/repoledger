@@ -23,6 +23,12 @@ test("registers only the approved vNext command surface", () => {
     program.commands.map((command) => command.name()).sort(),
     ["check", "create-idea", "whats-next"],
   );
+  const create = program.commands.find((command) => command.name() === "create-idea");
+  assert.ok(create.options.some(({ long }) => long === "--language"));
+  for (const name of ["check", "whats-next"]) {
+    const command = program.commands.find((candidate) => candidate.name() === name);
+    assert.ok(!command.options.some(({ long }) => long === "--language"));
+  }
 });
 
 test("help lists exactly the three public subcommands", async () => {
@@ -75,6 +81,7 @@ test("renders complete onboarding requirement details", () => {
     diagnostics: [],
     result: {
       observedPrimaryCommit: null,
+      language: { tag: "en-US", source: "default" },
       selectedIdea: null,
       onboarding: {
         status: "blocked",
@@ -124,6 +131,7 @@ test("renders deterministic whats-next human and JSON output", () => {
     diagnostics: [],
     result: {
       observedPrimaryCommit: "a".repeat(40),
+      language: { tag: "zh-CN", source: "project" },
       selectedIdea: {
         id: "01M36QGPNTXEPP61DA4KP4AVZF",
         alias: "fixture",
@@ -152,6 +160,7 @@ test("renders deterministic whats-next human and JSON output", () => {
   const human = capture();
   render(report, false, human.io);
   assert.match(human.logs.join("\n"), /prepare-idea: Prepare it\./);
+  assert.match(human.logs.join("\n"), /language zh-CN \(project\)/);
   assert.match(human.logs.join("\n"), /state    preparing/);
   assert.match(human.logs.join("\n"), /world    Ideal World \(道心\)/);
   assert.match(human.logs.join("\n"), /decision approvedRevision:/);
@@ -169,6 +178,7 @@ test("renders active idea options in human whats-next output", () => {
     diagnostics: [],
     result: {
       observedPrimaryCommit: "a".repeat(40),
+      language: { tag: "en-US", source: "default" },
       selectedIdea: null,
       action: {
         code: "select-active-idea",
@@ -214,6 +224,7 @@ test("renders an alias-less idea without empty parentheses", () => {
     diagnostics: [],
     result: {
       observedPrimaryCommit: "a".repeat(40),
+      language: { tag: "en-US", source: "default" },
       request: { kind: "select-idea", selector: "01M36QGPNTXEPP61DA4KP4AVZF" },
       selectedIdea: {
         id: "01M36QGPNTXEPP61DA4KP4AVZF",

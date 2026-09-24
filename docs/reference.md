@@ -26,6 +26,15 @@ Every world may contain supporting files and directories, but they serve the
 canonical same-world entry and never define another contract. Metadata paths
 are fixed regular files and directories.
 
+The optional user configuration is always
+`~/.config/silvermoon/config.yaml`, on every platform. It is outside the
+repository and contains version 1 plus an optional `preferredLanguage`.
+Missing user configuration means no user preference; an invalid or unreadable
+explicit file is an error rather than a silent fallback.
+
+The repository configuration accepts optional `preferredLanguage` after
+`primaryBranch`. Stored language values are canonical BCP 47 tags.
+
 ## World Revisions
 
 Each world is an opaque Git tree:
@@ -44,16 +53,23 @@ types and candidate bindings rather than interpreting world contents.
 version: 1
 id: 01M36QGPNTXEPP61DA4KP4AVZF
 alias: publish-documentation
+language: zh-CN
 approvedRevision: 0123456789abcdef0123456789abcdef01234567
 implementationAcceptedRevision: 0123456789abcdef0123456789abcdef01234567
 deploymentAcceptedRevision: 0123456789abcdef0123456789abcdef01234567
 ```
 
-`version` and `id` are required. `alias` is optional. Other optional keys, in
-canonical order, are `abandoned: true` and the three revision fields shown
-above. Explicit `abandoned: false`, derived state, criteria mirrors, source
-locators, unknown keys, YAML aliases or anchors, comments, and noncanonical
-YAML are rejected.
+`version` and `id` are required. `alias` and canonical BCP 47 `language` are
+optional. Other optional keys, in canonical order, are `abandoned: true` and
+the three revision fields shown above. `language` is status outside every
+world revision and does not change lifecycle decisions. Explicit
+`abandoned: false`, derived state, criteria mirrors, source locators, unknown
+keys, YAML aliases or anchors, comments, and noncanonical YAML are rejected.
+
+Effective language resolves as `idea language > project preferredLanguage >
+user preferredLanguage > en-US`. JSON reports expose
+`language: { tag, source }`; human output shows the same values. Missing idea
+language remains dynamically inherited and is never written back.
 
 State is derived in order:
 
@@ -69,13 +85,14 @@ State is derived in order:
 
 ```sh
 silvermoon whats-next [idea]
-silvermoon create-idea
+silvermoon create-idea [--language <tag>]
 silvermoon check [--remote | --commit <revision> | --staged | --worktree]
 ```
 
 `whats-next` returns one highest-priority action after repository and onboarding
-diagnosis. JSON reports include `observedPrimaryCommit`, `selectedIdea`, and
-exactly one `action`. They also include `onboarding`, whose requirements expose
+diagnosis. JSON reports include `observedPrimaryCommit`, `language`,
+`selectedIdea`, and exactly one `action`. They also include `onboarding`, whose
+requirements expose
 stable IDs, statuses, blocking flags, dependencies, observed facts, structured
 remediation, a recommended action, and a recheck command.
 
@@ -85,7 +102,9 @@ diagnosis; normal idea work requires the exact project dependency, installed
 package, and matching repository-local skill.
 
 `create-idea` applies the same hygiene preflight and then creates one canonical
-scaffold. It does not stage, commit, push, or record approval.
+scaffold. Its optional language override is normalized before preflight and is
+the only command override; without it the status remains dynamically
+inherited. It does not stage, commit, push, or record approval.
 
 ## Validation Targets
 
@@ -111,5 +130,6 @@ revision binding, and acceptance history.
 ## Schemas
 
 - [Repository configuration](../schema/v1/config.schema.json)
+- [User configuration](../schema/v1/user-config.schema.json)
 - [Idea status](../schema/v1/idea-status.schema.json)
 - [Shared definitions](../schema/v1/definitions.schema.json)

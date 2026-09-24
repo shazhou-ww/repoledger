@@ -28,7 +28,12 @@ npx skills add ./node_modules/silvermoon/skills --skill silvermoon --agent githu
 version: 1
 primaryRepository: https://github.com/example/repository.git
 primaryBranch: main
+preferredLanguage: zh-CN
 ```
+
+`preferredLanguage` 可省略。具体 idea 可以通过 `status.yaml` 的 `language`
+覆盖它，创建时也可以使用 `create-idea --language <tag>` 设置该值。否则 Silvermoon 会继续
+读取 `~/.config/silvermoon/config.yaml`，最后稳定回退到 `en-US`。
 
 然后创建一个 idea，让已注册的 Silvermoon skill 每次引导一个安全的下一步行动：
 
