@@ -20,8 +20,10 @@
 
 ### Deployment steps
 
-- [ ] **D-S01:** 步骤标题
+- [x] **D-S01:** 通过受保护工作流发布并验证 npm 注册表状态
+- [x] **D-S02:** 处置 0.0.2 发布事故并以 0.0.3 完成发布
 
 ### Deployment acceptance criteria
 
-- [ ] **D-AC01:** 标准标题
+- [x] **D-AC01:** npm 注册表提供 README 正确的最新稳定版本
+- [x] **D-AC02:** 发布经过可信工作流且安装行为正确
