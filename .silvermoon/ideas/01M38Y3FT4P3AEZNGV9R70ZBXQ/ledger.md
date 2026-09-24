@@ -32,5 +32,16 @@
 
 ### Acceptance criteria
 
-- [ ] **D01:** 新仓库 lifecycle
-- [ ] **D02:** 生产级联验证
+- [x] **D01:** 新仓库 lifecycle
+- [x] **D02:** 生产级联验证
+
+### Evidence
+
+- 2026-09-24: Packed and installed `silvermoon@0.0.1` in a new temporary
+  fixed-layout Git repository. The installed candidate CLI derived
+  `preparing`, `implementing`, `deploying`, and `completed` as each acceptance
+  fact was added.
+- 2026-09-24: Starting from the completed candidate, isolated changes under
+  `outer/`, `outer/inner/`, and `outer/inner/ideal/` derived `deploying`,
+  `implementing`, and `preparing` respectively; removing each change restored
+  `completed`.
