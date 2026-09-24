@@ -21,8 +21,12 @@
 
 ### Steps
 
-- [ ] **D-S01:** Deployment step
+- [ ] **D-S01:** Publish a stable deployment contract
+- [ ] **D-S02:** Verify the public repository documentation surface
+- [ ] **D-S03:** Verify the distributable package surface
 
 ### Acceptance criteria
 
-- [ ] **D-AC01:** Deployment criterion
+- [ ] **D-AC01:** Authoritative primary contains the accepted implementation
+- [ ] **D-AC02:** GitHub serves a complete reader-first documentation journey
+- [ ] **D-AC03:** The installed package preserves every documented entry point
