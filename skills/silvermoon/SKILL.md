@@ -77,9 +77,12 @@ hygiene preflight and, only when it passes, creates the structured idea scaffold
 - `deploy-idea`: use `Deployment.md` and its supporting Outer World (现世)
   files to drive and verify the external world. Do not change repository
   deliverables as deployment work or modify a nested world unless that earlier
-  contract truly changed. After lifecycle hygiene, use the reported
-  `ledgerPath` to resume relevant unfinished work. After explicit acceptance,
-  write the reported `deploymentRevision` to `deploymentAcceptedRevision`.
+  contract truly changed. Publish a newly authored or materially changed
+  deployment contract first, reobserve its stable `deploymentRevision`, then
+  execute external checks against that revision and record their completion in
+  the ledger. After lifecycle hygiene, use the reported `ledgerPath` to resume
+  relevant unfinished work. After explicit acceptance, write the reported
+  `deploymentRevision` to `deploymentAcceptedRevision`.
 - `review-abandoned`: keep `abandoned: true`, remove it after an explicit human
   decision, or create a different idea.
 - `review-completed`: revise the existing idea definition or create a new idea.
@@ -155,6 +158,10 @@ refined. Add new entries unchecked. If a completed item's requirement or proof
 method changes materially, reset its checkbox and re-run the work or proof.
 Infer the next action from `whats-next`, the world contracts, and unchecked
 ledger entries; do not maintain duplicate Current or Next summaries.
+If relevant ledger entries remain unchecked, continue the reported world
+action. If all relevant entries are checked, their evidence remains valid, and
+the candidate is published, stop editing and request explicit acceptance for
+the exact revision reported by `whats-next`.
 
 `[x]` means only that the Agent recorded work or a check as complete. It never
 approves an Ideal World, accepts implementation or deployment, changes
