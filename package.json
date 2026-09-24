@@ -46,6 +46,7 @@
     "url": "git+https://github.com/shazhou-ww/silvermoon.git"
   },
   "devDependencies": {
+    "ajv": "^8.20.0",
     "semver": "^7.8.5"
   },
   "dependencies": {

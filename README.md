@@ -186,10 +186,15 @@ worktree. Exit status `0` means success, `1` means validation or operational
 failure, and `2` means invalid CLI usage. Use `--json` for the complete stable
 report envelope.
 
-The schema is [schema/v1.json](schema/v1.json). Runtime checks additionally
-verify canonical YAML, regular fixed metadata paths, three world entries,
-unique aliases, current Git object format, tree object types, per-world
-candidate revision binding, and acceptance history.
+The repository configuration schema is
+[schema/v1/config.schema.json](schema/v1/config.schema.json), and the idea
+status schema is
+[schema/v1/idea-status.schema.json](schema/v1/idea-status.schema.json). Both
+use the shared definitions in
+[schema/v1/definitions.schema.json](schema/v1/definitions.schema.json).
+Runtime checks additionally verify canonical YAML, regular fixed metadata
+paths, three world entries, unique aliases, current Git object format, tree
+object types, per-world candidate revision binding, and acceptance history.
 
 ## Adopt Silvermoon
 

@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/shazhou-ww/silvermoon/raw/refs/heads/main/schema/v1/idea-status.schema.json",
+  "title": "Silvermoon idea status v1",
+  "description": "The repository-owned .silvermoon/ideas/<IDEA_ID>/status.yaml contract.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "id"
+  ],
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "id": {
+      "$ref": "definitions.schema.json#/$defs/ulid"
+    },
+    "alias": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120,
+      "pattern": "^(?!\\s)(?!.*\\s$)[^\\u0000-\\u001f\\u007f-\\u009f]+$"
+    },
+    "abandoned": {
+      "const": true
+    },
+    "approvedRevision": {
+      "description": "Accepted Ideal World (道心) tree object ID.",
+      "$ref": "definitions.schema.json#/$defs/objectId"
+    },
+    "implementationAcceptedRevision": {
+      "description": "Accepted Inner World (内景) tree object ID.",
+      "$ref": "definitions.schema.json#/$defs/objectId"
+    },
+    "deploymentAcceptedRevision": {
+      "description": "Accepted Outer World (现世) tree object ID.",
+      "$ref": "definitions.schema.json#/$defs/objectId"
+    }
+  }
+}

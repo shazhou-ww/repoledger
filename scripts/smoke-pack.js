@@ -78,6 +78,18 @@ try {
   run("git", ["commit", "-m", "Initialize smoke fixture"], consumer);
 
   npm(["install", "--ignore-scripts", "--no-audit", "--no-fund", tarball], consumer);
+  for (const schema of [
+    "config.schema.json",
+    "definitions.schema.json",
+    "idea-status.schema.json",
+  ]) {
+    JSON.parse(
+      await readFile(
+        join(consumer, "node_modules", "silvermoon", "schema", "v1", schema),
+        "utf8",
+      ),
+    );
+  }
   await assert.rejects(
     readFile(join(consumer, "node_modules", ".bin", "repoledger"), "utf8"),
     { code: "ENOENT" },

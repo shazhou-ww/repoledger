@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/shazhou-ww/silvermoon/raw/refs/heads/main/schema/v1/definitions.schema.json",
+  "title": "Silvermoon shared definitions v1",
+  "description": "Shared value definitions for Silvermoon version 1 storage contracts.",
+  "$defs": {
+    "branch": {
+      "type": "string",
+      "pattern": "^(?!-)(?!/)(?!@$)(?!refs/)(?!remotes/)(?!.*\\.\\.)(?!.*@\\{)(?!.*[ ~^:?*\\[\\\\])(?!.*(?:^|/)\\.)(?!.*(?:^|/)[^/]*\\.lock(?:/|$))(?!.*//$)(?!.*//)(?!.*\\.$)(?!.*\/$).+$"
+    },
+    "repository": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https://(?:[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?|\\[[0-9a-f:.]+\\])(?::(?!443(?:/|$))[0-9]+)?/(?!/)(?!.*//)(?!.*\\\\)(?!.*(?:/\\.{1,2})(?:/|$))(?!.*%(?:2[eEfF]|5[cC]))(?!.*[?#])[^/](?:.*[^/])?$"
+    },
+    "ulid": {
+      "type": "string",
+      "pattern": "^[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+    },
+    "objectId": {
+      "type": "string",
+      "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+    }
+  }
+}
