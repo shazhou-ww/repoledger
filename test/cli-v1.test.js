@@ -59,8 +59,8 @@ test("renders a created idea scaffold", () => {
       request: { kind: "create-idea" },
       createdIdea: {
         id: "01M38K00000000000000000001",
-        ideaPath: "ideas/01M38K00000000000000000001",
-        statusPath: "ideas/01M38K00000000000000000001.status.yaml",
+        ideaPath: ".silvermoon/ideas/01M38K00000000000000000001",
+        statusPath: ".silvermoon/ideas/01M38K00000000000000000001/status.yaml",
       },
     },
   };
@@ -69,7 +69,10 @@ test("renders a created idea scaffold", () => {
   render(report, false, output.io);
 
   assert.match(output.logs.join("\n"), /01M38K00000000000000000001/);
-  assert.match(output.logs.join("\n"), /ideas\/01M38K00000000000000000001\.status\.yaml/);
+  assert.match(
+    output.logs.join("\n"),
+    /\.silvermoon\/ideas\/01M38K00000000000000000001\/status\.yaml/,
+  );
 });
 
 test("renders deterministic whats-next human and JSON output", () => {
@@ -83,16 +86,34 @@ test("renders deterministic whats-next human and JSON output", () => {
       selectedIdea: {
         id: "01M36QGPNTXEPP61DA4KP4AVZF",
         alias: "fixture",
-        revision: "b".repeat(40),
+        idealRevision: "b".repeat(40),
+        implementationRevision: "c".repeat(40),
+        deploymentRevision: "d".repeat(40),
         state: "preparing",
       },
-      action: { code: "prepare-idea", message: "Prepare it.", details: {} },
+      action: {
+        code: "prepare-idea",
+        message: "Prepare it.",
+        details: {
+          world: {
+            name: "Ideal World",
+            displayName: "道心",
+            documentPath: ".silvermoon/ideas/id/outer/inner/ideal/Idea.md",
+            auxiliaryRoot: ".silvermoon/ideas/id/outer/inner/ideal",
+            decisionField: "approvedRevision",
+            revision: "b".repeat(40),
+            cascade: "Changes cascade.",
+          },
+        },
+      },
     },
   };
   const human = capture();
   render(report, false, human.io);
   assert.match(human.logs.join("\n"), /prepare-idea: Prepare it\./);
   assert.match(human.logs.join("\n"), /state    preparing/);
+  assert.match(human.logs.join("\n"), /world    Ideal World \(道心\)/);
+  assert.match(human.logs.join("\n"), /decision approvedRevision:/);
 
   const json = capture();
   render(report, true, json.io);
@@ -155,7 +176,9 @@ test("renders an alias-less idea without empty parentheses", () => {
       request: { kind: "select-idea", selector: "01M36QGPNTXEPP61DA4KP4AVZF" },
       selectedIdea: {
         id: "01M36QGPNTXEPP61DA4KP4AVZF",
-        revision: "b".repeat(40),
+        idealRevision: "b".repeat(40),
+        implementationRevision: "c".repeat(40),
+        deploymentRevision: "d".repeat(40),
         state: "preparing",
       },
       action: { code: "prepare-idea", message: "Prepare it.", details: {} },

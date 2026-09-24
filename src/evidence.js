@@ -1,6 +1,7 @@
 import { fromMarkdown } from "mdast-util-from-markdown";
 
 const EVIDENCE_TYPES = new Set(["test", "check", "artifact"]);
+const OBJECT_ID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 
 function text(node) {
   if (node.type === "text" || node.type === "inlineCode") return node.value;
@@ -54,10 +55,10 @@ function validEvidence(entry) {
   );
 }
 
-export function verifyCriteriaEvidence(ideaSource, artifact) {
+export function verifyCriteriaEvidence(implementationSource, artifact, implementationRevision) {
   let expected;
   try {
-    expected = implementationCriterionIds(ideaSource);
+    expected = implementationCriterionIds(implementationSource);
   } catch (caught) {
     return {
       ok: false,
@@ -72,6 +73,18 @@ export function verifyCriteriaEvidence(ideaSource, artifact) {
 
   const entries = artifact?.criteriaEvidence;
   const diagnostics = [];
+  if (
+    !OBJECT_ID.test(implementationRevision) ||
+    artifact?.implementationRevision !== implementationRevision
+  ) {
+    diagnostics.push({
+      code: "criteria.evidence.revision-mismatch",
+      level: "error",
+      path: "implementationRevision",
+      message: "Criteria evidence is not bound to the current Inner World revision.",
+      remediation: "Record the current implementationRevision in the evidence artifact.",
+    });
+  }
   for (let index = 0; index < expected.length; index += 1) {
     const criterion = expected[index];
     const entry = Array.isArray(entries) ? entries[index] : undefined;

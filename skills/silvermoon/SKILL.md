@@ -51,56 +51,71 @@ hygiene preflight and, only when it passes, creates the empty idea scaffold.
 - `continue-active-idea`: call `whats-next <id>` to obtain state guidance.
 - `create-idea`: this action is internal to the explicit `create-idea` command's
   preflight; do not replace the user's create intent with active-idea
-  selection. After hygiene passes, the command creates a canonical ULID folder
-  with an empty `Idea.md` and an alias-less sibling status. It never stages,
-  commits, pushes, or records approval. Review the resulting untracked paths
-  before adding substantive idea content.
+  selection. After hygiene passes, the command creates one self-contained idea
+  with empty `Idea.md`, `Implementation.md`, and `Deployment.md` entries plus
+  alias-less `status.yaml`. It never stages, commits, pushes, or records a
+  decision. Review the resulting untracked paths before adding substantive
+  content.
 - `switch-to-primary`, `resolve-conflicts`, `inspect-worktree-changes`,
   `fast-forward-primary`, `integrate-primary`, `publish-primary`: perform the
   exact Git hygiene step without discarding either history or unknown work.
-- `prepare-idea`: edit only the ideal definition until the user explicitly
-  approves the current revision. Then write `approvedRevision` in the sibling
-  status file.
-- `implement-idea`: change repository deliverables until the current idea is
-  satisfied. Then write `implementationAcceptedRevision`.
-- `deploy-idea`: do not change repository deliverables as deployment work.
-  Drive and verify the external world, then write
-  `deploymentAcceptedRevision`. If the ideal must change, edit the idea folder
-  and return naturally to preparing.
+- `prepare-idea`: edit `Idea.md` and supporting files in the Ideal World
+  (道心). Supporting files must serve `Idea.md`, never replace it as a second
+  contract. After explicit approval, write the reported `idealRevision` to
+  `approvedRevision`.
+- `implement-idea`: edit `Implementation.md`, its supporting Inner World
+  (内景) files, and repository deliverables. Do not change the nested Ideal
+  World unless the ideal truly changed and should return to preparing. After
+  explicit acceptance, write the reported `implementationRevision` to
+  `implementationAcceptedRevision`.
+- `deploy-idea`: use `Deployment.md` and its supporting Outer World (现世)
+  files to drive and verify the external world. Do not change repository
+  deliverables as deployment work or modify a nested world unless that earlier
+  contract truly changed. After explicit acceptance, write the reported
+  `deploymentRevision` to `deploymentAcceptedRevision`.
 - `review-abandoned`: keep `abandoned: true`, remove it after an explicit human
   decision, or create a different idea.
 - `review-completed`: revise the existing idea definition or create a new idea.
 
-## Author Acceptance Criteria
+## Author The Three Worlds
 
-When creating or revising `Idea.md`, define phase-specific criteria under these
-headings:
+Every idea uses this fixed structure:
 
-```markdown
-## Implementation acceptance criteria
-
-- Describe a repository-deliverable completion condition.
-
-## Deployment acceptance criteria
-
-- Describe an external-world completion condition.
+```text
+.silvermoon/ideas/<ULID>/
+├── status.yaml
+└── outer/
+    ├── Deployment.md
+    └── inner/
+        ├── Implementation.md
+        └── ideal/
+            └── Idea.md
 ```
 
-Use plain list items. Do not use task-list checkboxes to represent progress or
-completion: changing a checkbox changes `ideaRevision`, while acceptance state
-belongs only in the sibling status file. The headings are a skill authoring
-convention, not a core storage requirement; a project skill may organize the
-opaque idea tree more specifically.
+`Idea.md` is the canonical Ideal World (道心) entry, `Implementation.md` is the
+canonical Inner World (内景) entry, and `Deployment.md` is the canonical Outer
+World (现世) entry: 道心立意，内景成形，现世验真. Each world may contain
+additional files and nested directories, but those artifacts support their
+same-world entry and do not define a second contract.
+
+Put implementation acceptance criteria as plain list items under
+`## Implementation acceptance criteria` in `Implementation.md`. Put deployment
+acceptance criteria under `## Deployment acceptance criteria` in
+`Deployment.md`. Do not use task-list checkboxes as progress state. World
+content changes its world revision and every containing world revision;
+`status.yaml` stays outside all three world trees.
 
 ## Verify Criteria Evidence
 
 Before the first implementation publication, enumerate the current idea's
 implementation criteria by their stable IDs. Derive the exact ordered IDs from
-the current `Idea.md`; never reuse a range from another idea or revision.
+the current `Implementation.md`; never reuse a range from another idea or
+revision. Bind the artifact to the reported current `implementationRevision`.
 Produce a visible verification artifact outside the idea tree with this shape:
 
 ```json
 {
+  "implementationRevision": "<current implementationRevision>",
   "criteriaEvidence": [
     {
       "criterion": "I01",
@@ -124,8 +139,12 @@ import {
   verifyCriteriaEvidence,
 } from "silvermoon";
 
-const criterionIds = implementationCriterionIds(ideaSource);
-const report = verifyCriteriaEvidence(ideaSource, artifact);
+const criterionIds = implementationCriterionIds(implementationSource);
+const report = verifyCriteriaEvidence(
+  implementationSource,
+  artifact,
+  currentImplementationRevision,
+);
 if (!report.ok) {
   console.error(JSON.stringify(report.diagnostics));
   process.exitCode = 1;
@@ -135,10 +154,10 @@ if (!report.ok) {
 ## Write Status Facts
 
 Silvermoon has no approval, acceptance, or abandonment mutation commands.
-Update the sibling status YAML with ordinary file editing:
+Update the idea's `status.yaml` with ordinary file editing:
 
 1. Reconfirm the decision applies to the selected idea and current
-   `ideaRevision`.
+   world revision reported by `whats-next`.
 2. Add or update only the corresponding revision field, or add/remove canonical
    `abandoned: true` after an explicit human decision.
 3. Run `silvermoon check --worktree --json` while reviewing the complete

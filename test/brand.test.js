@@ -10,7 +10,7 @@ const previousBrand = ["repo", "ledger"].join("");
 async function currentFiles(directory) {
   const files = [];
   for (const entry of await readdir(directory, { withFileTypes: true })) {
-    if ([".git", "ideas", "node_modules"].includes(entry.name)) continue;
+    if ([".git", "coverage", "ideas", "node_modules"].includes(entry.name)) continue;
     const path = resolve(directory, entry.name);
     if (entry.isDirectory()) files.push(...(await currentFiles(path)));
     if (entry.isFile()) files.push(path);

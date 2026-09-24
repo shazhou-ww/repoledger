@@ -10,6 +10,13 @@ import {
 
 const id = "01M36QGPNTXEPP61DA4KP4AVZF";
 const revision = "0123456789abcdef0123456789abcdef01234567";
+const innerRevision = "1123456789abcdef0123456789abcdef01234567";
+const outerRevision = "2123456789abcdef0123456789abcdef01234567";
+const revisions = {
+  idealRevision: revision,
+  implementationRevision: innerRevision,
+  deploymentRevision: outerRevision,
+};
 
 test("parses and serializes canonical idea status YAML", () => {
   const source = `version: 1
@@ -85,7 +92,7 @@ test("rejects schema-invalid object IDs without repository context", () => {
   };
 
   assert.throws(() => serializeIdeaStatus(status), /Git object ID/);
-  assert.throws(() => deriveIdeaState("a", status), /Git object ID/);
+  assert.throws(() => deriveIdeaState({ ...revisions, idealRevision: "a" }, status), /Git object ID/);
 });
 
 test("rejects noncanonical and unsupported status YAML", () => {
@@ -101,36 +108,61 @@ test("rejects noncanonical and unsupported status YAML", () => {
 
 test("derives idea state from ordered acceptance facts", () => {
   const base = { version: 1, id, alias: "publish-documentation" };
-  assert.equal(deriveIdeaState(revision, base), "preparing");
+  assert.equal(deriveIdeaState(revisions, base), "preparing");
   assert.equal(
-    deriveIdeaState(revision, { ...base, approvedRevision: revision }),
+    deriveIdeaState(revisions, { ...base, approvedRevision: revision }),
     "implementing",
   );
   assert.equal(
-    deriveIdeaState(revision, {
+    deriveIdeaState(revisions, {
       ...base,
       approvedRevision: revision,
-      implementationAcceptedRevision: revision,
+      implementationAcceptedRevision: innerRevision,
     }),
     "deploying",
   );
   assert.equal(
-    deriveIdeaState(revision, {
+    deriveIdeaState(revisions, {
       ...base,
       approvedRevision: revision,
-      implementationAcceptedRevision: revision,
-      deploymentAcceptedRevision: revision,
+      implementationAcceptedRevision: innerRevision,
+      deploymentAcceptedRevision: outerRevision,
     }),
     "completed",
   );
   assert.equal(
-    deriveIdeaState(revision, {
+    deriveIdeaState(revisions, {
       ...base,
       abandoned: true,
       approvedRevision: revision,
-      implementationAcceptedRevision: revision,
-      deploymentAcceptedRevision: revision,
+      implementationAcceptedRevision: innerRevision,
+      deploymentAcceptedRevision: outerRevision,
     }),
     "abandoned",
+  );
+});
+
+test("cascades world changes through ordered lifecycle states", () => {
+  const completed = {
+    version: 1,
+    id,
+    approvedRevision: revision,
+    implementationAcceptedRevision: innerRevision,
+    deploymentAcceptedRevision: outerRevision,
+  };
+  assert.equal(
+    deriveIdeaState({ ...revisions, idealRevision: "a".repeat(40) }, completed),
+    "preparing",
+  );
+  assert.equal(
+    deriveIdeaState(
+      { ...revisions, implementationRevision: "b".repeat(40) },
+      completed,
+    ),
+    "implementing",
+  );
+  assert.equal(
+    deriveIdeaState({ ...revisions, deploymentRevision: "c".repeat(40) }, completed),
+    "deploying",
   );
 });

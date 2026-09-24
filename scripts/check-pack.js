@@ -35,6 +35,7 @@ if (packed.status !== 0) {
     "src/idea-layout.js",
     "src/ideas.js",
     "src/index.js",
+    "src/layout.js",
     "src/repository.js",
     "src/whatsnext.js",
     "src/yaml.js",

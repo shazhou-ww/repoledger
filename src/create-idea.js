@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 
 import { loadConfig } from "./config.js";
 import { isValidUlid, serializeIdeaStatus } from "./ideas.js";
+import { IDEAS_ROOT, ideaPaths } from "./layout.js";
 import { whatsNext } from "./whatsnext.js";
 
 const ULID_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
@@ -73,7 +74,7 @@ async function ensureDirectoryPath(root, relativePath, inspect, makeDirectory, r
       }
       if (metadata) {
         if (!metadata.isDirectory() || metadata.isSymbolicLink()) {
-          throw new Error(`Ideas path segment is not a regular directory: ${current}`);
+          throw new Error(`Silvermoon path segment is not a regular directory: ${current}`);
         }
         continue;
       }
@@ -133,11 +134,11 @@ export async function createIdea({
   const remove = operations.rm ?? rm;
   const removeDirectory = operations.rmdir ?? rmdir;
   const write = operations.writeFile ?? writeFile;
-  let createdDirectories;
+  let rootDirectories;
   try {
-    createdDirectories = await ensureDirectoryPath(
+    rootDirectories = await ensureDirectoryPath(
       repositoryRoot,
-      loaded.config.ideasDirectory,
+      IDEAS_ROOT,
       inspect,
       makeDirectory,
       removeDirectory,
@@ -146,43 +147,51 @@ export async function createIdea({
     return failure(repositoryRoot, preflight, caught);
   }
 
-  const fail = async (caught) => {
-    await removeCreatedDirectories(createdDirectories, removeDirectory);
+  const failRoot = async (caught) => {
+    await removeCreatedDirectories(rootDirectories, removeDirectory);
     return failure(repositoryRoot, preflight, caught);
   };
 
   for (let attempt = 0; attempt < MAX_ID_ATTEMPTS; attempt += 1) {
     const id = await generateId();
     if (!isValidUlid(id)) {
-      return fail(new Error(`Generated idea id is not a canonical ULID: ${id}`));
+      return failRoot(new Error(`Generated idea id is not a canonical ULID: ${id}`));
     }
-    const ideaPath = `${loaded.config.ideasDirectory}/${id}`;
-    const statusPath = `${loaded.config.ideasDirectory}/${id}.status.yaml`;
-    const folder = resolve(repositoryRoot, ideaPath);
-    const ideaDocument = resolve(folder, "Idea.md");
-    const statusFile = resolve(repositoryRoot, statusPath);
-    const statusSource = serializeIdeaStatus({ version: 1, id });
+    const paths = ideaPaths(id);
+    const folder = resolve(repositoryRoot, paths.ideaPath);
+    if (await pathExists(folder, inspect)) continue;
 
-    if (await pathExists(folder, inspect) || await pathExists(statusFile, inspect)) continue;
-
-    let folderCreated = false;
-    let ideaCreated = false;
-    let ideaAttempted = false;
-    let statusCreated = false;
-    let statusAttempted = false;
+    const directoryPaths = [
+      paths.ideaPath,
+      paths.outerPath,
+      paths.innerPath,
+      paths.idealPath,
+    ];
+    const files = [
+      [paths.ideaDocumentPath, ""],
+      [paths.implementationDocumentPath, ""],
+      [paths.deploymentDocumentPath, ""],
+      [paths.statusPath, serializeIdeaStatus({ version: 1, id })],
+    ];
+    const createdDirectories = [];
+    const cleanupFiles = [];
     try {
-      await makeDirectory(folder);
-      folderCreated = true;
-      ideaAttempted = true;
-      await write(ideaDocument, "", { flag: "wx" });
-      ideaCreated = true;
-      statusAttempted = true;
-      await write(
-        statusFile,
-        statusSource,
-        { flag: "wx" },
-      );
-      statusCreated = true;
+      for (const relativePath of directoryPaths) {
+        const absolutePath = resolve(repositoryRoot, relativePath);
+        await makeDirectory(absolutePath);
+        createdDirectories.push(absolutePath);
+      }
+      for (const [relativePath, source] of files) {
+        const absolutePath = resolve(repositoryRoot, relativePath);
+        const cleanup = [absolutePath, source];
+        cleanupFiles.push(cleanup);
+        try {
+          await write(absolutePath, source, { flag: "wx" });
+        } catch (caught) {
+          if (caught.code === "EEXIST") cleanupFiles.pop();
+          throw caught;
+        }
+      }
       return {
         command: "create-idea",
         ok: true,
@@ -192,23 +201,27 @@ export async function createIdea({
           observedPrimaryCommit: preflight.result.observedPrimaryCommit,
           request: { kind: "create-idea" },
           selectedIdea: null,
-          createdIdea: { id, ideaPath, statusPath },
+          createdIdea: {
+            id,
+            ideaPath: paths.ideaPath,
+            statusPath: paths.statusPath,
+            ideaDocumentPath: paths.ideaDocumentPath,
+            implementationDocumentPath: paths.implementationDocumentPath,
+            deploymentDocumentPath: paths.deploymentDocumentPath,
+          },
         },
       };
     } catch (caught) {
-      if (statusCreated || (statusAttempted && caught.code !== "EEXIST")) {
-        await removeOwnedFile(statusFile, statusSource, read, remove).catch(() => { });
+      for (const [path, source] of [...cleanupFiles].reverse()) {
+        await removeOwnedFile(path, source, read, remove).catch(() => { });
       }
-      if (ideaCreated || (ideaAttempted && caught.code !== "EEXIST")) {
-        await removeOwnedFile(ideaDocument, "", read, remove).catch(() => { });
-      }
-      if (folderCreated) await removeDirectory(folder).catch(() => { });
+      await removeCreatedDirectories(createdDirectories, removeDirectory);
       if (caught.code === "EEXIST") continue;
-      return fail(caught);
+      return failRoot(caught);
     }
   }
 
-  return fail(
+  return failRoot(
     new Error(`Could not allocate a unique idea id after ${MAX_ID_ATTEMPTS} attempts.`),
   );
 }

@@ -1,0 +1,65 @@
+{
+  "implementationRevision": "fef8e732350c307fd3631e4f71a11739522261c2",
+  "criteriaEvidence": [
+    {
+      "criterion": "I01",
+      "evidence": [{ "type": "test", "locator": "config-v1: fixed metadata path; idea-layout: derives three nested world tree revisions" }]
+    },
+    {
+      "criterion": "I02",
+      "evidence": [{ "type": "test", "locator": "config-v1: loads canonical version 1 configuration and rejects ideasDirectory" }]
+    },
+    {
+      "criterion": "I03",
+      "evidence": [{ "type": "test", "locator": "idea-layout: rejects missing world entries, unexpected status, duplicate aliases, and mismatched ids" }]
+    },
+    {
+      "criterion": "I04",
+      "evidence": [{ "type": "test", "locator": "idea-layout: derives three nested world tree revisions" }]
+    },
+    {
+      "criterion": "I05",
+      "evidence": [{ "type": "test", "locator": "idea-layout: derives preparing, implementing, and deploying from nested world changes" }]
+    },
+    {
+      "criterion": "I06",
+      "evidence": [{ "type": "test", "locator": "ideas: derives idea state from ordered acceptance facts" }]
+    },
+    {
+      "criterion": "I07",
+      "evidence": [{ "type": "test", "locator": "create-idea: scaffold, collision, partial failure, and concurrent rollback cases" }]
+    },
+    {
+      "criterion": "I08",
+      "evidence": [{ "type": "test", "locator": "check-v1: HEAD, worktree, staged, commit, and remote snapshot cases" }]
+    },
+    {
+      "criterion": "I09",
+      "evidence": [{ "type": "test", "locator": "idea-layout: allows auxiliary files and cascades only through containing worlds" }]
+    },
+    {
+      "criterion": "I10",
+      "evidence": [{ "type": "test", "locator": "whatsnext and skill tests assert Ideal World (道心), Inner World (内景), and Outer World (现世)" }]
+    },
+    {
+      "criterion": "I11",
+      "evidence": [{ "type": "test", "locator": "evidence: ordered criteria plus stale Inner World revision rejection" }]
+    },
+    {
+      "criterion": "I12",
+      "evidence": [{ "type": "test", "locator": "whatsnext: deterministic phase actions expose world entry, support root, decision, and cascade" }]
+    },
+    {
+      "criterion": "I13",
+      "evidence": [{ "type": "test", "locator": "whatsnext and create-idea hygiene, ancestry, request context, and stale push cases" }]
+    },
+    {
+      "criterion": "I14",
+      "evidence": [{ "type": "test", "locator": "config-v1 legacy-layout rejection plus brand and current-document contract tests" }]
+    },
+    {
+      "criterion": "I15",
+      "evidence": [{ "type": "check", "locator": "pnpm check" }]
+    }
+  ]
+}

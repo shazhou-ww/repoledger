@@ -39,42 +39,60 @@ Requires Node.js 22 or newer and Git access to the configured primary branch.
 
 ## Configure
 
-Create `silvermoon.yaml` at the repository root:
+Create `.silvermoon/config.yaml`:
 
 ```yaml
 version: 1
-ideasDirectory: ideas
 primaryRepository: https://github.com/example/repository.git
 primaryBranch: main
 ```
 
-`ideasDirectory` is optional and defaults to `ideas`. Repository URLs are
-canonical credential-free HTTPS shared state. Credentials, named remotes, and
-URL rewrites remain local Git concerns.
+Repository URLs are canonical credential-free HTTPS shared state. Credentials,
+named remotes, and URL rewrites remain local Git concerns. Metadata paths are
+fixed and cannot be overridden by configuration.
 
 ## Store Ideas
 
-Each idea uses a canonical uppercase ULID folder and a sibling status file:
+Each idea is self-contained under one canonical uppercase ULID folder:
 
 ```text
-ideas/
-|-- 01M36QGPNTXEPP61DA4KP4AVZF/
-|   |-- Brief.md
-|   `-- Design.md
-`-- 01M36QGPNTXEPP61DA4KP4AVZF.status.yaml
+.silvermoon/
+|-- config.yaml
+`-- ideas/
+    `-- 01M36QGPNTXEPP61DA4KP4AVZF/
+        |-- status.yaml
+        `-- outer/
+            |-- Deployment.md
+            `-- inner/
+                |-- Implementation.md
+                `-- ideal/
+                    `-- Idea.md
 ```
 
-Core treats the idea folder as an opaque Git tree: it requires no filename,
-heading, or criteria format, and nested `.status.yaml` files are ordinary idea
-content. Put every shared definition artifact inside the folder. Its Git tree
-object ID is the `ideaRevision`, so any definition change invalidates old
-acceptance for the current revision without deleting history. Only the sibling
-status file is interpreted by Silvermoon.
+The three nested worlds have canonical English and Chinese names:
 
-The Silvermoon Agent skill uses `Idea.md` by default and authors criteria as
-plain list items under `## Implementation acceptance criteria` and
+- **Ideal World (道心):** `Idea.md` defines the ideal.
+- **Inner World (内景):** `Implementation.md` defines implementation.
+- **Outer World (现世):** `Deployment.md` defines deployment.
+
+道心立意，内景成形，现世验真。
+
+Every world may contain additional files or directories. Ideal World artifacts
+support `Idea.md`, Inner World artifacts support `Implementation.md`, and Outer
+World artifacts support `Deployment.md`; supporting material never replaces
+the canonical same-world entry.
+
+Each world is an opaque Git tree. `idealRevision` identifies `ideal/`,
+`implementationRevision` identifies `inner/` and therefore includes the Ideal
+World, and `deploymentRevision` identifies `outer/` and therefore includes both
+nested worlds. This creates deterministic cascading invalidation. `status.yaml`
+is outside all three world trees.
+
+The Silvermoon Agent skill authors implementation criteria in
+`Implementation.md` under `## Implementation acceptance criteria` and
+deployment criteria in `Deployment.md` under
 `## Deployment acceptance criteria`. It does not use task-list checkboxes to
-record progress; the sibling revision fields are the only acceptance state.
+record progress; the three revision fields are the only acceptance state.
 
 ```yaml
 version: 1
@@ -94,9 +112,11 @@ keys, aliases/anchors, comments, and noncanonical YAML are rejected.
 State is derived in order:
 
 1. `abandoned` when `abandoned: true`.
-2. `preparing` when `approvedRevision` differs from the current tree.
-3. `implementing` when `implementationAcceptedRevision` differs.
-4. `deploying` when `deploymentAcceptedRevision` differs.
+2. `preparing` when `approvedRevision` differs from `idealRevision`.
+3. `implementing` when `implementationAcceptedRevision` differs from
+   `implementationRevision`.
+4. `deploying` when `deploymentAcceptedRevision` differs from
+   `deploymentRevision`.
 5. `completed` when all three revisions match.
 
 ## Navigate
@@ -123,14 +143,14 @@ silvermoon create-idea --json
 ```
 
 After branch, conflict, dirty-worktree, and primary-ancestry hygiene passes, the
-command generates a canonical ULID, an empty `Idea.md`, and a canonical sibling
-status containing only `version` and `id`. It does not require or invent an
-alias. The new files are intentionally untracked, so the next
+command generates a canonical ULID, three empty world entry documents, and a
+canonical `status.yaml` containing only `version` and `id`. It does not require
+or invent an alias. The new files are intentionally untracked, so the next
 `whats-next <ULID>` reports `inspect-worktree-changes` until you review and
 publish them through ordinary Git.
 
 Silvermoon has no approval or acceptance mutation commands. After an explicit
-decision, edit the sibling status file, run `silvermoon check --staged`, commit
+decision, edit the idea's status file, run `silvermoon check --staged`, commit
 the status fact, and non-force push through ordinary Git.
 
 ## Validate
@@ -152,16 +172,15 @@ failure, and `2` means invalid CLI usage. Use `--json` for the complete stable
 report envelope.
 
 The schema is [schema/v1.json](schema/v1.json). Runtime checks additionally
-verify canonical YAML, regular configuration and sibling status paths,
-folder/status pairing, unique aliases, current Git object format, tree object
-types, candidate revision binding, and acceptance history.
+verify canonical YAML, regular fixed metadata paths, three world entries,
+unique aliases, current Git object format, tree object types, per-world
+candidate revision binding, and acceptance history.
 
 ## Adopt Silvermoon
 
 Silvermoon is a direct breaking cutover from the previous product. It recognizes
-only `silvermoon.yaml` version 1 and does not read, convert, or diagnose the old
-configuration filename. Preserve Git history, convert durable task ideals to
-ULID idea folders in a reviewed commit, and record only acceptance facts
+only `.silvermoon/config.yaml` version 1 and does not read, convert, or diagnose
+previous layouts. Preserve Git history and record only acceptance facts
 supported by evidence. See the installed skill's `references/adoption.md` for
 the adoption sequence.
 

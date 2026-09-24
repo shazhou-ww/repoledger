@@ -112,14 +112,21 @@ export function parseIdeaStatus(source, options) {
   return value;
 }
 
-export function deriveIdeaState(ideaRevision, status) {
-  if (typeof ideaRevision !== "string" || !OBJECT_ID.test(ideaRevision)) {
-    throw ideaStatusError("ideaRevision must be a lowercase hexadecimal Git object ID");
+export function deriveIdeaState(revisions, status) {
+  if (revisions === null || Array.isArray(revisions) || typeof revisions !== "object") {
+    throw ideaStatusError("revisions must be a mapping");
+  }
+  for (const key of ["idealRevision", "implementationRevision", "deploymentRevision"]) {
+    if (typeof revisions[key] !== "string" || !OBJECT_ID.test(revisions[key])) {
+      throw ideaStatusError(`${key} must be a lowercase hexadecimal Git object ID`);
+    }
   }
   validateIdeaStatus(status);
   if (status.abandoned) return "abandoned";
-  if (status.approvedRevision !== ideaRevision) return "preparing";
-  if (status.implementationAcceptedRevision !== ideaRevision) return "implementing";
-  if (status.deploymentAcceptedRevision !== ideaRevision) return "deploying";
+  if (status.approvedRevision !== revisions.idealRevision) return "preparing";
+  if (
+    status.implementationAcceptedRevision !== revisions.implementationRevision
+  ) return "implementing";
+  if (status.deploymentAcceptedRevision !== revisions.deploymentRevision) return "deploying";
   return "completed";
 }

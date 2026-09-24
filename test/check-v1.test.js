@@ -9,6 +9,7 @@ import { afterEach, test } from "node:test";
 import { checkRepository } from "../src/index.js";
 import { observeGitCommands } from "../src/git.js";
 import { serializeIdeaStatus } from "../src/ideas.js";
+import { ideaPaths } from "../src/layout.js";
 
 const temporaryDirectories = [];
 const id = "01M36QGPNTXEPP61DA4KP4AVZF";
@@ -41,15 +42,18 @@ async function createRepository() {
   git(root, "config", "user.email", "silvermoon@example.invalid");
   git(root, "config", "core.autocrlf", "false");
   const repository = pathToFileURL(remote).href;
-  await writeFile(join(root, "silvermoon.yaml"), `version: 1
+  await mkdir(join(root, ".silvermoon"), { recursive: true });
+  await writeFile(join(root, ".silvermoon", "config.yaml"), `version: 1
 primaryRepository: https://example.test/owner/repository.git
 primaryBranch: main
 `);
-  const folder = join(root, "ideas", id);
-  await mkdir(folder, { recursive: true });
-  await writeFile(join(folder, "Idea.md"), "# Fixture\n");
+  const paths = ideaPaths(id);
+  await mkdir(join(root, ...paths.idealPath.split("/")), { recursive: true });
+  await writeFile(join(root, ...paths.ideaDocumentPath.split("/")), "# Fixture\n");
+  await writeFile(join(root, ...paths.implementationDocumentPath.split("/")), "");
+  await writeFile(join(root, ...paths.deploymentDocumentPath.split("/")), "");
   await writeFile(
-    join(root, "ideas", `${id}.status.yaml`),
+    join(root, ...paths.statusPath.split("/")),
     serializeIdeaStatus({ version: 1, id, alias: "fixture" }),
   );
   git(root, "add", ".");
@@ -70,7 +74,9 @@ test("checks the committed HEAD idea snapshot", async () => {
   assert.deepEqual(report.result.ideas[0], {
     id,
     alias: "fixture",
-    revision: git(root, "rev-parse", `HEAD:ideas/${id}`),
+    idealRevision: git(root, "rev-parse", `HEAD:${ideaPaths(id).idealPath}`),
+    implementationRevision: git(root, "rev-parse", `HEAD:${ideaPaths(id).innerPath}`),
+    deploymentRevision: git(root, "rev-parse", `HEAD:${ideaPaths(id).outerPath}`),
     state: "preparing",
   });
 });
@@ -78,7 +84,7 @@ test("checks the committed HEAD idea snapshot", async () => {
 test("omits alias from checker summaries when status has none", async () => {
   const root = await createRepository();
   await writeFile(
-    join(root, "ideas", `${id}.status.yaml`),
+    join(root, ...ideaPaths(id).statusPath.split("/")),
     serializeIdeaStatus({ version: 1, id }),
   );
   git(root, "add", ".");
@@ -92,14 +98,20 @@ test("omits alias from checker summaries when status has none", async () => {
 
 test("checks isolated staged and commit snapshots", async () => {
   const root = await createRepository();
-  await writeFile(join(root, "ideas", id, "Design.md"), "staged\n");
+  await writeFile(
+    join(root, ...ideaPaths(id).idealPath.split("/"), "Design.md"),
+    "staged\n",
+  );
   git(root, "add", ".");
   const staged = await checkRepository({ root, staged: true });
   const committed = await checkRepository({ root, commit: "HEAD" });
 
   assert.equal(staged.ok, true);
   assert.equal(staged.result.target, "staged");
-  assert.notEqual(staged.result.ideas[0].revision, committed.result.ideas[0].revision);
+  assert.notEqual(
+    staged.result.ideas[0].idealRevision,
+    committed.result.ideas[0].idealRevision,
+  );
   assert.equal(committed.result.commit, git(root, "rev-parse", "HEAD"));
 });
 
@@ -125,7 +137,7 @@ test("rejects conflicting check targets", async () => {
 test("rejects a changed acceptance field in staged and worktree candidates", async () => {
   const root = await createRepository();
   await writeFile(
-    join(root, "ideas", `${id}.status.yaml`),
+    join(root, ...ideaPaths(id).statusPath.split("/")),
     serializeIdeaStatus({
       version: 1,
       id,
@@ -150,16 +162,19 @@ test("rejects a mismatched acceptance introduced in the root commit", async () =
   git(root, "init", "--initial-branch=main");
   git(root, "config", "user.name", "silvermoon test");
   git(root, "config", "user.email", "silvermoon@example.invalid");
-  await writeFile(join(root, "silvermoon.yaml"), `version: 1
+  await mkdir(join(root, ".silvermoon"), { recursive: true });
+  await writeFile(join(root, ".silvermoon", "config.yaml"), `version: 1
 primaryRepository: https://example.test/owner/repository.git
 primaryBranch: main
 `);
-  const folder = join(root, "ideas", id);
-  await mkdir(folder, { recursive: true });
-  await writeFile(join(folder, "Idea.md"), "# Fixture\n");
+  const paths = ideaPaths(id);
+  await mkdir(join(root, ...paths.idealPath.split("/")), { recursive: true });
+  await writeFile(join(root, ...paths.ideaDocumentPath.split("/")), "# Fixture\n");
+  await writeFile(join(root, ...paths.implementationDocumentPath.split("/")), "");
+  await writeFile(join(root, ...paths.deploymentDocumentPath.split("/")), "");
   const unrelatedTree = git(root, "mktree");
   await writeFile(
-    join(root, "ideas", `${id}.status.yaml`),
+    join(root, ...paths.statusPath.split("/")),
     serializeIdeaStatus({
       version: 1,
       id,
@@ -178,31 +193,34 @@ primaryBranch: main
 
 test("keeps default check on HEAD and includes untracked files only with worktree", async () => {
   const root = await createRepository();
-  const before = git(root, "rev-parse", `HEAD:ideas/${id}`);
-  await writeFile(join(root, "ideas", id, "Design.md"), "untracked\n");
+  const before = git(root, "rev-parse", `HEAD:${ideaPaths(id).idealPath}`);
+  await writeFile(
+    join(root, ...ideaPaths(id).idealPath.split("/"), "Design.md"),
+    "untracked\n",
+  );
 
   const head = await checkRepository({ root });
   const worktree = await checkRepository({ root, worktree: true });
 
   assert.equal(head.ok, true);
   assert.equal(head.result.target, "head");
-  assert.equal(head.result.ideas[0].revision, before);
+  assert.equal(head.result.ideas[0].idealRevision, before);
   assert.equal(worktree.ok, true);
   assert.equal(worktree.result.target, "worktree");
-  assert.notEqual(worktree.result.ideas[0].revision, before);
+  assert.notEqual(worktree.result.ideas[0].idealRevision, before);
 });
 
 test("reads configuration from the selected snapshot target", async () => {
   const root = await createRepository();
   await writeFile(
-    join(root, "silvermoon.yaml"),
+    join(root, ".silvermoon", "config.yaml"),
     "version: 2\nprimaryRepository: https://example.com/owner/repository.git\nprimaryBranch: main\n",
   );
 
   const head = await checkRepository({ root });
   const remote = await checkRepository({ root, remote: true });
   const worktree = await checkRepository({ root, worktree: true });
-  git(root, "add", "silvermoon.yaml");
+  git(root, "add", ".silvermoon/config.yaml");
   const staged = await checkRepository({ root, staged: true });
 
   assert.equal(head.ok, true);
@@ -234,7 +252,7 @@ test("immutable check failures do not invoke Git worktree commands", async () =>
   {
     const root = await createRepository();
     await writeFile(
-      join(root, "silvermoon.yaml"),
+      join(root, ".silvermoon", "config.yaml"),
       "version: 2\nprimaryRepository: https://example.com/owner/repository.git\nprimaryBranch: main\n",
     );
     git(root, "add", ".");
@@ -251,7 +269,7 @@ test("immutable check failures do not invoke Git worktree commands", async () =>
   {
     const root = await createRepository();
     await writeFile(
-      join(root, "ideas", `${id}.status.yaml`),
+      join(root, ...ideaPaths(id).statusPath.split("/")),
       serializeIdeaStatus({
         version: 1,
         id,

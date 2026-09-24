@@ -8,6 +8,7 @@ import { afterEach, test } from "node:test";
 
 import { serializeIdeaStatus } from "../src/ideas.js";
 import { observeGitCommands } from "../src/git.js";
+import { ideaPaths } from "../src/layout.js";
 import { stateAction, whatsNext } from "../src/whatsnext.js";
 
 const temporaryDirectories = [];
@@ -30,6 +31,18 @@ afterEach(async () => {
   );
 });
 
+async function writeIdea(root, ideaId, status = {}) {
+  const paths = ideaPaths(ideaId);
+  await mkdir(join(root, ...paths.idealPath.split("/")), { recursive: true });
+  await writeFile(join(root, ...paths.ideaDocumentPath.split("/")), "# Fixture\n");
+  await writeFile(join(root, ...paths.implementationDocumentPath.split("/")), "");
+  await writeFile(join(root, ...paths.deploymentDocumentPath.split("/")), "");
+  await writeFile(
+    join(root, ...paths.statusPath.split("/")),
+    serializeIdeaStatus({ version: 1, id: ideaId, ...status }),
+  );
+}
+
 async function createRepository() {
   const base = await mkdtemp(join(tmpdir(), "silvermoon-whatsnext-"));
   temporaryDirectories.push(base);
@@ -41,17 +54,12 @@ async function createRepository() {
   git(root, "config", "user.email", "silvermoon@example.invalid");
   git(root, "config", "core.autocrlf", "false");
   const repository = pathToFileURL(remote).href;
-  await writeFile(join(root, "silvermoon.yaml"), `version: 1
+  await mkdir(join(root, ".silvermoon"), { recursive: true });
+  await writeFile(join(root, ".silvermoon", "config.yaml"), `version: 1
 primaryRepository: https://example.test/owner/repository.git
 primaryBranch: main
 `);
-  const folder = join(root, "ideas", id);
-  await mkdir(folder, { recursive: true });
-  await writeFile(join(folder, "Idea.md"), "# Fixture\n");
-  await writeFile(
-    join(root, "ideas", `${id}.status.yaml`),
-    serializeIdeaStatus({ version: 1, id, alias: "fixture" }),
-  );
+  await writeIdea(root, id, { alias: "fixture" });
   git(root, "add", ".");
   git(root, "commit", "-m", "Create fixture idea");
   git(root, "init", "--bare", "--initial-branch=main", remote);
@@ -85,7 +93,7 @@ test("observes primary without Git worktree commands", async () => {
 
 test("reports invalid primary layout without Git worktree commands", async () => {
   const { repository, root } = await createRepository();
-  await rm(join(root, "ideas"), { recursive: true });
+  await rm(join(root, ".silvermoon", "ideas"), { recursive: true });
   git(root, "add", "--all");
   git(root, "commit", "-m", "Remove idea layout");
   git(root, "push", repository, "main");
@@ -178,13 +186,23 @@ test("[selector-known] renders preparing guidance for a clean synchronized prima
   assert.equal(report.ok, true);
   assert.equal(report.result.selectedIdea.state, "preparing");
   assert.equal(report.result.action.code, "prepare-idea");
-  assert.equal(report.result.action.details.revision, report.result.selectedIdea.revision);
+  assert.equal(report.result.action.details.world.name, "Ideal World");
+  assert.equal(report.result.action.details.world.displayName, "道心");
+  assert.equal(
+    report.result.action.details.world.revision,
+    report.result.selectedIdea.idealRevision,
+  );
+  assert.equal(report.result.action.details.world.decisionField, "approvedRevision");
+  assert.equal(
+    report.result.action.details.world.documentPath,
+    ideaPaths(id).ideaDocumentPath,
+  );
 });
 
 test("[alias-absent] selects an alias-less idea by ULID without inventing display text", async () => {
   const { repository, root } = await createRepository();
   await writeFile(
-    join(root, "ideas", `${id}.status.yaml`),
+    join(root, ...ideaPaths(id).statusPath.split("/")),
     serializeIdeaStatus({ version: 1, id }),
   );
   git(root, "add", ".");
@@ -248,12 +266,40 @@ test("explicit create intent bypasses active-idea selection after hygiene", asyn
 });
 
 test("maps every derived state to one deterministic action", () => {
+  const paths = ideaPaths(id);
   const idea = {
     id,
     alias: "fixture",
-    revision: "a".repeat(40),
-    relativePath: `ideas/${id}`,
-    statusPath: `ideas/${id}.status.yaml`,
+    idealRevision: "a".repeat(40),
+    implementationRevision: "b".repeat(40),
+    deploymentRevision: "c".repeat(40),
+    revisions: {
+      idealRevision: "a".repeat(40),
+      implementationRevision: "b".repeat(40),
+      deploymentRevision: "c".repeat(40),
+    },
+    relativePath: paths.ideaPath,
+    statusPath: paths.statusPath,
+    worlds: {
+      idealRevision: {
+        name: "Ideal World",
+        displayName: "道心",
+        path: paths.idealPath,
+        documentPath: paths.ideaDocumentPath,
+      },
+      implementationRevision: {
+        name: "Inner World",
+        displayName: "内景",
+        path: paths.innerPath,
+        documentPath: paths.implementationDocumentPath,
+      },
+      deploymentRevision: {
+        name: "Outer World",
+        displayName: "现世",
+        path: paths.outerPath,
+        documentPath: paths.deploymentDocumentPath,
+      },
+    },
   };
   const expected = new Map([
     ["preparing", "prepare-idea"],
@@ -265,17 +311,23 @@ test("maps every derived state to one deterministic action", () => {
   for (const [state, code] of expected) {
     assert.equal(stateAction({ ...idea, state }).code, code);
   }
+  const preparing = stateAction({ ...idea, state: "preparing" });
+  assert.match(preparing.message, /Ideal World \(道心\)/);
+  assert.equal(preparing.details.world.nestedWorldPath, undefined);
+  const implementing = stateAction({ ...idea, state: "implementing" });
+  assert.match(implementing.message, /Inner World \(内景\)/);
+  assert.equal(implementing.details.world.nestedWorldPath, paths.idealPath);
+  assert.match(implementing.details.world.cascade, /return to preparing/);
+  const deploying = stateAction({ ...idea, state: "deploying" });
+  assert.match(deploying.message, /Outer World \(现世\)/);
+  assert.equal(deploying.details.world.nestedWorldPath, paths.innerPath);
+  assert.match(deploying.details.world.cascade, /deployment acceptance only/);
 });
 
 test("lists multiple active ideas and creates when none remain active", async () => {
   const { repository, root } = await createRepository();
   const second = "01M36QGPNTXEPP61DA4KP4AVG0";
-  await mkdir(join(root, "ideas", second));
-  await writeFile(join(root, "ideas", second, "Idea.md"), "# Second\n");
-  await writeFile(
-    join(root, "ideas", `${second}.status.yaml`),
-    serializeIdeaStatus({ version: 1, id: second, alias: "second" }),
-  );
+  await writeIdea(root, second, { alias: "second" });
   git(root, "add", ".");
   git(root, "commit", "-m", "Add second idea");
   git(root, "push", repository, "main");
@@ -288,11 +340,11 @@ test("lists multiple active ideas and creates when none remain active", async ()
   );
 
   await writeFile(
-    join(root, "ideas", `${id}.status.yaml`),
+    join(root, ...ideaPaths(id).statusPath.split("/")),
     serializeIdeaStatus({ version: 1, id, alias: "fixture", abandoned: true }),
   );
   await writeFile(
-    join(root, "ideas", `${second}.status.yaml`),
+    join(root, ...ideaPaths(second).statusPath.split("/")),
     serializeIdeaStatus({ version: 1, id: second, alias: "second", abandoned: true }),
   );
   git(root, "add", ".");
@@ -306,7 +358,7 @@ test("lists multiple active ideas and creates when none remain active", async ()
 test("runs worktree hygiene before creating an idea when none are active", async () => {
   const { repository, root } = await createRepository();
   await writeFile(
-    join(root, "ideas", `${id}.status.yaml`),
+    join(root, ...ideaPaths(id).statusPath.split("/")),
     serializeIdeaStatus({ version: 1, id, alias: "fixture", abandoned: true }),
   );
   git(root, "add", ".");
@@ -337,7 +389,7 @@ test("[primary-relocation] adopts relocated primary coordinates across two obser
   const canonicalSecondary = "https://example.test/owner/secondary.git";
   const original = git(root, "rev-parse", "HEAD");
 
-  await writeFile(join(root, "silvermoon.yaml"), `version: 1
+  await writeFile(join(root, ".silvermoon", "config.yaml"), `version: 1
 primaryRepository: ${canonicalSecondary}
 primaryBranch: trunk
 `);

@@ -9,6 +9,19 @@ const packageRoot = fileURLToPath(new URL("..", import.meta.url));
 const npmCli = process.env.npm_execpath;
 const id = "01M36QGPNTXEPP61DA4KP4AVZF";
 
+function ideaPaths(ideaId) {
+  const idea = join(".silvermoon", "ideas", ideaId);
+  return {
+    status: join(idea, "status.yaml"),
+    outer: join(idea, "outer"),
+    deployment: join(idea, "outer", "Deployment.md"),
+    inner: join(idea, "outer", "inner"),
+    implementation: join(idea, "outer", "inner", "Implementation.md"),
+    ideal: join(idea, "outer", "inner", "ideal"),
+    idea: join(idea, "outer", "inner", "ideal", "Idea.md"),
+  };
+}
+
 function run(command, args, cwd) {
   const result = spawnSync(command, args, {
     cwd,
@@ -44,16 +57,18 @@ try {
   const tarball = join(temporaryRoot, packed.filename);
   const consumer = join(temporaryRoot, "consumer");
   const primary = join(temporaryRoot, "primary.git");
-  const idea = join(consumer, "ideas", id);
-  await mkdir(idea, { recursive: true });
+  const paths = ideaPaths(id);
+  await mkdir(join(consumer, paths.ideal), { recursive: true });
   await writeFile(
-    join(consumer, "silvermoon.yaml"),
+    join(consumer, ".silvermoon", "config.yaml"),
     "version: 1\nprimaryRepository: https://example.com/owner/repository.git\nprimaryBranch: main\n",
   );
   await writeFile(join(consumer, ".gitignore"), "node_modules/\n");
-  await writeFile(join(idea, "Idea.md"), "# Installed package smoke\n");
+  await writeFile(join(consumer, paths.idea), "# Installed package smoke\n");
+  await writeFile(join(consumer, paths.implementation), "");
+  await writeFile(join(consumer, paths.deployment), "");
   await writeFile(
-    join(consumer, "ideas", `${id}.status.yaml`),
+    join(consumer, paths.status),
     `version: 1\nid: ${id}\nalias: installed-smoke\n`,
   );
   run("git", ["init", "--initial-branch=main"], consumer);
@@ -97,7 +112,7 @@ try {
   assert.equal(created.command, "create-idea");
   assert.match(created.result.createdIdea.id, /^[0-7][0-9A-HJKMNP-TV-Z]{25}$/);
   assert.equal(
-    await readFile(join(consumer, created.result.createdIdea.ideaPath, "Idea.md"), "utf8"),
+    await readFile(join(consumer, created.result.createdIdea.ideaDocumentPath), "utf8"),
     "",
   );
   assert.equal(

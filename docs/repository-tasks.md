@@ -1,7 +1,7 @@
 # Repository idea workflow
 
-This repository uses the local [Silvermoon skill](/skills/silvermoon/SKILL.md),
-`silvermoon.yaml`, and the `ideas/` directory.
+This repository uses the local [Silvermoon skill](/skills/silvermoon/SKILL.md)
+and the fixed `.silvermoon/` metadata layout.
 
 ## Authority
 
@@ -32,8 +32,8 @@ explicit creation, perform only that blocking action and then retry
 ## Decisions And Publication
 
 `whats-next` is read-only. Human approvals, implementation acceptance,
-deployment acceptance, and abandonment are ordinary edits to one sibling idea
-status file after an explicit decision. Validate the candidate and publish a
+deployment acceptance, and abandonment are ordinary edits to one idea
+`status.yaml` after an explicit decision. Validate the candidate and publish a
 normal non-force commit. Prefer status-only decision commits when practical.
 
 Preserve unknown changes, concurrent history, and previous revision facts.

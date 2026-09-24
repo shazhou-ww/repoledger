@@ -15,7 +15,9 @@ import { inspectIdeaLayout } from "./idea-layout.js";
 function ideaSummary(idea) {
   const value = {
     id: idea.id,
-    revision: idea.revision,
+    idealRevision: idea.idealRevision,
+    implementationRevision: idea.implementationRevision,
+    deploymentRevision: idea.deploymentRevision,
     state: idea.state,
   };
   if (idea.alias !== undefined) value.alias = idea.alias;

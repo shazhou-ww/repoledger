@@ -34,7 +34,9 @@ function ideaName(idea) {
 function summary(idea) {
   const value = {
     id: idea.id,
-    revision: idea.revision,
+    idealRevision: idea.idealRevision,
+    implementationRevision: idea.implementationRevision,
+    deploymentRevision: idea.deploymentRevision,
     state: idea.state,
   };
   if (idea.alias !== undefined) value.alias = idea.alias;
@@ -69,30 +71,69 @@ export function stateAction(idea) {
     );
   }
   if (idea.state === "preparing") {
+    const world = idea.worlds.idealRevision;
     return action(
       "prepare-idea",
-      `Clarify idea ${ideaName(idea)}, update its definition, and record approval for revision ${idea.revision}.`,
-      { ideaPath: idea.relativePath, revision: idea.revision, statusPath: idea.statusPath },
+      `Clarify the Ideal World (道心) for idea ${ideaName(idea)} in Idea.md and its supporting files, then record approval for ${idea.idealRevision}.`,
+      {
+        ideaPath: idea.relativePath,
+        statusPath: idea.statusPath,
+        world: {
+          ...world,
+          auxiliaryRoot: world.path,
+          revision: idea.idealRevision,
+          decisionField: "approvedRevision",
+          cascade: "Changes invalidate approval, implementation acceptance, and deployment acceptance.",
+        },
+      },
     );
   }
   if (idea.state === "implementing") {
+    const world = idea.worlds.implementationRevision;
     return action(
       "implement-idea",
-      `Implement idea ${ideaName(idea)} and accept repository results for revision ${idea.revision}.`,
-      { ideaPath: idea.relativePath, revision: idea.revision, statusPath: idea.statusPath },
+      `Shape the Inner World (内景) for idea ${ideaName(idea)} in Implementation.md and its supporting files, then accept implementation ${idea.implementationRevision}.`,
+      {
+        ideaPath: idea.relativePath,
+        statusPath: idea.statusPath,
+        world: {
+          ...world,
+          auxiliaryRoot: world.path,
+          nestedWorldPath: idea.worlds.idealRevision.path,
+          revision: idea.implementationRevision,
+          decisionField: "implementationAcceptedRevision",
+          cascade: "Inner World changes invalidate implementation and deployment acceptance; Ideal World changes return to preparing.",
+        },
+      },
     );
   }
   if (idea.state === "deploying") {
+    const world = idea.worlds.deploymentRevision;
     return action(
       "deploy-idea",
-      `Drive the external world from primary for idea ${ideaName(idea)} and accept deployment for revision ${idea.revision}.`,
-      { ideaPath: idea.relativePath, revision: idea.revision, statusPath: idea.statusPath },
+      `Verify the Outer World (现世) for idea ${ideaName(idea)} from Deployment.md and its supporting files, then accept deployment ${idea.deploymentRevision}.`,
+      {
+        ideaPath: idea.relativePath,
+        statusPath: idea.statusPath,
+        world: {
+          ...world,
+          auxiliaryRoot: world.path,
+          nestedWorldPath: idea.worlds.implementationRevision.path,
+          revision: idea.deploymentRevision,
+          decisionField: "deploymentAcceptedRevision",
+          cascade: "Outer World changes invalidate deployment acceptance only; nested world changes cascade inward.",
+        },
+      },
     );
   }
   return action(
     "review-completed",
     `Review completed idea ${ideaName(idea)} and decide whether to revise it or create a new idea.`,
-    { ideaPath: idea.relativePath, revision: idea.revision, statusPath: idea.statusPath },
+    {
+      ideaPath: idea.relativePath,
+      statusPath: idea.statusPath,
+      revisions: idea.revisions,
+    },
   );
 }
 
@@ -251,7 +292,7 @@ export async function whatsNext({ create = false, idea: selector, root = process
   if (create) {
     return success(repositoryRoot, observedPrimaryCommit, request, null, action(
       "create-idea",
-      "Create one new idea scaffold in the configured ideas directory.",
+      "Create one new three-world idea scaffold in .silvermoon/ideas/.",
     ));
   }
 
@@ -273,7 +314,7 @@ export async function whatsNext({ create = false, idea: selector, root = process
     }
     return success(repositoryRoot, observedPrimaryCommit, request, null, action(
       "create-idea",
-      "Discuss the next goal and create one new idea folder with its sibling status file.",
+      "Discuss the next goal and create one self-contained three-world idea.",
     ));
   }
 
