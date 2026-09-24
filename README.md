@@ -30,7 +30,7 @@ silvermoon check [--remote | --commit <revision> | --staged | --worktree]
 
 `whats-next` fetches and observes but never edits, checks out, merges, commits,
 stashes, deletes, resets, fast-forwards, or pushes. It returns one
-highest-priority action. `check` validates storage and Git evidence for humans,
+highest-priority action. `check` validates storage and Git facts for humans,
 hooks, and CI. `create-idea` runs the same hygiene preflight, then creates one
 empty idea scaffold without staging, committing, pushing, or recording approval.
 
@@ -67,6 +67,7 @@ Each idea is self-contained under one canonical uppercase ULID folder:
 `-- ideas/
     `-- 01M36QGPNTXEPP61DA4KP4AVZF/
         |-- status.yaml
+        |-- ledger.md (optional)
         `-- outer/
             |-- Deployment.md
             `-- inner/
@@ -92,13 +93,21 @@ Each world is an opaque Git tree. `idealRevision` identifies `ideal/`,
 `implementationRevision` identifies `inner/` and therefore includes the Ideal
 World, and `deploymentRevision` identifies `outer/` and therefore includes both
 nested worlds. This creates deterministic cascading invalidation. `status.yaml`
-is outside all three world trees.
+and optional `ledger.md` are outside all three world trees.
 
 The Silvermoon Agent skill authors implementation criteria in
 `Implementation.md` under `## Implementation acceptance criteria` and
 deployment criteria in `Deployment.md` under
-`## Deployment acceptance criteria`. It does not use task-list checkboxes to
-record progress; the three revision fields are the only acceptance state.
+`## Deployment acceptance criteria`. These world contracts use plain list
+items rather than task-list state; the three revision fields are the only
+acceptance state.
+
+An optional idea-root `ledger.md` is the Agent continuation surface. It may use
+revision frontmatter plus `Current`, `Work`, `Checks`, and `Next` sections with
+Markdown checkboxes. Silvermoon does not parse the ledger, include it in world
+revisions, or infer a human decision from `[x]`. Agents compare its recorded
+world revisions with the current `whats-next` result and re-review stale
+records before continuing unfinished work, pending checks, or blockers.
 
 ```yaml
 version: 1
@@ -187,7 +196,7 @@ candidate revision binding, and acceptance history.
 Silvermoon is a direct breaking cutover from the previous product. It recognizes
 only `.silvermoon/config.yaml` version 1 and does not read, convert, or diagnose
 previous layouts. Preserve Git history and record only acceptance facts
-supported by evidence. See the installed skill's `references/adoption.md` for
+supported by explicit review. See the installed skill's `references/adoption.md` for
 the adoption sequence.
 
 ## Development

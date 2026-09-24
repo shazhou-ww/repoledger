@@ -143,6 +143,20 @@ async function requireDocument(root, path, diagnostics) {
   return true;
 }
 
+async function validateOptionalLedger(root, path, diagnostics) {
+  const value = await metadata(resolve(root, path));
+  if (value && (!value.isFile() || value.isSymbolicLink())) {
+    diagnostics.push(error(
+      "idea.ledger.invalid-file",
+      path,
+      `Optional idea ledger must be a repository-owned regular file: ${path}`,
+      `Replace ${path} with a regular file or remove it.`,
+    ));
+    return false;
+  }
+  return true;
+}
+
 async function rejectSymlinks(root, path, diagnostics) {
   const absolute = resolve(root, path);
   for (const entry of await readdir(absolute, { withFileTypes: true })) {
@@ -260,16 +274,21 @@ export async function inspectIdeaLayout({
 
     const paths = ideaPaths(entry.name);
     for (const child of await readdir(folderPath, { withFileTypes: true })) {
-      if (child.name === "status.yaml" || child.name === "outer") continue;
+      if (
+        child.name === "status.yaml" ||
+        child.name === "ledger.md" ||
+        child.name === "outer"
+      ) continue;
       diagnostics.push(error(
         child.name.toLowerCase().includes("status")
           ? "idea.status.unexpected-file"
           : "idea.entry.unexpected",
         `${paths.ideaPath}/${child.name}`,
         `Unexpected entry at the idea root: ${child.name}`,
-        "Keep only status.yaml and outer/ at the idea root; put supporting files in their world.",
+        "Keep only status.yaml, optional ledger.md, and outer/ at the idea root; put supporting files in their world.",
       ));
     }
+    await validateOptionalLedger(root, paths.ledgerPath, diagnostics);
     const requiredDirectories = [
       paths.outerPath,
       paths.innerPath,
@@ -396,6 +415,7 @@ export async function inspectIdeaLayout({
       state: deriveIdeaState(revisions, status),
       status,
       statusPath: paths.statusPath,
+      ledgerPath: paths.ledgerPath,
       worlds,
     };
     if (status.alias !== undefined) idea.alias = status.alias;

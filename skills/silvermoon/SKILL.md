@@ -61,18 +61,21 @@ hygiene preflight and, only when it passes, creates the empty idea scaffold.
   exact Git hygiene step without discarding either history or unknown work.
 - `prepare-idea`: edit `Idea.md` and supporting files in the Ideal World
   (道心). Supporting files must serve `Idea.md`, never replace it as a second
-  contract. After explicit approval, write the reported `idealRevision` to
-  `approvedRevision`.
+  contract. After lifecycle hygiene, use the reported `ledgerPath` to resume
+  relevant unfinished work. After explicit approval, write the reported
+  `idealRevision` to `approvedRevision`.
 - `implement-idea`: edit `Implementation.md`, its supporting Inner World
   (内景) files, and repository deliverables. Do not change the nested Ideal
   World unless the ideal truly changed and should return to preparing. After
-  explicit acceptance, write the reported `implementationRevision` to
-  `implementationAcceptedRevision`.
+  lifecycle hygiene, use the reported `ledgerPath` to resume relevant
+  unfinished work. After explicit acceptance, write the reported
+  `implementationRevision` to `implementationAcceptedRevision`.
 - `deploy-idea`: use `Deployment.md` and its supporting Outer World (现世)
   files to drive and verify the external world. Do not change repository
   deliverables as deployment work or modify a nested world unless that earlier
-  contract truly changed. After explicit acceptance, write the reported
-  `deploymentRevision` to `deploymentAcceptedRevision`.
+  contract truly changed. After lifecycle hygiene, use the reported
+  `ledgerPath` to resume relevant unfinished work. After explicit acceptance,
+  write the reported `deploymentRevision` to `deploymentAcceptedRevision`.
 - `review-abandoned`: keep `abandoned: true`, remove it after an explicit human
   decision, or create a different idea.
 - `review-completed`: revise the existing idea definition or create a new idea.
@@ -84,6 +87,7 @@ Every idea uses this fixed structure:
 ```text
 .silvermoon/ideas/<ULID>/
 ├── status.yaml
+├── ledger.md (optional)
 └── outer/
     ├── Deployment.md
     └── inner/
@@ -101,55 +105,61 @@ same-world entry and do not define a second contract.
 Put implementation acceptance criteria as plain list items under
 `## Implementation acceptance criteria` in `Implementation.md`. Put deployment
 acceptance criteria under `## Deployment acceptance criteria` in
-`Deployment.md`. Do not use task-list checkboxes as progress state. World
-content changes its world revision and every containing world revision;
-`status.yaml` stays outside all three world trees.
+`Deployment.md`. Keep checkboxes out of these world contracts. World content
+changes its world revision and every containing world revision; `status.yaml`
+and optional `ledger.md` stay outside all three world trees.
 
-## Verify Criteria Evidence
+## Continue From The Ledger
 
-Before the first implementation publication, enumerate the current idea's
-implementation criteria by their stable IDs. Derive the exact ordered IDs from
-the current `Implementation.md`; never reuse a range from another idea or
-revision. Bind the artifact to the reported current `implementationRevision`.
-Produce a visible verification artifact outside the idea tree with this shape:
+An idea may have an Agent-owned `ledger.md` at the path reported by
+`whats-next`. It is operational context, not a fourth world, storage schema,
+normative contract, or human decision. Silvermoon allows the file but does not
+parse its body or derive lifecycle state from it.
 
-```json
-{
-  "implementationRevision": "<current implementationRevision>",
-  "criteriaEvidence": [
-    {
-      "criterion": "I01",
-      "evidence": [{ "type": "test", "locator": "test name or result" }]
-    }
-  ]
-}
+Use this authoring convention when a ledger helps another session continue:
+
+```markdown
+---
+idealRevision: <revision observed while authoring>
+implementationRevision: <revision observed while authoring>
+deploymentRevision: <revision observed while authoring>
+---
+
+# Ledger
+
+## Current
+
+- State: implementing
+- Focus: current outcome
+- Blocked: no
+
+## Work
+
+- [x] Completed work
+- [ ] Remaining work
+
+## Checks
+
+- [x] Completed check
+- [ ] Pending check
+
+## Next
+
+1. First actionable continuation step.
 ```
 
-Keep entries in criterion order and require at least one nonempty `test`,
-`check`, or `artifact` locator for every criterion. If any entry is missing,
-report `criteria.evidence.missing`, remain in `implement-idea`, and do not write
-implementation acceptance or push an implementation-acceptance commit. Do not
-store this progress with checkboxes or by editing the idea definition.
+The headings and frontmatter are an Agent authoring convention, not a
+machine-readable compatibility promise. After repository and lifecycle
+hygiene, compare all three ledger frontmatter revisions with the current
+`selectedIdea` revisions. Re-review records associated with any mismatch
+instead of blindly continuing stale checklist items. Then resume unfinished
+work, pending checks, or an explicit blocker relevant to the reported action.
 
-Validate the visible artifact with the package API before acceptance:
-
-```js
-import {
-  implementationCriterionIds,
-  verifyCriteriaEvidence,
-} from "silvermoon";
-
-const criterionIds = implementationCriterionIds(implementationSource);
-const report = verifyCriteriaEvidence(
-  implementationSource,
-  artifact,
-  currentImplementationRevision,
-);
-if (!report.ok) {
-  console.error(JSON.stringify(report.diagnostics));
-  process.exitCode = 1;
-}
-```
+`[x]` means only that the Agent recorded work or a check as complete. It never
+approves an Ideal World, accepts implementation or deployment, changes
+`status.yaml`, or authorizes publication. Record test names, commands,
+artifacts, and results as useful prose without creating a separate evidence
+schema or public API contract.
 
 ## Write Status Facts
 

@@ -30,7 +30,6 @@ if (packed.status !== 0) {
     "src/cli.js",
     "src/config.js",
     "src/create-idea.js",
-    "src/evidence.js",
     "src/git.js",
     "src/idea-layout.js",
     "src/ideas.js",

@@ -121,6 +121,31 @@ test("does not include status facts in world revisions", async () => {
   assert.deepEqual(after.revisions, before.revisions);
 });
 
+test("allows an optional ledger without including it in world revisions", async () => {
+  const root = await createRepository();
+  const paths = ideaPaths(id);
+  const before = (await inspectIdeaLayout({ root })).ideas[0];
+  await writeFile(join(root, ...paths.ledgerPath.split("/")), "# Ledger\n");
+
+  const after = (await inspectIdeaLayout({ root })).ideas[0];
+  assert.deepEqual(after.revisions, before.revisions);
+  assert.equal(after.ledgerPath, paths.ledgerPath);
+
+  await writeFile(join(root, ...paths.ledgerPath.split("/")), "# Updated ledger\n");
+  const edited = (await inspectIdeaLayout({ root })).ideas[0];
+  assert.deepEqual(edited.revisions, before.revisions);
+
+  await rm(join(root, ...paths.ledgerPath.split("/")));
+  const removed = (await inspectIdeaLayout({ root })).ideas[0];
+  assert.deepEqual(removed.revisions, before.revisions);
+
+  await mkdir(join(root, ...paths.ledgerPath.split("/")));
+  const invalid = await inspectIdeaLayout({ root });
+  assert.ok(
+    invalid.diagnostics.some(({ code }) => code === "idea.ledger.invalid-file"),
+  );
+});
+
 test("derives preparing, implementing, and deploying from nested world changes", async () => {
   const cases = [
     {

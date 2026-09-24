@@ -185,6 +185,7 @@ test("[selector-known] renders preparing guidance for a clean synchronized prima
 
   assert.equal(report.ok, true);
   assert.equal(report.result.selectedIdea.state, "preparing");
+  assert.equal(report.result.selectedIdea.ledgerPath, ideaPaths(id).ledgerPath);
   assert.equal(report.result.action.code, "prepare-idea");
   assert.equal(report.result.action.details.world.name, "Ideal World");
   assert.equal(report.result.action.details.world.displayName, "道心");
@@ -280,6 +281,7 @@ test("maps every derived state to one deterministic action", () => {
     },
     relativePath: paths.ideaPath,
     statusPath: paths.statusPath,
+    ledgerPath: paths.ledgerPath,
     worlds: {
       idealRevision: {
         name: "Ideal World",
@@ -313,13 +315,16 @@ test("maps every derived state to one deterministic action", () => {
   }
   const preparing = stateAction({ ...idea, state: "preparing" });
   assert.match(preparing.message, /Ideal World \(道心\)/);
+  assert.equal(preparing.details.ledgerPath, paths.ledgerPath);
   assert.equal(preparing.details.world.nestedWorldPath, undefined);
   const implementing = stateAction({ ...idea, state: "implementing" });
   assert.match(implementing.message, /Inner World \(内景\)/);
+  assert.equal(implementing.details.ledgerPath, paths.ledgerPath);
   assert.equal(implementing.details.world.nestedWorldPath, paths.idealPath);
   assert.match(implementing.details.world.cascade, /return to preparing/);
   const deploying = stateAction({ ...idea, state: "deploying" });
   assert.match(deploying.message, /Outer World \(现世\)/);
+  assert.equal(deploying.details.ledgerPath, paths.ledgerPath);
   assert.equal(deploying.details.world.nestedWorldPath, paths.innerPath);
   assert.match(deploying.details.world.cascade, /deployment acceptance only/);
 });

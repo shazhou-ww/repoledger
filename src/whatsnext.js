@@ -37,6 +37,7 @@ function summary(idea) {
     idealRevision: idea.idealRevision,
     implementationRevision: idea.implementationRevision,
     deploymentRevision: idea.deploymentRevision,
+    ledgerPath: idea.ledgerPath,
     state: idea.state,
   };
   if (idea.alias !== undefined) value.alias = idea.alias;
@@ -67,7 +68,7 @@ export function stateAction(idea) {
     return action(
       "review-abandoned",
       `Review abandoned idea ${ideaName(idea)} and decide whether to keep it abandoned or revise it.`,
-      { statusPath: idea.statusPath },
+      { statusPath: idea.statusPath, ledgerPath: idea.ledgerPath },
     );
   }
   if (idea.state === "preparing") {
@@ -78,6 +79,7 @@ export function stateAction(idea) {
       {
         ideaPath: idea.relativePath,
         statusPath: idea.statusPath,
+        ledgerPath: idea.ledgerPath,
         world: {
           ...world,
           auxiliaryRoot: world.path,
@@ -96,6 +98,7 @@ export function stateAction(idea) {
       {
         ideaPath: idea.relativePath,
         statusPath: idea.statusPath,
+        ledgerPath: idea.ledgerPath,
         world: {
           ...world,
           auxiliaryRoot: world.path,
@@ -115,6 +118,7 @@ export function stateAction(idea) {
       {
         ideaPath: idea.relativePath,
         statusPath: idea.statusPath,
+        ledgerPath: idea.ledgerPath,
         world: {
           ...world,
           auxiliaryRoot: world.path,
@@ -132,6 +136,7 @@ export function stateAction(idea) {
     {
       ideaPath: idea.relativePath,
       statusPath: idea.statusPath,
+      ledgerPath: idea.ledgerPath,
       revisions: idea.revisions,
     },
   );
