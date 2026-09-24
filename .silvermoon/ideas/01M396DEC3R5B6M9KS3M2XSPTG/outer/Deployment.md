@@ -25,6 +25,18 @@ implementation/deployment 条目、理解详细要求，并在不依赖 Current 
 artifact 包含模板实现与最新 skill，且主分支候选保留 world revision、ledger isolation 和
 decision history。
 
+### D-S05: 验证已安装 CLI 的标题模板
+
+从当前 packed artifact 安装 Silvermoon，在隔离 consumer repository 中运行
+`create-idea --json`。读取生成的 `Idea.md` 与 `ledger.md`，确认可替换的大标题提示和四个
+唯一阶段小标题与 source checkout 完全一致。
+
+### D-S06: 验证 repository-owned 文档迁移
+
+扫描共享主分支候选中的所有 repository-owned `Idea.md` 与 `ledger.md`，确认不存在通用
+`# Idea` 标题，每份 ledger 都包含四个预期阶段小标题且没有重复 heading。运行完整
+repository checks，确认迁移未破坏 layout、world revision 或 package surface。
+
 ## Acceptance criteria
 
 ### D-AC01: 已安装 CLI 生成相同 scaffold
@@ -56,3 +68,22 @@ README、skill、adoption guidance、CLI output、package contents 和 repositor
 只描述 required ledger 与 structured scaffold，不再出现 optional ledger、empty scaffold
 或独立 Validation section 的当前行为说明。repository search、package smoke 和完整
 `pnpm check` 作为证明。
+
+### D-AC06: Packed CLI 生成修正后的标题
+
+installed-package smoke 必须证明 packed CLI 生成的 `Idea.md` 以
+`# Replace with a specific title for this idea` 开头，ledger 使用
+`Implementation steps`、`Implementation acceptance criteria`、`Deployment steps` 和
+`Deployment acceptance criteria`，并继续生成正确的 stable ID checkbox。e2e test 的成功
+输出作为证明。
+
+### D-AC07: 共享候选中的现有文档无重复 heading
+
+共享主分支候选中的所有现有 idea 文档都不得保留 `# Idea`，每份 ledger 的 Markdown
+heading 值必须唯一。contract scan 和 `silvermoon check --commit` 必须在已发布候选上通过。
+
+### D-AC08: 最终发布候选验证通过
+
+对稳定 deployment revision 执行 `pnpm check`、`pnpm check:skills`、
+`silvermoon check --commit` 和 `git diff --check`，全部必须成功；失败时不得沿用更早
+revision 的结果。
