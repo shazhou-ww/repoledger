@@ -1,4 +1,7 @@
+<!-- markdownlint-disable-file MD041 -->
+
 <p align="center">
+  <!-- markdownlint-disable-next-line MD013 -->
   <img src="./docs/assets/silvermoon.svg" width="960" alt="Silvermoon, the artifact spirit of the project">
 </p>
 
@@ -68,6 +71,7 @@ sessions, Agents, and hosting platforms.
 <table>
   <tr>
     <td width="160" align="center" valign="top">
+      <!-- markdownlint-disable-next-line MD013 -->
       <img src="./docs/assets/silvermoon-avatar.svg" width="128" alt="Line portrait of Silvermoon, the project's artifact spirit">
     </td>
     <td valign="top">
@@ -88,7 +92,9 @@ sessions, Agents, and hosting platforms.
 
 Watch *A Record of a Mortal's Journey to Immortality*:
 
+<!-- markdownlint-disable-next-line MD013 -->
 - YouTube: [Episode 150: Overseas Turmoil 26](https://www.youtube.com/watch?v=GJgezoCBIHM "A Record of a Mortal's Journey to Immortality — Episode 150: Overseas Turmoil 26")
+<!-- markdownlint-disable-next-line MD013 -->
 - Bilibili: [Episode 150: Overseas Turmoil 26](https://www.bilibili.com/bangumi/play/ep1231558 "A Record of a Mortal's Journey to Immortality — Episode 150: Overseas Turmoil 26")
 
 ## From Ideal To Real

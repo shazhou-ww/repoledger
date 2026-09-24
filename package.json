@@ -20,9 +20,10 @@
     "schema"
   ],
   "scripts": {
-    "check": "npm run check:quick && npm run test:integration && npm run pack:check && npm run test:e2e && npm run check:skills",
+    "check": "npm run lint:markdown && npm run check:quick && npm run test:integration && npm run pack:check && npm run test:e2e && npm run check:skills",
     "check:quick": "node --check bin/silvermoon.js && npm test",
     "check:skills": "node scripts/sync-skills.mjs --check && npx skills add . --list",
+    "lint:markdown": "markdownlint-cli2",
     "pack:check": "node scripts/check-pack.js",
     "prepare:npm-release": "node scripts/prepare-npm-release.mjs",
     "sync:skills": "node scripts/sync-skills.mjs",
@@ -54,6 +55,7 @@
   },
   "devDependencies": {
     "ajv": "^8.20.0",
+    "markdownlint-cli2": "^0.23.3",
     "semver": "^7.8.5"
   },
   "dependencies": {

@@ -1,0 +1,9 @@
+config:
+  extends: .markdownlint.yaml
+
+globs:
+  - "**/*.md"
+
+ignores:
+  - ".silvermoon/ideas/**"
+  - "node_modules/**"

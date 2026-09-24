@@ -1,4 +1,7 @@
+<!-- markdownlint-disable-file MD041 -->
+
 <p align="center">
+  <!-- markdownlint-disable-next-line MD013 -->
   <img src="./docs/assets/silvermoon.svg" width="960" alt="Silvermoon，项目的器灵">
 </p>
 
@@ -58,6 +61,7 @@ Silvermoon 会让目标、实现、仓库状态与现实结果始终相连。完
 <table>
   <tr>
     <td width="160" align="center" valign="top">
+      <!-- markdownlint-disable-next-line MD013 -->
       <img src="./docs/assets/silvermoon-avatar.svg" width="128" alt="项目器灵银月的线稿头像">
     </td>
     <td valign="top">
@@ -74,7 +78,9 @@ Silvermoon 会让目标、实现、仓库状态与现实结果始终相连。完
 
 观看《凡人修仙传》：
 
+<!-- markdownlint-disable-next-line MD013 -->
 - YouTube：[第 150 话：外海风云 26](https://www.youtube.com/watch?v=GJgezoCBIHM "《凡人修仙传》第 150 话：外海风云 26")
+<!-- markdownlint-disable-next-line MD013 -->
 - 哔哩哔哩：[第 150 话：外海风云 26](https://www.bilibili.com/bangumi/play/ep1231558 "《凡人修仙传》第 150 话：外海风云 26")
 
 ## 从理想到现实

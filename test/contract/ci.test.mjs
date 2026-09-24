@@ -26,7 +26,7 @@ test("runs fast layered validation in ordinary CI", async () => {
   );
   assert.equal(
     manifest.scripts.check,
-    "npm run check:quick && npm run test:integration && npm run pack:check && npm run test:e2e && npm run check:skills",
+    "npm run lint:markdown && npm run check:quick && npm run test:integration && npm run pack:check && npm run test:e2e && npm run check:skills",
   );
 
   const workflow = document.toJS();
