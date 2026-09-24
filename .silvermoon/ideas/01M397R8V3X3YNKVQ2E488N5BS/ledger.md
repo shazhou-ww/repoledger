@@ -19,10 +19,10 @@
 
 ### Steps
 
-- [ ] **D-S01:** 验证 primary 上的文档入口
-- [ ] **D-S02:** 验证发布提交的仓库检查
+- [x] **D-S01:** 验证 primary 上的文档入口
+- [x] **D-S02:** 验证发布提交的仓库检查
 
 ### Acceptance criteria
 
-- [ ] **D-AC01:** GitHub 提供完整的双语 README
-- [ ] **D-AC02:** 精确部署提交通过远端验证
+- [x] **D-AC01:** GitHub 提供完整的双语 README
+- [x] **D-AC02:** 精确部署提交通过远端验证
