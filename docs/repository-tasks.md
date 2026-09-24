@@ -12,6 +12,7 @@ optional transport and are not protocol state.
 ```sh
 repoledger whatsnext [idea] --json
 repoledger check
+repoledger check --worktree
 repoledger check --staged
 repoledger check --commit HEAD
 repoledger check --remote

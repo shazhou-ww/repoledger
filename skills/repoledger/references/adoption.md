@@ -31,13 +31,18 @@ Each idea has one canonical ULID folder and one sibling status file:
 ```text
 ideas/
 |-- 01M36QGPNTXEPP61DA4KP4AVZF/
-|   `-- Idea.md
+|   `-- Brief.md
 `-- 01M36QGPNTXEPP61DA4KP4AVZF.status.yaml
 ```
 
-`Idea.md` must exist but has no fixed headings. Keep every document that changes
-the shared ideal inside the folder so its Git tree object changes the
-`ideaRevision`.
+Core treats the folder as an opaque Git tree and requires no particular file,
+heading, or criteria format. Keep every document that changes the shared ideal
+inside the folder so its Git tree object changes the `ideaRevision`. Only the
+sibling status file is interpreted by Repoledger.
+
+The Repoledger skill creates `Idea.md` by default. Write completion conditions
+as plain list items under `## Implementation acceptance criteria` and
+`## Deployment acceptance criteria`; do not use task-list checkboxes as state.
 
 ```yaml
 version: 1
@@ -60,14 +65,16 @@ commit is ready.
 2. Inventory every legacy task and unintegrated source branch. Integrate or
    preserve unfinished work before removing source locators.
 3. Assign each retained outcome a canonical ULID and convert its ideal contract
-   into `ideas/<ULID>/Idea.md` plus any other definition artifacts.
+   into an opaque `ideas/<ULID>/` definition tree. Follow the phase-specific
+   `Idea.md` convention above unless the project defines another format.
 4. Create sibling status files. Map explicit abandonment to `abandoned: true`.
    Record revision acceptance only when the corresponding legacy evidence is
    strong enough; otherwise let the idea derive an earlier state.
 5. Replace the old configuration with version 3 and remove legacy task storage
    only after reviewing the converted idea set.
-6. Run the vNext staged and commit checks, publish non-force, then run the
-   remote check against complete primary history.
+6. Run `repoledger check --worktree`, stage the candidate, run the staged and
+   commit checks, publish non-force, then run the remote check against complete
+   primary history.
 
 Preserve old Git history. Never make old task fields look like vNext facts by
 guessing approvals or external outcomes.

@@ -54,6 +54,10 @@ test("exposes one consolidated repoledger skill", async () => {
     "Preserve unknown, unrelated, or user-authored changes",
     "Never use force-push",
     "Repoledger has no approval, acceptance, or abandonment mutation commands",
+    "## Implementation acceptance criteria",
+    "## Deployment acceptance criteria",
+    "Do not use task-list checkboxes",
+    "repoledger check --worktree --json",
     "repoledger check --staged --json",
     "observedPrimaryCommit",
     "Never infer a human decision",
@@ -62,6 +66,7 @@ test("exposes one consolidated repoledger skill", async () => {
     assert.ok(source.includes(required), `repoledger skill is missing: ${required}`);
   }
   assert.doesNotMatch(source, /repoledger task |repoledger status|taskLanguage/);
+  assert.doesNotMatch(source, /^\s*- \[[ xX]\]/m);
 
   for (const [, target] of source.matchAll(/\[[^\]]+\]\((\.\/[^)#]+)(?:#[^)]+)?\)/g)) {
     const referenced = resolve(dirname(path), target);
@@ -92,12 +97,18 @@ test("registers the canonical repoledger skill for this project", async () => {
 });
 
 test("documents explicit vNext adoption and conversion", async () => {
+  const readme = await readFile(resolve(repositoryRoot, "README.md"), "utf8");
   const adoption = await readFile(
     resolve(repositoryRoot, "skills", "repoledger", "references", "adoption.md"),
     "utf8",
   );
   const normalized = adoption.replaceAll("\r\n", " ").replaceAll("\n", " ");
   assert.match(adoption, /version: 3/);
-  assert.match(adoption, /Idea\.md` must exist but has no fixed headings/);
+  for (const source of [readme, adoption]) {
+    assert.match(source, /opaque Git tree/);
+    assert.match(source, /Implementation acceptance criteria/);
+    assert.match(source, /Deployment acceptance criteria/);
+    assert.match(source, /check --worktree/);
+  }
   assert.match(normalized, /no runtime compatibility mode or in-place migration command/);
 });

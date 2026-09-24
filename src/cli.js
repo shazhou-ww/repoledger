@@ -82,6 +82,7 @@ Examples:
   $ repoledger whatsnext <idea>
   $ repoledger whatsnext <idea> --json
   $ repoledger check
+  $ repoledger check --worktree
   $ repoledger check --staged
   $ repoledger check --commit HEAD
   $ repoledger check --remote`);
@@ -100,17 +101,17 @@ Examples:
     program
       .command("check")
       .description("validate vNext configuration, idea state, and an optional Git target")
-      .addOption(new Option("--remote", "fetch and validate the configured primary tip").conflicts(["commit", "staged", "unstaged"]))
-      .addOption(new Option("--commit <revision>", "validate one local commit snapshot").conflicts(["remote", "staged", "unstaged"]))
-      .addOption(new Option("--staged", "validate the index snapshot").conflicts(["remote", "commit", "unstaged"]))
-      .addOption(new Option("--unstaged", "validate tracked and untracked worktree changes").conflicts(["remote", "commit", "staged"])),
+      .addOption(new Option("--remote", "fetch and validate the primary tip selected by HEAD").conflicts(["commit", "staged", "worktree"]))
+      .addOption(new Option("--commit <revision>", "validate one local commit snapshot").conflicts(["remote", "staged", "worktree"]))
+      .addOption(new Option("--staged", "validate the index snapshot").conflicts(["remote", "commit", "worktree"]))
+      .addOption(new Option("--worktree", "validate HEAD plus all staged, unstaged, and untracked changes").conflicts(["remote", "commit", "staged"])),
   ).action(async (options) => {
     const report = await checkRepository({
       commit: options.commit,
       remote: options.remote,
       root: options.root,
       staged: options.staged,
-      unstaged: options.unstaged,
+      worktree: options.worktree,
     });
     render(report, options.json, io);
     program.setOptionValue("resultCode", report.ok ? 0 : 1);

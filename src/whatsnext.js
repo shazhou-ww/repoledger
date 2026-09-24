@@ -159,7 +159,18 @@ function worktreeAction(root, config, observedPrimaryCommit) {
 
 export async function whatsNext({ idea: selector, root = process.cwd() } = {}) {
   const repositoryRoot = resolve(root);
-  const local = await loadConfig({ root: repositoryRoot });
+  let local;
+  try {
+    local = await withTemporaryWorktree(repositoryRoot, "HEAD", (worktree) =>
+      loadConfig({ root: worktree }),
+    );
+  } catch (caught) {
+    return failed(repositoryRoot, [diagnostic(
+      "head.observation-failed",
+      caught.message,
+      "Restore a valid committed HEAD snapshot and retry.",
+    )]);
+  }
   if (!local.config) return failed(repositoryRoot, local.diagnostics);
 
   let observedPrimaryCommit;
@@ -198,6 +209,9 @@ export async function whatsNext({ idea: selector, root = process.cwd() } = {}) {
   }
   if (observed.diagnostics.length > 0) return failed(repositoryRoot, observed.diagnostics);
 
+  const hygiene = worktreeAction(repositoryRoot, local.config, observedPrimaryCommit);
+  if (hygiene) return success(repositoryRoot, observedPrimaryCommit, null, hygiene);
+
   if (!selector) {
     const active = observed.ideas.filter(({ state }) => ACTIVE_STATES.has(state));
     if (active.length > 1) {
@@ -230,7 +244,5 @@ export async function whatsNext({ idea: selector, root = process.cwd() } = {}) {
     )]);
   }
 
-  const hygiene = worktreeAction(repositoryRoot, observed.config, observedPrimaryCommit);
-  if (hygiene) return success(repositoryRoot, observedPrimaryCommit, selected, hygiene);
   return success(repositoryRoot, observedPrimaryCommit, selected, stateAction(selected));
 }

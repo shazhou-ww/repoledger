@@ -41,9 +41,9 @@ stashes, deletes, resets, fast-forwards, or pushes.
 - `select-active-idea`: show the ordered candidates and obtain one explicit
   ULID or alias selection.
 - `continue-active-idea`: call `whatsnext <id>` to obtain state guidance.
-- `create-idea`: discuss the goal, create one canonical ULID folder with
-  `Idea.md`, and create its sibling status file. `Idea.md` has no required
-  headings; keep all shared expectations inside the idea folder.
+- `create-idea`: discuss the goal, create one canonical ULID folder and its
+  sibling status file. Core treats the folder as an opaque Git tree. Use
+  `Idea.md` by default and keep all shared expectations inside the folder.
 - `switch-to-primary`, `resolve-conflicts`, `inspect-worktree-changes`,
   `fast-forward-primary`, `integrate-primary`, `publish-primary`: perform the
   exact Git hygiene step without discarding either history or unknown work.
@@ -60,6 +60,27 @@ stashes, deletes, resets, fast-forwards, or pushes.
   decision, or create a different idea.
 - `review-completed`: revise the existing idea definition or create a new idea.
 
+## Author Acceptance Criteria
+
+When creating or revising `Idea.md`, define phase-specific criteria under these
+headings:
+
+```markdown
+## Implementation acceptance criteria
+
+- Describe a repository-deliverable completion condition.
+
+## Deployment acceptance criteria
+
+- Describe an external-world completion condition.
+```
+
+Use plain list items. Do not use task-list checkboxes to represent progress or
+completion: changing a checkbox changes `ideaRevision`, while acceptance state
+belongs only in the sibling status file. The headings are a skill authoring
+convention, not a core storage requirement; a project skill may organize the
+opaque idea tree more specifically.
+
 ## Write Status Facts
 
 Repoledger has no approval, acceptance, or abandonment mutation commands.
@@ -69,7 +90,8 @@ Update the sibling status YAML with ordinary file editing:
    `ideaRevision`.
 2. Add or update only the corresponding revision field, or add/remove canonical
    `abandoned: true` after an explicit human decision.
-3. Run `repoledger check --staged --json` on the exact candidate.
+3. Run `repoledger check --worktree --json` while reviewing the complete
+  candidate, then stage it and run `repoledger check --staged --json`.
 4. Commit the status decision separately when practical, then non-force push
    with the observation's `observedPrimaryCommit` as expected tip.
 

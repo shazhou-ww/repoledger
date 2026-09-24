@@ -76,6 +76,19 @@ test("includes uncommitted idea content in the derived tree revision", async () 
   assert.notEqual(inspected.ideas[0].revision, original);
 });
 
+test("treats idea-folder contents as an opaque Git tree", async () => {
+  const root = await createRepository();
+  const folder = join(root, "ideas", id);
+  await rm(join(folder, "Idea.md"));
+  await writeFile(join(folder, "Brief.md"), "Project-defined idea format\n");
+  await writeFile(join(folder, "nested.status.yaml"), "Project-defined content\n");
+
+  const inspected = await inspectIdeaLayout({ config, root });
+
+  assert.deepEqual(inspected.diagnostics, []);
+  assert.equal(inspected.ideas.length, 1);
+});
+
 test("rejects missing pairs, duplicate aliases, and mismatched status ids", async () => {
   const root = await createRepository();
   const second = "01M36QGPQ4H3R0K4N7Y6W2S8JC";

@@ -21,7 +21,13 @@ function ideaSummary(idea) {
   };
 }
 
-async function inspectSnapshot({ baseRevision, historyCommit, root, target = "local" }) {
+async function inspectSnapshot({
+  baseRevision,
+  historyCommit,
+  root,
+  target = "local",
+  validateCandidate = false,
+}) {
   const repositoryRoot = resolve(root);
   const loaded = await loadConfig({ root: repositoryRoot });
   const layout = loaded.config
@@ -30,6 +36,7 @@ async function inspectSnapshot({ baseRevision, historyCommit, root, target = "lo
       config: loaded.config,
       historyCommit,
       root: repositoryRoot,
+      validateCandidate,
     })
     : { diagnostics: [], ideas: [] };
   const diagnostics = [
@@ -75,24 +82,29 @@ export async function checkRepository({
   remote = false,
   root = process.cwd(),
   staged = false,
-  unstaged = false,
+  worktree = false,
 } = {}) {
   const repositoryRoot = resolve(root);
-  const targetCount = [remote, commit !== undefined, staged, unstaged].filter(Boolean).length;
+  const targetCount = [remote, commit !== undefined, staged, worktree].filter(Boolean).length;
   if (targetCount > 1) {
     return targetFailure(
       repositoryRoot,
       "check.target.conflict",
       "Check targets are mutually exclusive.",
-      "Choose exactly one of remote, commit, staged, or unstaged.",
+      "Choose exactly one of remote, commit, staged, or worktree.",
     );
   }
 
   if (remote) {
-    const local = await loadConfig({ root: repositoryRoot });
-    if (!local.config) return (await inspectSnapshot({ root: repositoryRoot })).report;
     try {
-      const primary = fetchPrimary(repositoryRoot, local.config);
+      const head = resolveCommit(repositoryRoot, "HEAD");
+      const bootstrap = await withTemporaryWorktree(repositoryRoot, head, (worktreeRoot) =>
+        inspectSnapshot({ root: worktreeRoot, target: "remote" }),
+      );
+      if (!bootstrap.config) {
+        return finishTarget({ inspected: bootstrap, root: repositoryRoot, target: "remote" });
+      }
+      const primary = fetchPrimary(repositoryRoot, bootstrap.config);
       const inspected = await withTemporaryWorktree(repositoryRoot, primary, (worktree) =>
         inspectSnapshot({ historyCommit: primary, root: worktree, target: "remote" }),
       );
@@ -112,32 +124,37 @@ export async function checkRepository({
     }
   }
 
-  if (commit !== undefined) {
+  if (commit !== undefined || (!staged && !worktree)) {
+    const revision = commit ?? "HEAD";
+    const target = commit === undefined ? "head" : "commit";
     let resolvedCommit;
     try {
-      resolvedCommit = resolveCommit(repositoryRoot, commit);
+      resolvedCommit = resolveCommit(repositoryRoot, revision);
     } catch (caught) {
       return targetFailure(
         repositoryRoot,
         "git.commit.invalid",
         caught.message,
-        "Choose a commit available in the local repository.",
+        commit === undefined
+          ? "Create or restore a valid HEAD commit."
+          : "Choose a commit available in the local repository.",
       );
     }
     try {
       const parent = runGit(repositoryRoot, ["rev-parse", `${resolvedCommit}^1`]);
       const inspected = await withTemporaryWorktree(repositoryRoot, resolvedCommit, (worktree) =>
         inspectSnapshot({
-          baseRevision: parent.ok ? parent.stdout : undefined,
+          baseRevision: parent.ok ? parent.stdout : null,
           root: worktree,
-          target: "commit",
+          target,
+          validateCandidate: true,
         }),
       );
       return finishTarget({
         commit: resolvedCommit,
         inspected,
         root: repositoryRoot,
-        target: "commit",
+        target,
       });
     } catch (caught) {
       return targetFailure(
@@ -153,7 +170,12 @@ export async function checkRepository({
     try {
       const snapshot = indexSnapshot(repositoryRoot);
       const inspected = await withTemporaryTree(repositoryRoot, snapshot.tree, (worktree) =>
-        inspectSnapshot({ baseRevision: "HEAD", root: worktree, target: "staged" }),
+        inspectSnapshot({
+          baseRevision: "HEAD",
+          root: worktree,
+          target: "staged",
+          validateCandidate: true,
+        }),
       );
       return finishTarget({
         inspected,
@@ -170,29 +192,33 @@ export async function checkRepository({
     }
   }
 
-  if (unstaged) {
+  if (worktree) {
     try {
-      const index = indexSnapshot(repositoryRoot);
       const snapshot = worktreeSnapshot(repositoryRoot);
       const inspected = await withTemporaryTree(repositoryRoot, snapshot.tree, (worktree) =>
-        inspectSnapshot({ baseRevision: index.tree, root: worktree, target: "unstaged" }),
+        inspectSnapshot({
+          baseRevision: "HEAD",
+          root: worktree,
+          target: "worktree",
+          validateCandidate: true,
+        }),
       );
       return finishTarget({
         inspected,
         root: repositoryRoot,
-        target: "unstaged",
+        target: "worktree",
       });
     } catch (caught) {
       return targetFailure(
         repositoryRoot,
         "git.snapshot.failed",
         caught.message,
-        "Resolve the worktree state and retry the unstaged check.",
+        "Resolve the worktree state and retry the worktree check.",
       );
     }
   }
 
-  return (await inspectSnapshot({ baseRevision: "HEAD", root: repositoryRoot })).report;
+  throw new Error("Unreachable check target");
 }
 
 export {

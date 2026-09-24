@@ -94,7 +94,11 @@ test("renders active idea options in human whatsnext output", () => {
   );
 });
 
-test("returns usage exit code 2 for conflicting check targets", async () => {
+test("exposes worktree and rejects conflicting check targets", async () => {
   const { io } = capture();
-  assert.equal(await runCli(["check", "--remote", "--staged"], io), 2);
+  const program = createProgram(io);
+  const check = program.commands.find((command) => command.name() === "check");
+  assert.ok(check.options.some(({ long }) => long === "--worktree"));
+  assert.ok(!check.options.some(({ long }) => long === "--unstaged"));
+  assert.equal(await runCli(["check", "--remote", "--worktree"], io), 2);
 });

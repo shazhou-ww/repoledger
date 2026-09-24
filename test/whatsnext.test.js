@@ -153,6 +153,23 @@ test("lists multiple active ideas and creates when none remain active", async ()
   assert.equal(none.result.action.code, "create-idea");
 });
 
+test("runs worktree hygiene before creating an idea when none are active", async () => {
+  const { repository, root } = await createRepository();
+  await writeFile(
+    join(root, "ideas", `${id}.status.yaml`),
+    serializeIdeaStatus({ version: 1, id, alias: "fixture", abandoned: true }),
+  );
+  git(root, "add", ".");
+  git(root, "commit", "-m", "Abandon fixture idea");
+  git(root, "push", repository, "main");
+  await writeFile(join(root, "dirty.txt"), "preserve me\n");
+
+  const report = await whatsNext({ root });
+
+  assert.equal(report.ok, true);
+  assert.equal(report.result.action.code, "inspect-worktree-changes");
+});
+
 test("prioritizes configured primary branch before state guidance", async () => {
   const { root } = await createRepository();
   git(root, "checkout", "-b", "feature");
@@ -160,6 +177,45 @@ test("prioritizes configured primary branch before state guidance", async () => 
   const report = await whatsNext({ idea: id, root });
 
   assert.equal(report.result.action.code, "switch-to-primary");
+});
+
+test("adopts relocated primary coordinates across two observations", async () => {
+  const { repository, root } = await createRepository();
+  const base = join(root, "..");
+  const secondary = join(base, "secondary.git");
+  const secondaryUrl = pathToFileURL(secondary).href;
+  const canonicalSecondary = "https://example.test/owner/secondary.git";
+  const original = git(root, "rev-parse", "HEAD");
+
+  await writeFile(join(root, "repoledger.yaml"), `version: 3
+primaryRepository: ${canonicalSecondary}
+primaryBranch: trunk
+`);
+  git(root, "add", ".");
+  git(root, "commit", "-m", "Relocate primary");
+  const relocation = git(root, "rev-parse", "HEAD");
+  git(root, "push", repository, "main");
+
+  git(root, "init", "--bare", "--initial-branch=trunk", secondary);
+  git(root, "push", secondaryUrl, "HEAD:trunk");
+  await writeFile(join(root, "secondary.txt"), "secondary primary\n");
+  git(root, "add", ".");
+  git(root, "commit", "-m", "Advance relocated primary");
+  const relocatedTip = git(root, "rev-parse", "HEAD");
+  git(root, "push", secondaryUrl, "HEAD:trunk");
+  git(root, "reset", "--hard", original);
+  git(root, "config", `url.${secondaryUrl}.insteadOf`, canonicalSecondary);
+
+  const first = await whatsNext({ idea: id, root });
+  assert.equal(first.result.observedPrimaryCommit, relocation);
+  assert.equal(first.result.selectedIdea, null);
+  assert.equal(first.result.action.code, "fast-forward-primary");
+
+  git(root, "merge", "--ff-only", relocation);
+  const second = await whatsNext({ idea: id, root });
+  assert.equal(second.result.observedPrimaryCommit, relocatedTip);
+  assert.equal(second.result.action.code, "switch-to-primary");
+  assert.equal(second.result.action.details.expected, "refs/heads/trunk");
 });
 
 test("routes clean ahead, behind, and diverged primary ancestry", async () => {

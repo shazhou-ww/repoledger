@@ -59,12 +59,12 @@ primaryBranch: main
   return root;
 }
 
-test("checks a local vNext idea snapshot", async () => {
+test("checks the committed HEAD idea snapshot", async () => {
   const root = await createRepository();
   const report = await checkRepository({ root });
 
   assert.equal(report.ok, true);
-  assert.equal(report.result.target, "local");
+  assert.equal(report.result.target, "head");
   assert.equal(report.result.checked, 1);
   assert.deepEqual(report.result.ideas[0], {
     id,
@@ -125,13 +125,68 @@ test("rejects a changed acceptance field that does not bind the candidate tree",
   assert.ok(report.diagnostics.some(({ code }) => code === "idea.revision.candidate-mismatch"));
 });
 
-test("includes untracked idea files in the unstaged snapshot", async () => {
+test("rejects a mismatched acceptance introduced in the root commit", async () => {
+  const root = await mkdtemp(join(tmpdir(), "repoledger-check-v3-root-"));
+  temporaryDirectories.push(root);
+  git(root, "init", "--initial-branch=main");
+  git(root, "config", "user.name", "repoledger test");
+  git(root, "config", "user.email", "repoledger@example.invalid");
+  await writeFile(join(root, "repoledger.yaml"), `version: 3
+primaryRepository: https://example.test/owner/repository.git
+primaryBranch: main
+`);
+  const folder = join(root, "ideas", id);
+  await mkdir(folder, { recursive: true });
+  await writeFile(join(folder, "Idea.md"), "# Fixture\n");
+  const unrelatedTree = git(root, "mktree");
+  await writeFile(
+    join(root, "ideas", `${id}.status.yaml`),
+    serializeIdeaStatus({
+      version: 1,
+      id,
+      alias: "fixture",
+      approvedRevision: unrelatedTree,
+    }),
+  );
+  git(root, "add", ".");
+  git(root, "commit", "-m", "Create invalid root idea");
+
+  const report = await checkRepository({ root, commit: "HEAD" });
+
+  assert.equal(report.ok, false);
+  assert.ok(report.diagnostics.some(({ code }) => code === "idea.revision.candidate-mismatch"));
+});
+
+test("keeps default check on HEAD and includes untracked files only with worktree", async () => {
   const root = await createRepository();
   const before = git(root, "rev-parse", `HEAD:ideas/${id}`);
   await writeFile(join(root, "ideas", id, "Design.md"), "untracked\n");
 
-  const report = await checkRepository({ root, unstaged: true });
+  const head = await checkRepository({ root });
+  const worktree = await checkRepository({ root, worktree: true });
 
-  assert.equal(report.ok, true);
-  assert.notEqual(report.result.ideas[0].revision, before);
+  assert.equal(head.ok, true);
+  assert.equal(head.result.target, "head");
+  assert.equal(head.result.ideas[0].revision, before);
+  assert.equal(worktree.ok, true);
+  assert.equal(worktree.result.target, "worktree");
+  assert.notEqual(worktree.result.ideas[0].revision, before);
+});
+
+test("reads configuration from the selected snapshot target", async () => {
+  const root = await createRepository();
+  await writeFile(join(root, "repoledger.yaml"), "version: 2\n");
+
+  const head = await checkRepository({ root });
+  const remote = await checkRepository({ root, remote: true });
+  const worktree = await checkRepository({ root, worktree: true });
+  git(root, "add", "repoledger.yaml");
+  const staged = await checkRepository({ root, staged: true });
+
+  assert.equal(head.ok, true);
+  assert.equal(remote.ok, true);
+  assert.equal(worktree.ok, false);
+  assert.equal(worktree.diagnostics[0].code, "config.migration-required");
+  assert.equal(staged.ok, false);
+  assert.equal(staged.diagnostics[0].code, "config.migration-required");
 });

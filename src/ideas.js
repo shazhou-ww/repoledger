@@ -9,7 +9,7 @@ export const IDEA_STATES = [
 ];
 
 const ULID = /^[0-7][0-9A-HJKMNP-TV-Z]{25}$/;
-const OBJECT_ID = /^[0-9a-f]+$/;
+const OBJECT_ID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 const CONTROL_CHARACTER = /[\u0000-\u001f\u007f-\u009f]/u;
 const STATUS_KEYS = new Set([
   "version",

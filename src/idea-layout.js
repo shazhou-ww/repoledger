@@ -23,31 +23,6 @@ async function metadata(path) {
   }
 }
 
-async function validateOwnedDirectory(root, path, diagnostics) {
-  for (const entry of await readdir(path, { withFileTypes: true })) {
-    const child = resolve(path, entry.name);
-    const childMetadata = await lstat(child);
-    const relativePath = displayPath(root, child);
-    if (childMetadata.isSymbolicLink()) {
-      diagnostics.push(error(
-        "idea.path.symlink",
-        relativePath,
-        `Idea content must not contain symbolic links: ${relativePath}`,
-        "Replace the symbolic link with a repository-owned regular file or directory.",
-      ));
-    } else if (childMetadata.isDirectory()) {
-      await validateOwnedDirectory(root, child, diagnostics);
-    } else if (!childMetadata.isFile()) {
-      diagnostics.push(error(
-        "idea.path.special",
-        relativePath,
-        `Idea content must be a regular file or directory: ${relativePath}`,
-        "Remove the special filesystem entry.",
-      ));
-    }
-  }
-}
-
 function validateRevisionObjects(root, statusPath, status, diagnostics) {
   for (const key of [
     "approvedRevision",
@@ -113,13 +88,15 @@ function validateRevisionHistory(root, commit, idea, diagnostics) {
 }
 
 function validateCandidateRevisions(root, baseRevision, idea, diagnostics, objectIdLength) {
-  const previousSource = runGit(root, ["show", `${baseRevision}:${idea.statusPath}`]);
   let previous = {};
-  if (previousSource.ok) {
-    try {
-      previous = parseIdeaStatus(previousSource.stdout + "\n", { objectIdLength });
-    } catch {
-      previous = {};
+  if (baseRevision) {
+    const previousSource = runGit(root, ["show", `${baseRevision}:${idea.statusPath}`]);
+    if (previousSource.ok) {
+      try {
+        previous = parseIdeaStatus(previousSource.stdout + "\n", { objectIdLength });
+      } catch {
+        previous = {};
+      }
     }
   }
   for (const key of [
@@ -139,7 +116,13 @@ function validateCandidateRevisions(root, baseRevision, idea, diagnostics, objec
   }
 }
 
-export async function inspectIdeaLayout({ baseRevision, config, historyCommit, root }) {
+export async function inspectIdeaLayout({
+  baseRevision,
+  config,
+  historyCommit,
+  root,
+  validateCandidate = false,
+}) {
   const diagnostics = [];
   const ideasRoot = resolve(root, config.ideasDirectory);
   const ideasRootMetadata = await metadata(ideasRoot);
@@ -249,18 +232,6 @@ export async function inspectIdeaLayout({ baseRevision, config, historyCommit, r
       ));
       continue;
     }
-    const ideaDocument = resolve(folder.path, "Idea.md");
-    const ideaDocumentMetadata = await metadata(ideaDocument);
-    if (!ideaDocumentMetadata?.isFile() || ideaDocumentMetadata.isSymbolicLink()) {
-      diagnostics.push(error(
-        "idea.document.missing",
-        displayPath(root, ideaDocument),
-        `Idea ${id} must contain a repository-owned Idea.md file.`,
-        "Create Idea.md as a regular file; its narrative structure is project-defined.",
-      ));
-    }
-    await validateOwnedDirectory(root, folder.path, diagnostics);
-
     let status;
     try {
       status = parseIdeaStatus(await readFile(statusFile.path, "utf8"), { objectIdLength });
@@ -316,7 +287,7 @@ export async function inspectIdeaLayout({ baseRevision, config, historyCommit, r
       status,
       statusPath: statusFile.relativePath,
     };
-    if (baseRevision) {
+    if (validateCandidate) {
       validateCandidateRevisions(root, baseRevision, idea, diagnostics, objectIdLength);
     }
     if (historyCommit) validateRevisionHistory(root, historyCommit, idea, diagnostics);

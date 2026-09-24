@@ -48,6 +48,7 @@ test("validates canonical ULIDs and idea status fields", () => {
     { ...valid, alias: " leading" },
     { ...valid, alias: "line\nbreak" },
     { ...valid, abandoned: false },
+    { ...valid, approvedRevision: "a" },
     { ...valid, approvedRevision: revision.toUpperCase() },
     { ...valid, approvedRevision: revision.slice(1) },
     { ...valid, state: "preparing" },
@@ -57,6 +58,20 @@ test("validates canonical ULIDs and idea status fields", () => {
       /idea status/i,
     );
   }
+});
+
+test("rejects schema-invalid object IDs without repository context", () => {
+  const status = {
+    version: 1,
+    id,
+    alias: "publish-documentation",
+    approvedRevision: "a",
+    implementationAcceptedRevision: "a",
+    deploymentAcceptedRevision: "a",
+  };
+
+  assert.throws(() => serializeIdeaStatus(status), /Git object ID/);
+  assert.throws(() => deriveIdeaState("a", status), /Git object ID/);
 });
 
 test("rejects noncanonical and unsupported status YAML", () => {

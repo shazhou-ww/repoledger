@@ -6,7 +6,7 @@ Repoledger vNext has two public commands:
 
 ```sh
 repoledger whatsnext [idea]
-repoledger check [--remote | --commit <revision> | --staged | --unstaged]
+repoledger check [--remote | --commit <revision> | --staged | --worktree]
 ```
 
 `whatsnext` fetches and observes but never edits, checks out, merges, commits,
@@ -45,15 +45,22 @@ Each idea uses a canonical uppercase ULID folder and a sibling status file:
 ```text
 ideas/
 |-- 01M36QGPNTXEPP61DA4KP4AVZF/
-|   |-- Idea.md
+|   |-- Brief.md
 |   `-- Design.md
 `-- 01M36QGPNTXEPP61DA4KP4AVZF.status.yaml
 ```
 
-`Idea.md` must exist but has no required headings. Put every shared definition
-artifact inside the idea folder. The folder's Git tree object ID is its
-`ideaRevision`, so any definition change invalidates old acceptance for the
-current revision without deleting history.
+Core treats the idea folder as an opaque Git tree: it requires no filename,
+heading, or criteria format, and nested `.status.yaml` files are ordinary idea
+content. Put every shared definition artifact inside the folder. Its Git tree
+object ID is the `ideaRevision`, so any definition change invalidates old
+acceptance for the current revision without deleting history. Only the sibling
+status file is interpreted by Repoledger.
+
+The Repoledger Agent skill uses `Idea.md` by default and authors criteria as
+plain list items under `## Implementation acceptance criteria` and
+`## Deployment acceptance criteria`. It does not use task-list checkboxes to
+record progress; the sibling revision fields are the only acceptance state.
 
 ```yaml
 version: 1
@@ -87,8 +94,8 @@ repoledger whatsnext publish-documentation --json
 
 Without a selector, Repoledger asks you to choose among multiple active ideas,
 continue one active idea, or create a new idea. With a ULID or exact unique
-alias, it checks branch, conflicts, dirty worktree, and local/remote primary
-ancestry before rendering state guidance.
+alias, it renders state guidance. Every invocation first checks the configured
+primary branch, conflicts, dirty worktree, and local/remote primary ancestry.
 
 JSON reports contain `observedPrimaryCommit`, `selectedIdea`, and exactly one
 `action`. Use the observed commit as the expected remote tip for later writes.
@@ -100,13 +107,16 @@ the status fact, and non-force push through ordinary Git.
 
 ## Validate
 
-- `check` validates the current worktree, including untracked idea files.
+- `check` validates only the committed `HEAD` snapshot and reads primary
+  coordinates from that snapshot.
+- `check --worktree` validates the hypothetical commit containing HEAD, the
+  index, unstaged changes, and nonignored untracked files. It reads primary
+  coordinates from that complete candidate.
 - `check --staged` validates the index snapshot.
-- `check --unstaged` validates the index plus tracked and untracked worktree
-  changes.
 - `check --commit <revision>` validates one local commit snapshot.
-- `check --remote` fetches configured primary, validates its immutable tip, and
-  proves retained revision facts against complete reachable primary history.
+- `check --remote` uses committed HEAD coordinates to fetch primary, validates
+  its immutable tip, and proves retained revision facts against complete
+  reachable primary history.
 
 Targets are mutually exclusive and never change the caller's branch, index, or
 worktree. Exit status `0` means success, `1` means validation or operational
@@ -114,9 +124,9 @@ failure, and `2` means invalid CLI usage. Use `--json` for the complete stable
 report envelope.
 
 The schema is [schema/v3.json](schema/v3.json). Runtime checks additionally
-verify canonical YAML, repository-owned regular paths, folder/status pairing,
-unique aliases, current Git object format, tree object types, candidate revision
-binding, and acceptance history.
+verify canonical YAML, regular configuration and sibling status paths,
+folder/status pairing, unique aliases, current Git object format, tree object
+types, candidate revision binding, and acceptance history.
 
 ## Convert Older Repositories
 
