@@ -230,30 +230,44 @@ YAML。
 OID；有 repository context 时再收紧为当前 object format 的精确长度。公开 serializer 不应
 生成 `schema/v3.json` 明确拒绝的文件。
 
+### Decision
+
+采用两层 OID 校验：
+
+- `parseIdeaStatus`、`validateIdeaStatus`、`serializeIdeaStatus` 和 `deriveIdeaState` 在无
+  repository context 时只接受 40 或 64 位 lowercase hex。
+- `repoledger check` 在 repository context 中进一步要求当前 object format 的精确长度、
+  object 存在且 type 为 `tree`，并执行 candidate/history binding 校验。
+
+公开 helper 已作为 package API 导出，因此不采用“只靠内部 caller 传 `objectIdLength`”的
+隐式契约，也不允许 serializer 生成 JSON Schema 随后拒绝的 status。
+
 ### Likely surface
 
 - `src/ideas.js` 的基础 `OBJECT_ID` 只验证 lowercase hex；长度仅在显式传入
   `objectIdLength` 时检查。
 
-## Issue 5：Idea folder 内的 nested status 未被拒绝
+## Issue 5：Core 对 idea folder 内容施加了不必要限制
 
 ### Impact
 
-vNext 规范要求 status 只能是 idea folder 的 sibling，并明确拒绝 nested status。当前递归
-path validator 把 idea folder 内所有 regular file 都当作定义 artifact，因而接受
-`ideas/<ULID>/nested.status.yaml`。这会形成看似机器状态但不被协议解释的文件，并让 layout
-约束与文档不一致。
+Idea folder 是项目自由编排理想定义的边界。Repoledger core 只应解释 sibling
+`ideas/<ULID>.status.yaml`；folder 内文件名、目录结构、Idea/criteria 表达与 project-specific
+约束应由项目 skill 决定。当前实现却要求固定 `Idea.md`，并递归拒绝 symlink，使 core 对内容
+格式施加了超出状态模型所需的限制。
 
 ### Reproduction
 
-1. 创建一个合法 v3 repository、idea folder 与 sibling status。
-2. 在 idea folder 内创建 regular file：
+1. 创建合法 v3 repository、idea folder 与 sibling status。
+2. 不创建 `Idea.md`，改为使用项目自定义文件：
 
    ```text
-   ideas/<ULID>/nested.status.yaml
+  ideas/<ULID>/Brief.md
    ```
 
-3. Commit 后运行：
+3. 或在 idea folder 内创建 Git 能表示的 symlink、nested directory，或名为
+  `nested.status.yaml` 的普通定义文件。
+4. Commit 后运行：
 
    ```sh
    repoledger check --commit HEAD --json
@@ -261,17 +275,33 @@ path validator 把 idea folder 内所有 regular file 都当作定义 artifact�
 
 ### Actual
 
-命令返回 exit code `0`、`ok: true`、空 diagnostics。
+缺少 `Idea.md` 会产生 `idea.document.missing`；Git symlink 会产生 `idea.path.symlink`。
+`nested.status.yaml` 当前会通过，按照澄清后的设计这反而是正确行为。
 
 ### Expected
 
-任何 idea folder 内以 `.status.yaml` 结尾的 nested file 都应产生明确 layout diagnostic；
-只有 `ideas/<ULID>.status.yaml` 是该 idea 的 status authority。
+Repoledger 应把整个 idea folder 视为 opaque Git tree：
+
+- 不要求 `Idea.md` 或任何固定文件名、章节、criteria 格式。
+- 不把 nested `.status.yaml` 解释为协议状态，也不因后缀名拒绝它。
+- 允许 Git tree 可表示的普通文件、目录和 symlink；读取时不得跟随 symlink 越出 tree。
+- 只有 sibling `ideas/<ULID>.status.yaml` 是 Repoledger 解释的 status authority，并继续使用
+  strict schema 与 regular-file 安全规则。
+
+Project skill 可以要求 `Idea.md`、模板或领域特定文件，但这些不是 Repoledger core invariant。
+
+### Decision
+
+撤回原先“nested status 应被拒绝”的 finding。Issue 5 改为移除 core 对 idea folder 内部
+内容的硬性限定；checker 只验证 ULID folder/sibling status 配对、status 协议和 folder 的
+Git tree 可计算性。
 
 ### Likely surface
 
-- `src/idea-layout.js` 的 recursive owned-directory validator 只拒绝 symlink/special entry，
-  没有拒绝 nested status suffix。
+- `src/idea-layout.js` 强制检查 `Idea.md`，并通过 recursive owned-directory validator 拒绝
+  symlink/special entry。
+- README、adoption 和 skill 当前把 `Idea.md` 描述为 core-required，需要降级为项目约定或
+  示例。
 
 ## Scope
 
@@ -304,11 +334,11 @@ path validator 把 idea folder 内所有 regular file 都当作定义 artifact�
   的 primary commit，再按新 HEAD config 观察新 primary；任何单次 report 都不混合 authority。
 - [ ] 公开 `validateIdeaStatus`、`serializeIdeaStatus` 和 `deriveIdeaState` 拒绝非 40/64 位 OID；
   repository-aware validation 继续要求当前 object format 的精确长度和 tree type。
-- [ ] Idea folder 内的 nested `.status.yaml` 被 checker 拒绝，diagnostic 指向精确路径并给出
-  sibling status 修复方式。
-- [ ] 新增测试覆盖五个本文复现，并覆盖相邻合法场景，避免修复破坏 root idea creation、
-  project-level selection、HEAD/worktree/staged target、正常 config、public helper 与普通
-  narrative artifact。
+- [ ] Idea folder 被视为 opaque Git tree，不强制 `Idea.md`、固定章节、criteria 格式或文件名；
+  nested `.status.yaml` 只是普通内容，Git symlink 不被跟随，只有 sibling status 由 core 解释。
+- [ ] 新增测试覆盖四个缺陷复现与 idea-folder permissiveness，并覆盖相邻合法场景，避免修复
+  破坏 root idea creation、project-level selection、HEAD/worktree/staged target、正常 config、
+  public helper 与项目自定义 narrative artifact。
 - [ ] `pnpm check`、pack contents、installed-package smoke、Markdown links 和 skill validation
   全部通过。
 
