@@ -1,59 +1,53 @@
-# Release and verify Silvermoon 0.0.2
+# 发布并验证 Silvermoon 0.0.2
 
-## Intent
+## 意图
 
-Publish Silvermoon 0.0.2 from an approved repository snapshot and prove that
-the npm package, rendered README, immutable documentation assets, and installed
-CLI all match that release.
+从已批准的仓库快照发布 Silvermoon 0.0.2，并证明 npm 包、渲染后的
+README、不可变文档资源和安装后的 CLI 均与该版本一致。
 
-## Context
+## 背景
 
-Silvermoon 0.0.1 was published from a tag that predates the reader-first
-documentation restructure. Its npm README therefore contains the older
-documentation layout. Its relative image reference was also resolved through
-the mutable repository default branch and broke when the artwork moved.
+Silvermoon 0.0.1 发布自一个早于“读者优先”文档重构的标签，因此其 npm
+README 仍采用旧版文档布局。它的相对图片引用还会通过可变的仓库默认分支
+解析，并在图片资源移动后失效。
 
-The compatibility path on `main` repairs the 0.0.1 image, but future package
-pages should remain correct without depending on mutable branch contents.
+`main` 上的兼容路径修复了 0.0.1 的图片，但未来的软件包页面不应依赖可变
+分支内容，也应始终保持正确。
 
-## Desired outcome
+## 期望结果
 
-The npm registry serves Silvermoon 0.0.2 as the latest stable version from its
-immutable release tag. Its package README uses the current reader-first
-structure and resolves images and repository documentation against that exact
-release snapshot. The published tarball contains the intended files, a clean
-installation runs the expected CLI, and the npm package page visibly renders
-the README and artwork correctly.
+npm 注册表将来自不可变发布标签的 Silvermoon 0.0.2 作为最新稳定版本提供。
+软件包 README 采用当前的“读者优先”结构，并基于该版本的精确快照解析图片
+和仓库文档。发布的 tarball 包含预期文件，全新安装后可运行预期的 CLI，
+且 npm 软件包页面能正确渲染 README 和图片。
 
-## Scope
+## 范围
 
-### In scope
+### 范围内
 
-- Make npm-facing README references immutable for a release without making the
-  repository README unusable before its release tag exists.
-- Prepare and validate the Silvermoon 0.0.2 package contents and version.
-- Publish through the protected GitHub Actions trusted-publishing workflow.
-- Verify registry metadata, tarball contents, clean installation, CLI behavior,
-  provenance, dist-tag selection, and the rendered npm package page.
-- Preserve evidence for the exact release tag and published package.
+- 使面向 npm 的 README 引用对特定版本保持不可变，同时确保发布标签创建前
+  仓库 README 仍可正常使用。
+- 准备并验证 Silvermoon 0.0.2 的软件包内容和版本。
+- 通过受保护的 GitHub Actions 可信发布工作流进行发布。
+- 验证注册表元数据、tarball 内容、全新安装、CLI 行为、来源证明、dist-tag
+  选择以及渲染后的 npm 软件包页面。
+- 保存精确发布标签和已发布软件包的证据。
 
-### Out of scope
+### 范围外
 
-- Replacing or mutating the already published Silvermoon 0.0.1 tarball.
-- Unrelated CLI features, schema changes, or documentation redesigns.
-- Local npm publication, npm write tokens, movable release tags, or force
-  pushes.
+- 替换或修改已经发布的 Silvermoon 0.0.1 tarball。
+- 无关的 CLI 功能、架构变更或文档重新设计。
+- 在本地发布 npm、使用 npm 写入令牌、使用可移动的发布标签或强制推送。
 
-## Constraints
+## 约束
 
-- Follow `docs/npm-package-releases.md`: publish only through
-  `.github/workflows/publish-npm.yml` from an immutable
-  `npm/silvermoon/v0.0.2` tag on a commit reachable from `origin/main`.
-- The tag version and committed package version must match exactly, and 0.0.2
-  must be absent from npm before publication.
-- Repository checks, package checks, and installed-package tests must pass for
-  the exact candidate before the release tag is created.
-- Release-specific README generation must be deterministic and validated; it
-  must not silently publish documentation or assets from `main` or `HEAD`.
-- Human approval and acceptance boundaries must be completed before advancing
-  from preparation to implementation and deployment.
+- 遵循 `docs/npm-package-releases.md`：只能通过
+  `.github/workflows/publish-npm.yml`，从 `origin/main` 可达提交上的不可变
+  `npm/silvermoon/v0.0.2` 标签进行发布。
+- 标签版本必须与已提交的软件包版本完全一致，且发布前 npm 上不得存在
+  0.0.2。
+- 创建发布标签前，精确候选版本必须通过仓库检查、软件包检查和已安装软件包
+  测试。
+- 特定版本的 README 生成过程必须确定且经过验证；不得静默发布来自 `main`
+  或 `HEAD` 的文档或资源。
+- 从准备阶段推进到实现和部署前，必须完成人工批准和验收边界。

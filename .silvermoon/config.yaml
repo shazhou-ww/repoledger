@@ -1,3 +1,4 @@
 version: 1
 primaryRepository: https://github.com/shazhou-ww/silvermoon.git
 primaryBranch: main
+preferredLanguage: zh-CN
