@@ -52,14 +52,15 @@ CLI、validation、adoption 和维护者信息在英文 `docs/` 中各有清晰�
 - 增加简短的人物小传，只介绍银月来自灵界的银月狼族、是玲珑公主的分魂之一，以及她作为
   器灵先后寄居的狼首玉如意（a wolf-headed jade scepter）和青竹蜂云剑
   （the Bamboo Cloudswarm Swords），不展开额外原作剧情。
-- 在人物小传结尾以一行简短链接邀请读者观看《凡人修仙传》官方动画，使用稳定的
-  [YouTube](https://www.youtube.com/watch?v=qlodDgpiYhg) 与
-  [哔哩哔哩第 1 话](https://www.bilibili.com/bangumi/play/ep733316) 页面，不保留分享
-  tracking 参数。
+- 在人物小传表格之后邀请读者观看《凡人修仙传》官方动画，并用两个 bullet 分别列出
+  [YouTube 第 150 话](https://www.youtube.com/watch?v=GJgezoCBIHM) 与
+  [哔哩哔哩第 150 话](https://www.bilibili.com/bangumi/play/ep1231558)；链接文本与
+  title 应包含“第 150 话：外海风云 26”，不保留分享 tracking 参数。
 - 将只服务于文档的根级 `assets/` 迁入 `docs/assets/`，并更新仓库浏览、npm package、
   README 渲染和测试中的全部引用，使文档与其视觉资源具有同一个清晰归属。
-- 在人物小传附近使用迁移后的 `docs/assets/silvermoon-avatar.svg` 线稿头像，默认宽度约
-  128 px 且不超过 144 px；保留现有顶部主视觉的主次关系，并提供准确的替代文本。
+- 使用表格将迁移后的 `docs/assets/silvermoon-avatar.svg` 线稿头像与人物小传排成左右
+  layout，头像在左，默认宽度约 128 px 且不超过 144 px；动画链接位于表格外。保留现有
+  顶部主视觉的主次关系，并提供准确的替代文本。
 - 以连贯 prose 系统阐释道心、内景、现世的嵌套关系、因果传导、决策边界与项目归属，保留
   “道心立意，内景成形，现世验真”作为核心表达。
 - 将 README 中使用前不必掌握的精确技术内容迁入英文 `docs/`，按入门、核心概念、操作指南、

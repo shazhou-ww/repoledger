@@ -5,8 +5,8 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
 const repositoryRoot = fileURLToPath(new URL("../..", import.meta.url));
-const youtube = "https://www.youtube.com/watch?v=qlodDgpiYhg";
-const bilibili = "https://www.bilibili.com/bangumi/play/ep733316";
+const youtube = "https://www.youtube.com/watch?v=GJgezoCBIHM";
+const bilibili = "https://www.bilibili.com/bangumi/play/ep1231558";
 const reading = [
   "./docs/getting-started.md",
   "./docs/core-concepts.md",
@@ -30,6 +30,10 @@ test("keeps both READMEs reader-first and structurally aligned", async () => {
     assert.match(source, /docs\/assets\/silvermoon\.svg/);
     assert.match(source, /docs\/assets\/silvermoon-avatar\.svg" width="128"/);
     assert.match(source, /<table>[\s\S]*silvermoon-avatar\.svg[\s\S]*<\/table>/);
+    assert.doesNotMatch(
+      source.match(/<table>[\s\S]*?<\/table>/)?.[0] ?? "",
+      /youtube\.com|bilibili\.com/,
+    );
     assert.ok(source.includes(youtube));
     assert.ok(source.includes(bilibili));
     for (const target of reading) assert.ok(source.includes(target), target);
@@ -57,9 +61,15 @@ test("keeps the approved biography bounded and accurate", async () => {
   }
   assert.match(
     english,
-    /title="A Record of a Mortal's Journey to Immortality — Episode 192: The Mulan War 16"/,
+    /- YouTube: \[Episode 150: Overseas Turmoil 26\]\([^)]+"A Record of a Mortal's Journey to Immortality — Episode 150: Overseas Turmoil 26"\)/,
   );
-  assert.match(chinese, /title="《凡人修仙传》第192话：慕兰之战16"/);
+  assert.match(
+    english,
+    /- Bilibili: \[Episode 150: Overseas Turmoil 26\]/,
+  );
+  assert.match(chinese, /- YouTube：\[第 150 话：外海风云 26\]/);
+  assert.match(chinese, /- 哔哩哔哩：\[第 150 话：外海风云 26\]/);
+  assert.doesNotMatch(chinese, /share_source=/);
 });
 
 test("resolves repository-local links in reader documentation", async () => {

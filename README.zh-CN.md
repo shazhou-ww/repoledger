@@ -66,18 +66,14 @@ Silvermoon 会让目标、实现、仓库状态与现实结果始终相连。完
       这个意象与项目相合：Silvermoon 不属于某位操作者或某次对话。它与项目产物共存，
       理解它们的状态，并帮助每位同行者判断下一步。人物小传只是灵感来源，不是使用工具的
       知识门槛。
-      <br><br>
-      观看
-      <a href="https://www.youtube.com/watch?v=qlodDgpiYhg" title="《凡人修仙传》第192话：慕兰之战16">
-        《凡人修仙传》第192话：慕兰之战16（YouTube）
-      </a>
-      或
-      <a href="https://www.bilibili.com/bangumi/play/ep733316" title="《凡人修仙传》官方动画第1话">
-        《凡人修仙传》官方动画第1话（哔哩哔哩）
-      </a>。
     </td>
   </tr>
 </table>
+
+观看《凡人修仙传》：
+
+- YouTube：[第 150 话：外海风云 26](https://www.youtube.com/watch?v=GJgezoCBIHM "《凡人修仙传》第 150 话：外海风云 26")
+- 哔哩哔哩：[第 150 话：外海风云 26](https://www.bilibili.com/bangumi/play/ep1231558 "《凡人修仙传》第 150 话：外海风云 26")
 
 ## 从理想到现实
 

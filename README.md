@@ -79,20 +79,14 @@ sessions, Agents, and hosting platforms.
       or one chat. It lives with the project's artifacts, understands their
       state, and helps each companion find what comes next. The biography is
       inspiration, not a prerequisite for using the tool.
-      <br><br>
-      Watch
-      <a href="https://www.youtube.com/watch?v=qlodDgpiYhg" title="A Record of a Mortal's Journey to Immortality — Episode 192: The Mulan War 16">
-        <em>A Record of a Mortal's Journey to Immortality</em> — Episode 192:
-        The Mulan War 16 (YouTube)
-      </a>
-      or
-      <a href="https://www.bilibili.com/bangumi/play/ep733316" title="A Record of a Mortal's Journey to Immortality — Episode 1">
-        <em>A Record of a Mortal's Journey to Immortality</em> — Episode 1
-        (Bilibili)
-      </a>.
     </td>
   </tr>
 </table>
+
+Watch *A Record of a Mortal's Journey to Immortality*:
+
+- YouTube: [Episode 150: Overseas Turmoil 26](https://www.youtube.com/watch?v=GJgezoCBIHM "A Record of a Mortal's Journey to Immortality — Episode 150: Overseas Turmoil 26")
+- Bilibili: [Episode 150: Overseas Turmoil 26](https://www.bilibili.com/bangumi/play/ep1231558 "A Record of a Mortal's Journey to Immortality — Episode 150: Overseas Turmoil 26")
 
 ## From Ideal To Real
 
