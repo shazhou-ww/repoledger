@@ -140,23 +140,23 @@ Mirror stable IDs and short titles from both world contracts:
 
 ## Implementation
 
-### Steps
+### Implementation steps
 
 - [x] **I-S01:** Completed step
 - [ ] **I-S02:** Remaining step
 
-### Acceptance criteria
+### Implementation acceptance criteria
 
 - [x] **I-AC01:** Proven criterion
 - [ ] **I-AC02:** Unproven criterion
 
 ## Deployment
 
-### Steps
+### Deployment steps
 
 - [ ] **D-S01:** Deployment step
 
-### Acceptance criteria
+### Deployment acceptance criteria
 
 - [ ] **D-AC01:** Deployment criterion
 ```

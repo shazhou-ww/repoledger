@@ -2,7 +2,7 @@
 
 ## Implementation
 
-### Steps
+### Implementation steps
 
 - [x] **I-S01:** 拆分三个 JSON Schema 文件
 - [x] **I-S02:** 建立相对 references 与 published IDs
@@ -11,7 +11,7 @@
 - [x] **I-S05:** 删除旧 schema 路径
 - [x] **I-S06:** 运行完整 candidate validation
 
-### Acceptance criteria
+### Implementation acceptance criteria
 
 - [x] **I-AC01:** Config 独立根 schema
 - [x] **I-AC02:** Idea status 独立根 schema
@@ -26,7 +26,7 @@
 
 ## Deployment
 
-### Steps
+### Deployment steps
 
 - [x] **D-S01:** 读取三个公开 raw schema
 - [x] **D-S02:** 验证 JSON 与 published IDs
@@ -34,7 +34,7 @@
 - [x] **D-S04:** 验证旧 schema 路径不存在
 - [x] **D-S05:** 验证 authoritative remote history
 
-### Acceptance criteria
+### Deployment acceptance criteria
 
 - [x] **D-AC01:** Config schema 公开可读取
 - [x] **D-AC02:** Idea status schema 公开可读取

@@ -147,6 +147,33 @@ test("registers the canonical silvermoon skill for this project", async () => {
   );
 });
 
+test("keeps repository idea titles specific and ledger headings unique", async () => {
+  const ideasRoot = resolve(repositoryRoot, ".silvermoon", "ideas");
+  const ideas = await readdir(ideasRoot, { withFileTypes: true });
+  for (const idea of ideas) {
+    if (!idea.isDirectory()) continue;
+    const ideaRoot = resolve(ideasRoot, idea.name);
+    const ideaDocument = await readFile(
+      resolve(ideaRoot, "outer", "inner", "ideal", "Idea.md"),
+      "utf8",
+    );
+    assert.doesNotMatch(ideaDocument, /^# Idea$/m, idea.name);
+
+    const ledger = await readFile(resolve(ideaRoot, "ledger.md"), "utf8");
+    const headings = [...ledger.matchAll(/^#{1,6} (.+)$/gm)]
+      .map(([, heading]) => heading);
+    assert.equal(new Set(headings).size, headings.length, idea.name);
+    for (const heading of [
+      "Implementation steps",
+      "Implementation acceptance criteria",
+      "Deployment steps",
+      "Deployment acceptance criteria",
+    ]) {
+      assert.ok(headings.includes(heading), `${idea.name} is missing: ${heading}`);
+    }
+  }
+});
+
 test("documents explicit Silvermoon adoption and conversion", async () => {
   const readme = await readFile(resolve(repositoryRoot, "README.md"), "utf8");
   const operations = await readFile(

@@ -2,11 +2,11 @@
 
 ## Implementation
 
-### Steps
+### Implementation steps
 
 当前 contract 未单独定义 implementation steps。
 
-### Acceptance criteria
+### Implementation acceptance criteria
 
 - [x] **I01:** 固定 metadata layout
 - [x] **I02:** Silvermoon v1 配置
@@ -26,11 +26,11 @@
 
 ## Deployment
 
-### Steps
+### Deployment steps
 
 当前 contract 未单独定义 deployment steps。
 
-### Acceptance criteria
+### Deployment acceptance criteria
 
 - [x] **D01:** 新仓库 lifecycle
 - [x] **D02:** 生产级联验证

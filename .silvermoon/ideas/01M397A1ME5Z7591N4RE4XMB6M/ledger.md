@@ -2,14 +2,14 @@
 
 ## Implementation
 
-### Steps
+### Implementation steps
 
 - [x] **I-S01:** Separate tests by execution boundary
 - [x] **I-S02:** Expose deterministic validation commands
 - [x] **I-S03:** Reshape CI and publish validation
 - [x] **I-S04:** Align documentation and executable contracts
 
-### Acceptance criteria
+### Implementation acceptance criteria
 
 - [x] **I-AC01:** Every automated test has an accurate layer
 - [x] **I-AC02:** Ordinary CI gives fast pre-merge feedback
@@ -18,10 +18,10 @@
 
 ## Deployment
 
-### Steps
+### Deployment steps
 
 - [x] **D-S01:** Observe the layered CI workflow on primary
 
-### Acceptance criteria
+### Deployment acceptance criteria
 
 - [x] **D-AC01:** GitHub Actions proves the intended CI topology

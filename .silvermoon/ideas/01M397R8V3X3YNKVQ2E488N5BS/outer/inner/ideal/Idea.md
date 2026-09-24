@@ -1,4 +1,4 @@
-# Idea
+# 提供准确易用的简体中文 README
 
 ## Intent
 

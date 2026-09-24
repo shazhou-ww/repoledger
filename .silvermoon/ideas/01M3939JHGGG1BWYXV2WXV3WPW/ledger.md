@@ -2,11 +2,11 @@
 
 ## Implementation
 
-### Steps
+### Implementation steps
 
 当前 contract 未单独定义 implementation steps。
 
-### Acceptance criteria
+### Implementation acceptance criteria
 
 - [x] **I01:** Ledger layout
 - [x] **I02:** Revision isolation
@@ -21,11 +21,11 @@
 
 ## Deployment
 
-### Steps
+### Deployment steps
 
 当前 contract 未单独定义 deployment steps。
 
-### Acceptance criteria
+### Deployment acceptance criteria
 
 - [x] **D01:** Cross-session continuation
 - [x] **D02:** Lifecycle isolation

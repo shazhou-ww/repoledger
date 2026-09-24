@@ -46,6 +46,29 @@ contract 和 checkbox decision boundary，不留下 empty scaffold 或 optional 
 world revision isolation、所有 check snapshot target、skill guidance、package contents
 与完整 lifecycle。先运行最小相关测试，再运行仓库规定的完整检查。
 
+### I-S08: 修正默认文档标题
+
+将 `Idea.md` 模板首行改为 `# Replace with a specific title for this idea`。保留现有结构和
+写作提示，使新 scaffold 明确要求作者替换标题，同时避免使用会产生空 heading 的 HTML
+comment。
+
+将 ledger 模板的四个三级标题改为 `Implementation steps`、
+`Implementation acceptance criteria`、`Deployment steps` 和
+`Deployment acceptance criteria`。保留现有两个二级阶段、checkbox、stable ID 和条目
+顺序。
+
+### I-S09: 同步 guidance 与回归保护
+
+同步 canonical skill、repository-local skill registration 和 installed-package smoke
+expectation。扩充 create-idea 集成测试，直接断言标题提示、四个唯一 ledger heading，并
+证明生成的 ledger 不再包含重复 heading。
+
+### I-S10: 迁移现有 idea 文档
+
+扫描 repository-owned idea 文档，将仍以 `# Idea` 开头的 `Idea.md` 按各自 Intent 改为
+具体标题。把每份现有 `ledger.md` 的四个三级标题迁移为带阶段名称的唯一标题，只替换
+heading 文本，不改变 checkbox、stable ID、条目顺序或完成状态。
+
 ## Acceptance criteria
 
 ### I-AC01: 新 scaffold 包含完整结构
@@ -95,3 +118,28 @@ optional fallback 或需要发布后兼容的双重布局。
 目标测试通过后，`pnpm check`、`pnpm check:skills`、package allowlist、installed-package
 smoke、Markdown link validation 与 `git diff --check` 全部成功；任何失败都必须显式修复或
 报告，不得使用 success-shaped fallback。
+
+### I-AC09: Idea 标题明确要求替换
+
+新建 scaffold 的 `Idea.md` 必须以
+`# Replace with a specific title for this idea` 开头，且不再包含 `# Idea` 默认标题。
+create-idea integration test 与 installed-package smoke test 必须分别证明 source checkout
+和 packed installation 生成相同内容。
+
+### I-AC10: Ledger 标题唯一且阶段清晰
+
+新建 scaffold 的 `ledger.md` 必须保留 Implementation 与 Deployment 二级阶段，并使用四个
+带阶段名称的唯一三级标题。集成测试必须解析所有 Markdown heading，证明没有重复值，并
+断言四个预期三级标题完整存在。
+
+### I-AC11: 现有 idea 文档完成迁移
+
+仓库内不得再有以 `# Idea` 开头的现有 `Idea.md`，且每份 repository-owned `ledger.md`
+都必须使用四个带阶段名称的唯一三级标题。contract test 必须扫描所有 idea 文档并证明
+不存在通用 Idea 标题或重复 ledger heading。
+
+### I-AC12: Guidance 与完整验证保持同步
+
+canonical skill 及其 repository registration 必须展示新的 ledger layout，且所有精确模板
+expectation 与 package smoke 保持一致。`pnpm check`、`pnpm check:skills` 和
+`git diff --check` 必须通过。

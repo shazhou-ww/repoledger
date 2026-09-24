@@ -2,7 +2,7 @@
 
 ## Implementation
 
-### Steps
+### Implementation steps
 
 - [x] **I-S01:** Package the canonical skill
 - [x] **I-S02:** Diagnose complete adoption state
@@ -10,7 +10,7 @@
 - [x] **I-S04:** Integrate onboarding with lifecycle routing
 - [x] **I-S05:** Document and verify the product contract
 
-### Acceptance criteria
+### Implementation acceptance criteria
 
 - [x] **I-AC01:** Published package is self-contained and aligned
 - [x] **I-AC02:** Bootstrap diagnosis is complete and read-only
@@ -20,7 +20,7 @@
 
 ## Deployment
 
-### Steps
+### Deployment steps
 
 - [x] **D-S01:** Build and inspect the publishable artifact
 - [x] **D-S02:** Exercise unfamiliar-project diagnosis
@@ -28,7 +28,7 @@
 - [x] **D-S04:** Verify source-checkout dogfooding and command boundaries
 - [x] **D-S05:** Execute release-grade validation
 
-### Acceptance criteria
+### Deployment acceptance criteria
 
 - [x] **D-AC01:** Canonical skill ships in the npm artifact
 - [x] **D-AC02:** Bootstrap diagnosis is complete and observational

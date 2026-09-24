@@ -141,6 +141,19 @@ test("[unrelated-active-create] creates an exact alias-less scaffold without Git
   ]) {
     assert.equal(await readFile(join(root, ...path.split("/")), "utf8"), source);
   }
+  assert.match(IDEA_TEMPLATE, /^# Replace with a specific title for this idea$/m);
+  assert.doesNotMatch(IDEA_TEMPLATE, /^# Idea$/m);
+  const ledgerHeadings = [...LEDGER_TEMPLATE.matchAll(/^#{1,6} (.+)$/gm)]
+    .map(([, heading]) => heading);
+  assert.equal(new Set(ledgerHeadings).size, ledgerHeadings.length);
+  for (const heading of [
+    "Implementation steps",
+    "Implementation acceptance criteria",
+    "Deployment steps",
+    "Deployment acceptance criteria",
+  ]) {
+    assert.ok(ledgerHeadings.includes(heading));
+  }
   assert.equal(
     await readFile(join(root, ...created.statusPath.split("/")), "utf8"),
     `version: 1\nid: ${createdId}\n`,

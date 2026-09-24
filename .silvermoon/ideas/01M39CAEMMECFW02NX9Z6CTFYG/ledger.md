@@ -2,20 +2,20 @@
 
 ## Implementation
 
-### Steps
+### Implementation steps
 
 - [ ] **I-S01:** Step title
 
-### Acceptance criteria
+### Implementation acceptance criteria
 
 - [ ] **I-AC01:** Criterion title
 
 ## Deployment
 
-### Steps
+### Deployment steps
 
 - [ ] **D-S01:** Step title
 
-### Acceptance criteria
+### Deployment acceptance criteria
 
 - [ ] **D-AC01:** Criterion title

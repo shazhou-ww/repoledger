@@ -2,11 +2,11 @@
 
 ## Implementation
 
-### Steps
+### Implementation steps
 
 当前 contract 未单独定义 implementation steps。
 
-### Acceptance criteria
+### Implementation acceptance criteria
 
 - [ ] **I-AC01:** 文档化命令运行 scenario 并显式报告 hard failure
 - [ ] **I-AC02:** Canonical runner 授权与 preflight 安全
@@ -22,11 +22,11 @@
 
 ## Deployment
 
-### Steps
+### Deployment steps
 
 当前 contract 未单独定义 deployment steps。
 
-### Acceptance criteria
+### Deployment acceptance criteria
 
 - [ ] **D-AC01:** Repository checks 与 verifier 自测通过
 - [ ] **D-AC02:** Canonical Agent 代表性 session 成功

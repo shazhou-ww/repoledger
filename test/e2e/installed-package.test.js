@@ -231,7 +231,7 @@ try {
   assert.match(created.result.createdIdea.id, /^[0-7][0-9A-HJKMNP-TV-Z]{25}$/);
   assert.equal(
     await readFile(join(consumer, created.result.createdIdea.ideaDocumentPath), "utf8"),
-    `# Idea
+    `# Replace with a specific title for this idea
 
 ## Intent
 
@@ -266,7 +266,7 @@ try {
   );
   assert.match(
     await readFile(join(consumer, created.result.createdIdea.ledgerPath), "utf8"),
-    /## Implementation[\s\S]*I-S01[\s\S]*## Deployment[\s\S]*D-AC01/,
+    /## Implementation[\s\S]*### Implementation steps[\s\S]*I-S01[\s\S]*### Implementation acceptance criteria[\s\S]*I-AC01[\s\S]*## Deployment[\s\S]*### Deployment steps[\s\S]*D-S01[\s\S]*### Deployment acceptance criteria[\s\S]*D-AC01/,
   );
   assert.equal(
     await readFile(join(consumer, created.result.createdIdea.statusPath), "utf8"),

@@ -1,4 +1,4 @@
-# Idea
+# Unify Silvermoon onboarding and local tooling versions
 
 ## Intent
 
