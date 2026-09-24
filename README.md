@@ -62,6 +62,9 @@ sessions, Agents, and hosting platforms.
 
 ## The Project's Artifact Spirit
 
+> Fellow Daoist, you wouldn't want your lifebound project to be without an
+> artifact spirit, would you?
+
 <table>
   <tr>
     <td width="160" align="center" valign="top">

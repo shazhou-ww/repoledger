@@ -53,6 +53,8 @@ Silvermoon 会让目标、实现、仓库状态与现实结果始终相连。完
 
 ## 项目的器灵
 
+> 道友也不想自己的本命项目没有器灵吧？
+
 <table>
   <tr>
     <td width="160" align="center" valign="top">

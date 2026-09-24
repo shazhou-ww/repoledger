@@ -25,6 +25,11 @@ test("keeps both READMEs reader-first and structurally aligned", async () => {
   assert.ok(chinese.indexOf("## 快速开始") < chinese.indexOf("## 为什么需要 Silvermoon"));
   assert.match(english, /\*\*The artifact spirit of the project\.\*\*/);
   assert.match(chinese, /\*\*项目的器灵。\*\*/);
+  assert.match(
+    english,
+    /> Fellow Daoist, you wouldn't want your lifebound project to be without an\s+>\s*artifact spirit, would you\?/,
+  );
+  assert.match(chinese, /> 道友也不想自己的本命项目没有器灵吧？/);
 
   for (const source of [english, chinese]) {
     assert.match(source, /docs\/assets\/silvermoon\.svg/);

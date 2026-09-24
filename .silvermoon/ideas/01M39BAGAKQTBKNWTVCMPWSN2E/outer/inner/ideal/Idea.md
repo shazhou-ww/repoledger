@@ -49,6 +49,9 @@ CLI、validation、adoption 和维护者信息在英文 `docs/` 中各有清晰�
   一致，以及实现跨设备、跨 session、跨托管平台的 continuity。
 - 将中文定位统一为“项目的器灵”，英文定位统一为 “the artifact spirit of the project”，
   并同步直接相关的用户可见产品文案。
+- 在人物小传标题后加入由银月台词化用而来的短句“道友也不想自己的本命项目没有器灵吧？”，
+  英文使用语义对应且自然的 “Fellow Daoist, you wouldn't want your lifebound project to be
+  without an artifact spirit, would you?”。
 - 增加简短的人物小传，只介绍银月来自灵界的银月狼族、是玲珑公主的分魂之一，以及她作为
   器灵先后寄居的狼首玉如意（a wolf-headed jade scepter）和青竹蜂云剑
   （the Bamboo Cloudswarm Swords），不展开额外原作剧情。

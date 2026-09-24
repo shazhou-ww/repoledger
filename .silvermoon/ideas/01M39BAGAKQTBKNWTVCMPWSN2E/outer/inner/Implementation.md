@@ -25,7 +25,8 @@ authoritative page. Keep the English and Chinese READMEs structurally aligned,
 use the approved product positioning and biography details, present the avatar
 and biography in a left-right table, and place two bullets outside the table
 for the approved episode 150 YouTube and Bilibili links with descriptive titles
-and link text.
+and link text. Introduce the biography with the approved Chinese Silvermoon
+quotation adaptation and its corresponding English translation.
 
 ### I-S04: Update package and verification surfaces
 
@@ -59,8 +60,9 @@ and Chinese positioning says “项目的器灵”. Both biographies contain onl
 approved Silvermoon Wolf Clan, Ling Long split-soul, wolf-headed jade scepter,
 and Bamboo Cloudswarm Swords facts, show the unchanged 128-pixel avatar to the
 left of the biography, and list the approved episode 150 YouTube and Bilibili
-pages as two titled bullets outside the table. Prove this with targeted README
-contract assertions.
+pages as two titled bullets outside the table. The approved lifebound-project
+quotation appears immediately before both biographies. Prove this with targeted
+README contract assertions.
 
 ### I-AC04: Documentation assets work from source and the installed package
 
