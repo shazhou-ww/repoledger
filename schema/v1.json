@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/shazhou-ww/repoledger/raw/refs/heads/main/schema/v3.json",
-  "title": "repoledger storage contracts v3",
+  "$id": "https://github.com/shazhou-ww/silvermoon/raw/refs/heads/main/schema/v1.json",
+  "title": "silvermoon storage contracts v1",
   "$defs": {
     "branch": {
       "type": "string",
@@ -68,7 +68,7 @@
   ],
   "properties": {
     "version": {
-      "const": 3
+      "const": 1
     },
     "ideasDirectory": {
       "$ref": "#/$defs/ideasDirectory"

@@ -160,7 +160,7 @@ export async function inspectIdeaLayout({
         "git.object-format.unavailable",
         config.ideasDirectory,
         caught.message,
-        "Run Repoledger inside a Git repository with a supported object format.",
+        "Run Silvermoon inside a Git repository with a supported object format.",
       )],
       ideas: [],
     };

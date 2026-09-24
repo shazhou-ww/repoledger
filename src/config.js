@@ -4,7 +4,7 @@ import { isAbsolute, posix, relative, resolve, sep } from "node:path";
 import { validBranchName, validRepository } from "./repository.js";
 import { parseStrictYaml, stringifyCanonicalYaml } from "./yaml.js";
 
-export const DEFAULT_CONFIG_NAME = "repoledger.yaml";
+export const DEFAULT_CONFIG_NAME = "silvermoon.yaml";
 
 const CONFIG_KEYS = [
   "version",
@@ -87,8 +87,8 @@ export async function loadConfig({ root, configPath = DEFAULT_CONFIG_NAME }) {
         configDiagnostic(
           "config.path.outside-root",
           displayPath,
-          "The repoledger configuration path must stay within the repository root.",
-          "Use repoledger.yaml at the repository root.",
+          "The silvermoon configuration path must stay within the repository root.",
+          "Use silvermoon.yaml at the repository root.",
         ),
       ],
     };
@@ -113,8 +113,8 @@ export async function loadConfig({ root, configPath = DEFAULT_CONFIG_NAME }) {
           missing ? "config.missing" : "config.invalid-file",
           displayPath,
           missing
-            ? `Missing repoledger configuration: ${displayPath}`
-            : `Cannot read repoledger configuration: ${error.message}`,
+            ? `Missing silvermoon configuration: ${displayPath}`
+            : `Cannot read silvermoon configuration: ${error.message}`,
           missing
             ? `Create ${DEFAULT_CONFIG_NAME} at the repository root.`
             : `Replace ${displayPath} with a regular repository-owned file.`,
@@ -135,7 +135,7 @@ export async function loadConfig({ root, configPath = DEFAULT_CONFIG_NAME }) {
         configDiagnostic(
           "config.invalid-yaml",
           displayPath,
-          `Cannot parse repoledger configuration: ${error.message}`,
+          `Cannot parse silvermoon configuration: ${error.message}`,
           `Use the strict YAML contract in ${DEFAULT_CONFIG_NAME}.`,
         ),
       ],
@@ -150,23 +150,8 @@ export async function loadConfig({ root, configPath = DEFAULT_CONFIG_NAME }) {
         configDiagnostic(
           "config.invalid-type",
           displayPath,
-          "The repoledger configuration must be a YAML mapping.",
+          "The silvermoon configuration must be a YAML mapping.",
           `Replace ${displayPath} with the documented mapping.`,
-        ),
-      ],
-    };
-  }
-
-  if (value.version === 1 || value.version === 2) {
-    return {
-      config: null,
-      configPath: absolutePath,
-      diagnostics: [
-        configDiagnostic(
-          "config.migration-required",
-          displayPath,
-          `Repoledger configuration version ${value.version} uses the legacy task model.`,
-          "Convert the repository explicitly to the version 3 idea model before using Repoledger vNext.",
         ),
       ],
     };
@@ -179,7 +164,7 @@ export async function loadConfig({ root, configPath = DEFAULT_CONFIG_NAME }) {
         configDiagnostic(
           "config.unknown-key",
           `${displayPath}#${key}`,
-          `Unknown repoledger configuration key: ${key}`,
+          `Unknown silvermoon configuration key: ${key}`,
           `Remove ${key}.`,
         ),
       );
@@ -198,13 +183,13 @@ export async function loadConfig({ root, configPath = DEFAULT_CONFIG_NAME }) {
     }
   }
 
-  if (Object.hasOwn(value, "version") && value.version !== 3) {
+  if (Object.hasOwn(value, "version") && value.version !== 1) {
     diagnostics.push(
       configDiagnostic(
         "config.unsupported-version",
         `${displayPath}#version`,
-        `Unsupported repoledger version: ${String(value.version)}`,
-        "Use version: 3.",
+        `Unsupported silvermoon version: ${String(value.version)}`,
+        "Use version: 1.",
       ),
     );
   }
@@ -253,7 +238,7 @@ export async function loadConfig({ root, configPath = DEFAULT_CONFIG_NAME }) {
       configDiagnostic(
         "config.noncanonical",
         displayPath,
-        "The repoledger configuration is valid but not canonical.",
+        "The silvermoon configuration is valid but not canonical.",
         "Rewrite properties in version, optional ideasDirectory, primaryRepository, primaryBranch order with LF endings.",
       ),
     );

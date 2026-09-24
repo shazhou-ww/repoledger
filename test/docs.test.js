@@ -11,7 +11,7 @@ const repositoryRoot = fileURLToPath(new URL("..", import.meta.url));
 async function markdownFiles(directory) {
   const files = [];
   for (const entry of await readdir(directory, { withFileTypes: true })) {
-    if ([".git", "node_modules"].includes(entry.name)) continue;
+    if ([".git", "ideas", "node_modules"].includes(entry.name)) continue;
     const path = resolve(directory, entry.name);
     if (entry.isDirectory()) files.push(...(await markdownFiles(path)));
     if (entry.isFile() && entry.name.endsWith(".md")) files.push(path);

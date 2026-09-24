@@ -1,7 +1,7 @@
 ---
 name: publish
 description: "Publish the allowlisted npm package from this repository through the protected GitHub Actions trusted-publishing workflow. Use only when the user explicitly invokes /publish with a release key and version intent."
-argument-hint: "[repoledger] [major|minor|patch|x.y.z]"
+argument-hint: "[silvermoon] [major|minor|patch|x.y.z]"
 user-invocable: true
 disable-model-invocation: true
 ---
@@ -73,12 +73,12 @@ development machine.
    non-force path, refresh `origin/main`, and verify the full commit is reachable
    from that branch. Do not tag an unpublished local commit or side branch.
 
-## Repoledger phase handoff
+## Silvermoon phase handoff
 
 Apply this section when the release is a deployment criterion of an active
-Repoledger idea. Independent package releases skip it.
+Silvermoon idea. Independent package releases skip it.
 
-1. Run `repoledger whats-next <idea> --json` after the validated release commit
+1. Run `silvermoon whats-next <idea> --json` after the validated release commit
    is published to primary.
 2. Require the selected idea to be the approved current revision and the action
    to be `implement-idea`. If guidance reports worktree, sync, or another higher
@@ -92,7 +92,7 @@ Repoledger idea. Independent package releases skip it.
    `implementing`.
 
 The package version commit remains the release candidate. The later status-only
-acceptance commit advances Repoledger state and may become the tagged primary
+acceptance commit advances Silvermoon state and may become the tagged primary
 commit because it leaves package contents unchanged.
 
 ## Create the release instruction

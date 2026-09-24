@@ -45,7 +45,7 @@ function git(root, args) {
 
 function manifest(version = "0.1.1") {
   return {
-    name: "repoledger",
+    name: "silvermoon",
     version,
     publishConfig: {
       access: "public",
@@ -59,7 +59,7 @@ function plan(overrides = {}) {
     commit,
     manifest: manifest(),
     reachableFromPrimary: true,
-    tag: "npm/repoledger/v0.1.1",
+    tag: "npm/silvermoon/v0.1.1",
     ...overrides,
   });
 }
@@ -69,14 +69,14 @@ test("selects the allowlisted package from a canonical stable release tag", () =
     commit,
     distTag: "latest",
     packageDirectory: ".",
-    packageName: "repoledger",
-    releaseKey: "repoledger",
+    packageName: "silvermoon",
+    releaseKey: "silvermoon",
     version: "0.1.1",
   });
 });
 
 test("rejects malformed tags and unknown release keys", () => {
-  for (const tag of ["v0.1.1", "npm/repoledger/0.1.1", "npm/repoledger/v01.1.0"]) {
+  for (const tag of ["v0.1.1", "npm/silvermoon/0.1.1", "npm/silvermoon/v01.1.0"]) {
     assert.throws(() => parseReleaseTag(tag));
   }
   assert.throws(
@@ -198,8 +198,8 @@ test("emits fixed GitHub outputs for later workflow steps", () => {
   assert.equal(
     formatGitHubOutput(plan()),
     [
-      "release_key=repoledger",
-      "package_name=repoledger",
+      "release_key=silvermoon",
+      "package_name=silvermoon",
       "package_directory=.",
       "version=0.1.1",
       "dist_tag=latest",
@@ -279,12 +279,12 @@ test("documents trusted-publisher setup and the protected release procedure", as
   const guide = await readFile(releaseGuidePath, "utf8");
   for (const required of [
     "Organization or user: `shazhou-ww`",
-    "Repository: `repoledger`",
+    "Repository: `silvermoon`",
     "Workflow filename: `publish-npm.yml`",
     "Environment: `npm`",
     "Allowed action: direct `npm publish`",
     "tag ruleset targeting `npm/**`",
-    "git tag npm/repoledger/v0.1.1 origin/main",
+    "git tag npm/silvermoon/v0.1.1 origin/main",
     "RELEASE_PACKAGES",
     "Do not move or recreate the tag",
   ]) {
@@ -304,7 +304,7 @@ test("provides an explicit project publish skill with immutable release safeguar
     name: "publish",
     description:
       "Publish the allowlisted npm package from this repository through the protected GitHub Actions trusted-publishing workflow. Use only when the user explicitly invokes /publish with a release key and version intent.",
-    "argument-hint": "[repoledger] [major|minor|patch|x.y.z]",
+    "argument-hint": "[silvermoon] [major|minor|patch|x.y.z]",
     "user-invocable": true,
     "disable-model-invocation": true,
   });
@@ -317,7 +317,7 @@ test("provides an explicit project publish skill with immutable release safeguar
     "pnpm install --frozen-lockfile",
     "npm run pack:check",
     "git tag npm/<release-key>/v<version> origin/main",
-    "Repoledger phase handoff",
+    "Silvermoon phase handoff",
     "implementationAcceptedRevision",
     "require `deploy-idea` before creating the release",
     "Require the workflow conclusion to be `success`",

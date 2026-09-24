@@ -9,9 +9,9 @@ const repositoryRoot = fileURLToPath(new URL("..", import.meta.url));
 const npmRegistry = "https://registry.npmjs.org";
 
 export const RELEASE_PACKAGES = Object.freeze({
-  repoledger: Object.freeze({
+  silvermoon: Object.freeze({
     directory: ".",
-    packageName: "repoledger",
+    packageName: "silvermoon",
   }),
 });
 

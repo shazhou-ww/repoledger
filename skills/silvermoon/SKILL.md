@@ -1,13 +1,13 @@
 ---
-name: repoledger
+name: silvermoon
 description: "Navigate or create repository-owned ideas, execute one safe action, and reobserve only after an observable delta."
 argument-hint: "[new | idea ULID or alias]"
 user-invocable: true
 ---
 
-# Repoledger
+# Silvermoon
 
-Use Repoledger to navigate or explicitly create ideas against the configured
+Use Silvermoon to navigate or explicitly create ideas against the configured
 remote primary. The CLI derives idea state and checks repository hygiene; the
 Agent performs suggested repository or external actions through ordinary tools
 and Git.
@@ -15,9 +15,9 @@ and Git.
 ## Start From Primary
 
 1. Preserve the user's intent when choosing the entry command:
-   - For `/repoledger new` or any other explicit request to create a new idea,
-     run `repoledger create-idea --json`.
-   - Otherwise run `repoledger whats-next [idea] --json`. Pass the selector only
+   - For `/silvermoon new` or any other explicit request to create a new idea,
+     run `silvermoon create-idea --json`.
+   - Otherwise run `silvermoon whats-next [idea] --json`. Pass the selector only
      when the user supplied or previously selected one.
 2. Treat the command, request, `observedPrimaryCommit`, `selectedIdea`, and
    action or created idea as one immutable observation. Do not combine guidance
@@ -95,9 +95,9 @@ opaque idea tree more specifically.
 ## Verify Criteria Evidence
 
 Before the first implementation publication, enumerate the current idea's
-implementation criteria by their stable IDs (`I01` through `I14` for the
-current ergonomics idea). Produce a visible verification artifact outside the
-idea tree with this shape:
+implementation criteria by their stable IDs. Derive the exact ordered IDs from
+the current `Idea.md`; never reuse a range from another idea or revision.
+Produce a visible verification artifact outside the idea tree with this shape:
 
 ```json
 {
@@ -119,8 +119,12 @@ store this progress with checkboxes or by editing the idea definition.
 Validate the visible artifact with the package API before acceptance:
 
 ```js
-import { verifyCriteriaEvidence } from "repoledger";
+import {
+  implementationCriterionIds,
+  verifyCriteriaEvidence,
+} from "silvermoon";
 
+const criterionIds = implementationCriterionIds(ideaSource);
 const report = verifyCriteriaEvidence(ideaSource, artifact);
 if (!report.ok) {
   console.error(JSON.stringify(report.diagnostics));
@@ -130,15 +134,15 @@ if (!report.ok) {
 
 ## Write Status Facts
 
-Repoledger has no approval, acceptance, or abandonment mutation commands.
+Silvermoon has no approval, acceptance, or abandonment mutation commands.
 Update the sibling status YAML with ordinary file editing:
 
 1. Reconfirm the decision applies to the selected idea and current
    `ideaRevision`.
 2. Add or update only the corresponding revision field, or add/remove canonical
    `abandoned: true` after an explicit human decision.
-3. Run `repoledger check --worktree --json` while reviewing the complete
-  candidate, then stage it and run `repoledger check --staged --json`.
+3. Run `silvermoon check --worktree --json` while reviewing the complete
+  candidate, then stage it and run `silvermoon check --staged --json`.
 4. Commit the status decision separately when practical, then non-force push
    with the observation's `observedPrimaryCommit` as expected tip.
 
@@ -156,4 +160,4 @@ error with its recovery condition, or report no progress and stop if guidance
 completed without a delta. Never poll the same observation.
 
 Follow [adoption.md](./references/adoption.md) when creating or explicitly
-converting a repository to vNext.
+converting a repository to Silvermoon.

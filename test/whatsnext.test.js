@@ -31,17 +31,17 @@ afterEach(async () => {
 });
 
 async function createRepository() {
-  const base = await mkdtemp(join(tmpdir(), "repoledger-whatsnext-"));
+  const base = await mkdtemp(join(tmpdir(), "silvermoon-whatsnext-"));
   temporaryDirectories.push(base);
   const root = join(base, "work");
   const remote = join(base, "remote.git");
   await mkdir(root);
   git(root, "init", "--initial-branch=main");
-  git(root, "config", "user.name", "repoledger test");
-  git(root, "config", "user.email", "repoledger@example.invalid");
+  git(root, "config", "user.name", "silvermoon test");
+  git(root, "config", "user.email", "silvermoon@example.invalid");
   git(root, "config", "core.autocrlf", "false");
   const repository = pathToFileURL(remote).href;
-  await writeFile(join(root, "repoledger.yaml"), `version: 3
+  await writeFile(join(root, "silvermoon.yaml"), `version: 1
 primaryRepository: https://example.test/owner/repository.git
 primaryBranch: main
 `);
@@ -337,7 +337,7 @@ test("[primary-relocation] adopts relocated primary coordinates across two obser
   const canonicalSecondary = "https://example.test/owner/secondary.git";
   const original = git(root, "rev-parse", "HEAD");
 
-  await writeFile(join(root, "repoledger.yaml"), `version: 3
+  await writeFile(join(root, "silvermoon.yaml"), `version: 1
 primaryRepository: ${canonicalSecondary}
 primaryBranch: trunk
 `);

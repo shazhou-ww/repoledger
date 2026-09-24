@@ -43,17 +43,17 @@ afterEach(async () => {
 });
 
 async function createRepository() {
-  const base = await mkdtemp(join(tmpdir(), "repoledger-create-idea-"));
+  const base = await mkdtemp(join(tmpdir(), "silvermoon-create-idea-"));
   temporaryDirectories.push(base);
   const root = join(base, "work");
   const remote = join(base, "primary.git");
   await mkdir(root);
   git(root, "init", "--initial-branch=main");
-  git(root, "config", "user.name", "repoledger test");
-  git(root, "config", "user.email", "repoledger@example.invalid");
+  git(root, "config", "user.name", "silvermoon test");
+  git(root, "config", "user.email", "silvermoon@example.invalid");
   git(root, "config", "core.autocrlf", "false");
   const repository = pathToFileURL(remote).href;
-  await writeFile(join(root, "repoledger.yaml"), `version: 3
+  await writeFile(join(root, "silvermoon.yaml"), `version: 1
 primaryRepository: https://example.test/owner/repository.git
 primaryBranch: main
 `);
@@ -72,17 +72,17 @@ primaryBranch: main
 }
 
 async function createEmptyRepository() {
-  const base = await mkdtemp(join(tmpdir(), "repoledger-create-first-"));
+  const base = await mkdtemp(join(tmpdir(), "silvermoon-create-first-"));
   temporaryDirectories.push(base);
   const root = join(base, "work");
   const remote = join(base, "primary.git");
   await mkdir(root);
   git(root, "init", "--initial-branch=main");
-  git(root, "config", "user.name", "repoledger test");
-  git(root, "config", "user.email", "repoledger@example.invalid");
+  git(root, "config", "user.name", "silvermoon test");
+  git(root, "config", "user.email", "silvermoon@example.invalid");
   git(root, "config", "core.autocrlf", "false");
   const repository = pathToFileURL(remote).href;
-  await writeFile(join(root, "repoledger.yaml"), `version: 3
+  await writeFile(join(root, "silvermoon.yaml"), `version: 1
 ideasDirectory: docs/ideas
 primaryRepository: https://example.test/owner/repository.git
 primaryBranch: main

@@ -9,10 +9,10 @@ The current release mapping is:
 
 | Release key | Package | Directory |
 | --- | --- | --- |
-| `repoledger` | `repoledger` | `.` |
+| `silvermoon` | `silvermoon` | `.` |
 
-A stable tag such as `npm/repoledger/v0.1.1` publishes with the npm `latest`
-dist-tag. A named prerelease such as `npm/repoledger/v0.2.0-beta.1` publishes
+A stable tag such as `npm/silvermoon/v0.1.1` publishes with the npm `latest`
+dist-tag. A named prerelease such as `npm/silvermoon/v0.2.0-beta.1` publishes
 with the `beta` dist-tag. Numeric-only prerelease channels are intentionally
 rejected.
 
@@ -24,7 +24,7 @@ In the npm package settings, add a GitHub Actions trusted publisher with these
 exact values:
 
 - Organization or user: `shazhou-ww`
-- Repository: `repoledger`
+- Repository: `silvermoon`
 - Workflow filename: `publish-npm.yml`
 - Environment: `npm`
 - Allowed action: direct `npm publish`
@@ -67,20 +67,20 @@ the release namespace.
    package's `pack:check` script.
 3. Merge the version change to `main`; do not tag an unmerged branch or local
    working tree.
-4. When the release is a deployment criterion of an active Repoledger idea,
+4. When the release is a deployment criterion of an active Silvermoon idea,
    record implementation acceptance for the approved current idea revision,
-   publish that status-only commit, and require `repoledger whats-next <idea>` to
+   publish that status-only commit, and require `silvermoon whats-next <idea>` to
    return `deploy-idea`. Never create the release tag while the idea still
    derives `implementing`.
 5. Fetch the current primary branch and tags.
 6. Create the package-specific tag at `origin/main` and push that exact tag.
 
-For `repoledger@0.1.1`:
+For `silvermoon@0.1.1`:
 
 ```sh
 git fetch origin main --tags
-git tag npm/repoledger/v0.1.1 origin/main
-git push origin refs/tags/npm/repoledger/v0.1.1
+git tag npm/silvermoon/v0.1.1 origin/main
+git push origin refs/tags/npm/silvermoon/v0.1.1
 ```
 
 The tag version must exactly equal [`package.json`](../package.json). The

@@ -1,13 +1,13 @@
-# Repoledger repository instructions
+# Silvermoon repository instructions
 
 ## Idea workflow
 
-Load and follow [`repoledger`](skills/repoledger/SKILL.md) when the user invokes
-`/repoledger` or asks to navigate or continue a repository idea. Apply the
+Load and follow [`silvermoon`](skills/silvermoon/SKILL.md) when the user invokes
+`/silvermoon` or asks to navigate or continue a repository idea. Apply the
 repository profile in [`docs/repository-tasks.md`](docs/repository-tasks.md).
 
-- For an explicit new-idea request, start with `repoledger create-idea --json`;
-  otherwise start with `repoledger whats-next [idea] --json`. Execute only the
+- For an explicit new-idea request, start with `silvermoon create-idea --json`;
+  otherwise start with `silvermoon whats-next [idea] --json`. Execute only the
   highest-priority action and preserve create intent across hygiene retries.
 - Preserve unknown work and both sides of concurrent history; never force-push,
   reset, clean, or silently replay a stale decision.
@@ -27,5 +27,5 @@ repository profile in [`docs/repository-tasks.md`](docs/repository-tasks.md).
 Before preparing or troubleshooting a release, follow
 [`docs/npm-package-releases.md`](docs/npm-package-releases.md). Publish only
 through `.github/workflows/publish-npm.yml` using an immutable
-`npm/repoledger/v<version>` tag on a commit reachable from `origin/main`.
+`npm/silvermoon/v<version>` tag on a commit reachable from `origin/main`.
 Never publish from a development machine or add npm tokens.

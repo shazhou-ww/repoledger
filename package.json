@@ -1,23 +1,24 @@
 {
-  "name": "repoledger",
+  "name": "silvermoon",
   "version": "0.9.1",
-  "description": "Derive and validate Git-native repository idea state.",
+  "description": "The project spirit that checks repository state and answers what's next.",
   "packageManager": "pnpm@11.22.0",
   "type": "module",
   "bin": {
-    "repoledger": "bin/repoledger.js"
+    "silvermoon": "bin/silvermoon.js"
   },
   "exports": {
     ".": "./src/index.js"
   },
   "files": [
+    "assets",
     "bin",
     "src",
     "README.md",
     "schema"
   ],
   "scripts": {
-    "check": "node --check bin/repoledger.js && node --test && npm run pack:check && npm run smoke:pack && npm run check:skills",
+    "check": "node --check bin/silvermoon.js && node --test && npm run pack:check && npm run smoke:pack && npm run check:skills",
     "check:skills": "npx skills add . --list",
     "pack:check": "node scripts/check-pack.js",
     "prepare:npm-release": "node scripts/prepare-npm-release.mjs",
@@ -30,9 +31,10 @@
   "keywords": [
     "agent-skills",
     "cli",
+    "project-state",
     "repository",
-    "task-ledger",
-    "validation"
+    "validation",
+    "whats-next"
   ],
   "license": "UNLICENSED",
   "publishConfig": {
@@ -41,7 +43,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/shazhou-ww/repoledger.git"
+    "url": "git+https://github.com/shazhou-ww/silvermoon.git"
   },
   "devDependencies": {
     "semver": "^7.8.5"

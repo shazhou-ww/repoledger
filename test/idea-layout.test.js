@@ -29,11 +29,11 @@ afterEach(async () => {
 });
 
 async function createRepository() {
-  const root = await mkdtemp(join(tmpdir(), "repoledger-ideas-"));
+  const root = await mkdtemp(join(tmpdir(), "silvermoon-ideas-"));
   temporaryDirectories.push(root);
   git(root, "init", "--initial-branch=main");
-  git(root, "config", "user.name", "repoledger test");
-  git(root, "config", "user.email", "repoledger@example.invalid");
+  git(root, "config", "user.name", "silvermoon test");
+  git(root, "config", "user.email", "silvermoon@example.invalid");
   git(root, "config", "core.autocrlf", "false");
   const folder = join(root, "ideas", id);
   await mkdir(folder, { recursive: true });
@@ -48,7 +48,7 @@ async function createRepository() {
 }
 
 const config = {
-  version: 3,
+  version: 1,
   ideasDirectory: "ideas",
   primaryRepository: "https://example.com/owner/repository.git",
   primaryBranch: "main",

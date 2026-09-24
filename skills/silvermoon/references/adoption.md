@@ -1,4 +1,4 @@
-# Repoledger vNext adoption
+# Silvermoon adoption
 
 ## New repositories
 
@@ -6,7 +6,7 @@ Install the package and skill, then create the configuration and empty ideas
 directory with ordinary repository edits:
 
 ```yaml
-version: 3
+version: 1
 ideasDirectory: ideas
 primaryRepository: https://example.com/owner/repository.git
 primaryBranch: main
@@ -19,9 +19,9 @@ rewrites remain machine-local.
 Commit the configuration and directory on primary, then run:
 
 ```sh
-repoledger check --commit HEAD
-repoledger check --remote
-repoledger whats-next
+silvermoon check --commit HEAD
+silvermoon check --remote
+silvermoon whats-next
 ```
 
 ## Idea storage
@@ -38,9 +38,9 @@ ideas/
 Core treats the folder as an opaque Git tree and requires no particular file,
 heading, or criteria format. Keep every document that changes the shared ideal
 inside the folder so its Git tree object changes the `ideaRevision`. Only the
-sibling status file is interpreted by Repoledger.
+sibling status file is interpreted by Silvermoon.
 
-The Repoledger skill creates `Idea.md` by default. Write completion conditions
+The Silvermoon skill creates `Idea.md` by default. Write completion conditions
 as plain list items under `## Implementation acceptance criteria` and
 `## Deployment acceptance criteria`; do not use task-list checkboxes as state.
 
@@ -55,15 +55,17 @@ Status may additionally contain an optional exact, unique `alias`, canonical `ab
 `deploymentAcceptedRevision` in that order. Alias comparison is exact and
 case-sensitive, and aliases must be unique in observed primary.
 
-For a new empty scaffold, run `repoledger create-idea --json`. It generates the
+For a new empty scaffold, run `silvermoon create-idea --json`. It generates the
 ULID, empty `Idea.md`, and canonical alias-less status; it does not stage,
 commit, push, or approve the idea.
 
-## Converting v1 or v2
+## Adopting from the previous product
 
-vNext deliberately has no runtime compatibility mode or in-place migration
-command. Keep using the matching old release until one reviewed conversion
-commit is ready.
+Silvermoon deliberately has no runtime compatibility mode or in-place migration
+command. It recognizes only `silvermoon.yaml` version 1; a repository containing
+only the previous configuration filename is unconfigured. Keep using the
+previous product's matching release until one reviewed conversion commit is
+ready.
 
 1. Validate and refresh the old primary with the old release.
 2. Inventory every legacy task and unintegrated source branch. Integrate or
@@ -74,11 +76,11 @@ commit is ready.
 4. Create sibling status files. Map explicit abandonment to `abandoned: true`.
    Record revision acceptance only when the corresponding legacy evidence is
    strong enough; otherwise let the idea derive an earlier state.
-5. Replace the old configuration with version 3 and remove legacy task storage
-   only after reviewing the converted idea set.
-6. Run `repoledger check --worktree`, stage the candidate, run the staged and
+5. Add `silvermoon.yaml` version 1 and remove the previous configuration and
+   legacy task storage only after reviewing the converted idea set.
+6. Run `silvermoon check --worktree`, stage the candidate, run the staged and
    commit checks, publish non-force, then run the remote check against complete
    primary history.
 
-Preserve old Git history. Never make old task fields look like vNext facts by
+Preserve old Git history. Never make old task fields look like Silvermoon facts by
 guessing approvals or external outcomes.

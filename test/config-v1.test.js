@@ -19,14 +19,14 @@ afterEach(async () => {
 });
 
 async function writeConfig(source) {
-  const root = await mkdtemp(join(tmpdir(), "repoledger-config-v3-"));
+  const root = await mkdtemp(join(tmpdir(), "silvermoon-config-v1-"));
   temporaryDirectories.push(root);
-  await writeFile(join(root, "repoledger.yaml"), source);
+  await writeFile(join(root, "silvermoon.yaml"), source);
   return root;
 }
 
-test("loads canonical version 3 configuration with the default ideas directory", async () => {
-  const source = `version: 3
+test("loads canonical version 1 configuration with the default ideas directory", async () => {
+  const source = `version: 1
 primaryRepository: https://example.com/owner/repository.git
 primaryBranch: main
 `;
@@ -34,14 +34,14 @@ primaryBranch: main
 
   assert.deepEqual(loaded.diagnostics, []);
   assert.deepEqual(loaded.config, {
-    version: 3,
+    version: 1,
     ideasDirectory: "ideas",
     primaryRepository: "https://example.com/owner/repository.git",
     primaryBranch: "main",
   });
   assert.equal(
     serializeConfig(loaded.config),
-    `version: 3
+    `version: 1
 ideasDirectory: ideas
 primaryRepository: https://example.com/owner/repository.git
 primaryBranch: main
@@ -50,7 +50,7 @@ primaryBranch: main
 });
 
 test("loads an explicit canonical ideas directory", async () => {
-  const source = `version: 3
+  const source = `version: 1
 ideasDirectory: project/ideas
 primaryRepository: https://example.com/owner/repository.git
 primaryBranch: main
@@ -61,20 +61,38 @@ primaryBranch: main
   assert.equal(loaded.config.ideasDirectory, "project/ideas");
 });
 
-test("requires explicit migration from legacy task configurations", async () => {
-  for (const version of [1, 2]) {
+test("treats a repository with only the previous product config as unconfigured", async () => {
+  const root = await mkdtemp(join(tmpdir(), "silvermoon-config-previous-product-"));
+  temporaryDirectories.push(root);
+  await writeFile(
+    join(root, "repoledger.yaml"),
+    "version: 3\nprimaryRepository: https://example.com/owner/repository.git\nprimaryBranch: main\n",
+  );
+
+  const loaded = await loadConfig({ root });
+
+  assert.equal(loaded.config, null);
+  assert.equal(loaded.diagnostics[0].code, "config.missing");
+  assert.equal(loaded.diagnostics[0].path, "silvermoon.yaml");
+});
+
+test("rejects unsupported Silvermoon configuration versions", async () => {
+  for (const version of [0, 2, 3]) {
     const root = await writeConfig(`version: ${version}\ntasksDirectory: tasks\n`);
     const loaded = await loadConfig({ root });
     assert.equal(loaded.config, null);
-    assert.equal(loaded.diagnostics[0].code, "config.migration-required");
+    assert.equal(
+      loaded.diagnostics.some(({ code }) => code === "config.unsupported-version"),
+      true,
+    );
   }
 });
 
-test("rejects invalid version 3 paths, unknown keys, and noncanonical order", async () => {
+test("rejects invalid version 1 paths, unknown keys, and noncanonical order", async () => {
   const fixtures = [
-    `version: 3\nideasDirectory: ../ideas\nprimaryRepository: https://example.com/owner/repository.git\nprimaryBranch: main\n`,
-    `version: 3\ntasksDirectory: tasks\nprimaryRepository: https://example.com/owner/repository.git\nprimaryBranch: main\n`,
-    `primaryRepository: https://example.com/owner/repository.git\nversion: 3\nprimaryBranch: main\n`,
+    `version: 1\nideasDirectory: ../ideas\nprimaryRepository: https://example.com/owner/repository.git\nprimaryBranch: main\n`,
+    `version: 1\ntasksDirectory: tasks\nprimaryRepository: https://example.com/owner/repository.git\nprimaryBranch: main\n`,
+    `primaryRepository: https://example.com/owner/repository.git\nversion: 1\nprimaryBranch: main\n`,
   ];
   for (const source of fixtures) {
     const loaded = await loadConfig({ root: await writeConfig(source) });
@@ -82,9 +100,9 @@ test("rejects invalid version 3 paths, unknown keys, and noncanonical order", as
   }
 });
 
-test("keeps the version 3 schema aligned with runtime identity constraints", async () => {
+test("keeps the version 1 schema aligned with runtime identity constraints", async () => {
   const schema = JSON.parse(
-    await readFile(new URL("../schema/v3.json", import.meta.url), "utf8"),
+    await readFile(new URL("../schema/v1.json", import.meta.url), "utf8"),
   );
   assert.deepEqual(schema.$defs.ideaStatus.required, ["version", "id"]);
   const repositoryPattern = new RegExp(schema.$defs.repository.pattern);

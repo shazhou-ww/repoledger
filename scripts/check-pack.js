@@ -23,9 +23,10 @@ if (packed.status !== 0) {
   const files = result.files.map(({ path }) => path).sort();
   const expected = [
     "README.md",
-    "bin/repoledger.js",
+    "assets/silvermoon.svg",
+    "bin/silvermoon.js",
     "package.json",
-    "schema/v3.json",
+    "schema/v1.json",
     "src/cli.js",
     "src/config.js",
     "src/create-idea.js",

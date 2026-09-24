@@ -71,7 +71,7 @@ export function gitObjectIdLength(root) {
 }
 
 export function worktreePathTree(root, path) {
-  const directory = mkdtempSync(join(tmpdir(), "repoledger-index-"));
+  const directory = mkdtempSync(join(tmpdir(), "silvermoon-index-"));
   const env = { ...process.env, GIT_INDEX_FILE: join(directory, "index") };
   try {
     const populated = runGit(root, ["read-tree", "HEAD"], { env });
@@ -98,7 +98,7 @@ export function worktreePathTree(root, path) {
   }
 }
 export function worktreeSnapshot(root) {
-  const directory = mkdtempSync(join(tmpdir(), "repoledger-index-"));
+  const directory = mkdtempSync(join(tmpdir(), "silvermoon-index-"));
   const env = { ...process.env, GIT_INDEX_FILE: join(directory, "index") };
   try {
     const populated = runGit(root, ["read-tree", "HEAD"], { env });
@@ -264,7 +264,7 @@ export async function withTemporaryWorktree(root, commit, callback) {
 }
 
 export async function withTemporaryTree(root, tree, callback) {
-  const temporaryRoot = await mkdtemp(join(tmpdir(), "repoledger-tree-"));
+  const temporaryRoot = await mkdtemp(join(tmpdir(), "silvermoon-tree-"));
   const directory = join(temporaryRoot, "snapshot");
   const env = { ...process.env, GIT_INDEX_FILE: join(temporaryRoot, "index") };
   try {

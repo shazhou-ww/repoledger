@@ -33,27 +33,27 @@ async function findMarkdownFiles(directory) {
   return matches;
 }
 
-test("exposes one consolidated repoledger skill", async () => {
+test("exposes one consolidated silvermoon skill", async () => {
   const skillFiles = await findSkillFiles(repositoryRoot);
-  const repoledgerSkills = [];
+  const silvermoonSkills = [];
   for (const path of skillFiles) {
     const source = await readFile(path, "utf8");
     const frontmatter = /^---\r?\n([\s\S]*?)\r?\n---/.exec(source);
     if (!frontmatter) continue;
     const document = parseDocument(frontmatter[1]);
-    if (document.get("name") === "repoledger") {
-      repoledgerSkills.push({ document, path, source });
+    if (document.get("name") === "silvermoon") {
+      silvermoonSkills.push({ document, path, source });
     }
   }
-  assert.equal(repoledgerSkills.length, 1);
+  assert.equal(silvermoonSkills.length, 1);
 
-  const [{ document, path, source }] = repoledgerSkills;
+  const [{ document, path, source }] = silvermoonSkills;
   const frontmatter = /^---\r?\n([\s\S]*?)\r?\n---/.exec(source);
-  assert.ok(frontmatter, "repoledger skill is missing YAML frontmatter");
+  assert.ok(frontmatter, "silvermoon skill is missing YAML frontmatter");
 
   assert.deepEqual(document.errors, []);
   assert.deepEqual(document.toJS(), {
-    name: "repoledger",
+    name: "silvermoon",
     description:
       "Navigate or create repository-owned ideas, execute one safe action, and reobserve only after an observable delta.",
     "argument-hint": "[new | idea ULID or alias]",
@@ -61,33 +61,33 @@ test("exposes one consolidated repoledger skill", async () => {
   });
 
   for (const required of [
-    "/repoledger new",
-    "repoledger whats-next [idea] --json",
-    "repoledger create-idea --json",
+    "/silvermoon new",
     "retry `create-idea`, not selector-less `whats-next`",
+    "silvermoon whats-next [idea] --json",
+    "silvermoon create-idea --json",
     "Execute only the highest-priority action",
     "Preserve unknown, unrelated, or user-authored changes",
     "Never use force-push",
-    "Repoledger has no approval, acceptance, or abandonment mutation commands",
+    "Silvermoon has no approval, acceptance, or abandonment mutation commands",
     "## Implementation acceptance criteria",
     "## Deployment acceptance criteria",
     "Do not use task-list checkboxes",
     "criteriaEvidence",
     "criteria.evidence.missing",
+    "implementationCriterionIds",
     "verifyCriteriaEvidence",
     "I01",
-    "I14",
-    "repoledger check --worktree --json",
-    "repoledger check --staged --json",
+    "silvermoon check --worktree --json",
+    "silvermoon check --staged --json",
     "observedPrimaryCommit",
     "Never infer a human decision",
     "Never poll the same observation",
   ]) {
-    assert.ok(source.includes(required), `repoledger skill is missing: ${required}`);
+    assert.ok(source.includes(required), `silvermoon skill is missing: ${required}`);
   }
   assert.doesNotMatch(
     source,
-    /repoledger task |repoledger status|repoledger whatsnext|taskLanguage/,
+    /silvermoon task |silvermoon status|silvermoon whatsnext|taskLanguage/,
   );
   assert.doesNotMatch(source, /^\s*- \[[ xX]\]/m);
 
@@ -97,9 +97,9 @@ test("exposes one consolidated repoledger skill", async () => {
   }
 });
 
-test("registers the canonical repoledger skill for this project", async () => {
-  const canonical = resolve(repositoryRoot, "skills", "repoledger");
-  const registration = resolve(repositoryRoot, ".github", "skills", "repoledger");
+test("registers the canonical silvermoon skill for this project", async () => {
+  const canonical = resolve(repositoryRoot, "skills", "silvermoon");
+  const registration = resolve(repositoryRoot, ".github", "skills", "silvermoon");
   let target;
   try {
     target = (await readlink(registration)).replaceAll("\\", "/");
@@ -109,24 +109,24 @@ test("registers the canonical repoledger skill for this project", async () => {
     target = (await readFile(registration, "utf8")).trim().replaceAll("\\", "/");
     const indexed = spawnSync(
       "git",
-      ["-C", repositoryRoot, "ls-files", "-s", ".github/skills/repoledger"],
+      ["-C", repositoryRoot, "ls-files", "-s", ".github/skills/silvermoon"],
       { encoding: "utf8", windowsHide: true },
     );
     assert.equal(indexed.status, 0, indexed.stderr);
     assert.match(indexed.stdout, /^120000 /);
   }
 
-  assert.equal(target, "../../skills/repoledger");
+  assert.equal(target, "../../skills/silvermoon");
 });
 
-test("documents explicit vNext adoption and conversion", async () => {
+test("documents explicit Silvermoon adoption and conversion", async () => {
   const readme = await readFile(resolve(repositoryRoot, "README.md"), "utf8");
   const adoption = await readFile(
-    resolve(repositoryRoot, "skills", "repoledger", "references", "adoption.md"),
+    resolve(repositoryRoot, "skills", "silvermoon", "references", "adoption.md"),
     "utf8",
   );
   const normalized = adoption.replaceAll("\r\n", " ").replaceAll("\n", " ");
-  assert.match(adoption, /version: 3/);
+  assert.match(adoption, /version: 1/);
   for (const source of [readme, adoption]) {
     assert.match(source, /opaque Git tree/);
     assert.match(source, /Implementation acceptance criteria/);
@@ -134,7 +134,7 @@ test("documents explicit vNext adoption and conversion", async () => {
     assert.match(source, /check --worktree/);
     assert.match(source, /create-idea/);
     assert.match(source, /whats-next/);
-    assert.doesNotMatch(source, /repoledger whatsnext/);
+    assert.doesNotMatch(source, /silvermoon whatsnext/);
   }
   assert.match(normalized, /no runtime compatibility mode or in-place migration command/);
 });
@@ -145,7 +145,7 @@ test("uses only approved command spellings in non-historical Markdown", async ()
     const source = await readFile(path, "utf8");
     assert.doesNotMatch(
       source,
-      /repoledger whatsnext|repoledger newidea|repoledger new-idea/,
+      /silvermoon whatsnext|silvermoon newidea|silvermoon new-idea/,
       path,
     );
   }

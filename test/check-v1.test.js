@@ -31,17 +31,17 @@ afterEach(async () => {
 });
 
 async function createRepository() {
-  const base = await mkdtemp(join(tmpdir(), "repoledger-check-v3-"));
+  const base = await mkdtemp(join(tmpdir(), "silvermoon-check-v1-"));
   temporaryDirectories.push(base);
   const root = join(base, "work");
   const remote = join(base, "remote.git");
   await mkdir(root);
   git(root, "init", "--initial-branch=main");
-  git(root, "config", "user.name", "repoledger test");
-  git(root, "config", "user.email", "repoledger@example.invalid");
+  git(root, "config", "user.name", "silvermoon test");
+  git(root, "config", "user.email", "silvermoon@example.invalid");
   git(root, "config", "core.autocrlf", "false");
   const repository = pathToFileURL(remote).href;
-  await writeFile(join(root, "repoledger.yaml"), `version: 3
+  await writeFile(join(root, "silvermoon.yaml"), `version: 1
 primaryRepository: https://example.test/owner/repository.git
 primaryBranch: main
 `);
@@ -145,12 +145,12 @@ test("rejects a changed acceptance field in staged and worktree candidates", asy
 });
 
 test("rejects a mismatched acceptance introduced in the root commit", async () => {
-  const root = await mkdtemp(join(tmpdir(), "repoledger-check-v3-root-"));
+  const root = await mkdtemp(join(tmpdir(), "silvermoon-check-v1-root-"));
   temporaryDirectories.push(root);
   git(root, "init", "--initial-branch=main");
-  git(root, "config", "user.name", "repoledger test");
-  git(root, "config", "user.email", "repoledger@example.invalid");
-  await writeFile(join(root, "repoledger.yaml"), `version: 3
+  git(root, "config", "user.name", "silvermoon test");
+  git(root, "config", "user.email", "silvermoon@example.invalid");
+  await writeFile(join(root, "silvermoon.yaml"), `version: 1
 primaryRepository: https://example.test/owner/repository.git
 primaryBranch: main
 `);
@@ -194,20 +194,23 @@ test("keeps default check on HEAD and includes untracked files only with worktre
 
 test("reads configuration from the selected snapshot target", async () => {
   const root = await createRepository();
-  await writeFile(join(root, "repoledger.yaml"), "version: 2\n");
+  await writeFile(
+    join(root, "silvermoon.yaml"),
+    "version: 2\nprimaryRepository: https://example.com/owner/repository.git\nprimaryBranch: main\n",
+  );
 
   const head = await checkRepository({ root });
   const remote = await checkRepository({ root, remote: true });
   const worktree = await checkRepository({ root, worktree: true });
-  git(root, "add", "repoledger.yaml");
+  git(root, "add", "silvermoon.yaml");
   const staged = await checkRepository({ root, staged: true });
 
   assert.equal(head.ok, true);
   assert.equal(remote.ok, true);
   assert.equal(worktree.ok, false);
-  assert.equal(worktree.diagnostics[0].code, "config.migration-required");
+  assert.equal(worktree.diagnostics[0].code, "config.unsupported-version");
   assert.equal(staged.ok, false);
-  assert.equal(staged.diagnostics[0].code, "config.migration-required");
+  assert.equal(staged.diagnostics[0].code, "config.unsupported-version");
 });
 
 test("immutable check targets do not invoke Git worktree commands", async () => {
@@ -230,7 +233,10 @@ test("immutable check targets do not invoke Git worktree commands", async () => 
 test("immutable check failures do not invoke Git worktree commands", async () => {
   {
     const root = await createRepository();
-    await writeFile(join(root, "repoledger.yaml"), "version: 2\n");
+    await writeFile(
+      join(root, "silvermoon.yaml"),
+      "version: 2\nprimaryRepository: https://example.com/owner/repository.git\nprimaryBranch: main\n",
+    );
     git(root, "add", ".");
     git(root, "commit", "-m", "Invalid config candidate");
     const commands = [];
@@ -239,7 +245,7 @@ test("immutable check failures do not invoke Git worktree commands", async () =>
       () => checkRepository({ root }),
     );
     assert.equal(report.ok, false);
-    assert.equal(report.diagnostics[0].code, "config.migration-required");
+    assert.equal(report.diagnostics[0].code, "config.unsupported-version");
     assert.equal(commands.some(([command]) => command === "worktree"), false);
   }
   {

@@ -36,7 +36,7 @@ function npmResult(args, cwd) {
   });
 }
 
-const temporaryRoot = await mkdtemp(join(tmpdir(), "repoledger-pack-smoke-"));
+const temporaryRoot = await mkdtemp(join(tmpdir(), "silvermoon-pack-smoke-"));
 try {
   const packed = JSON.parse(
     npm(["pack", "--json", "--pack-destination", temporaryRoot], packageRoot),
@@ -47,8 +47,8 @@ try {
   const idea = join(consumer, "ideas", id);
   await mkdir(idea, { recursive: true });
   await writeFile(
-    join(consumer, "repoledger.yaml"),
-    "version: 3\nprimaryRepository: https://example.com/owner/repository.git\nprimaryBranch: main\n",
+    join(consumer, "silvermoon.yaml"),
+    "version: 1\nprimaryRepository: https://example.com/owner/repository.git\nprimaryBranch: main\n",
   );
   await writeFile(join(consumer, ".gitignore"), "node_modules/\n");
   await writeFile(join(idea, "Idea.md"), "# Installed package smoke\n");
@@ -57,14 +57,18 @@ try {
     `version: 1\nid: ${id}\nalias: installed-smoke\n`,
   );
   run("git", ["init", "--initial-branch=main"], consumer);
-  run("git", ["config", "user.name", "repoledger smoke"], consumer);
-  run("git", ["config", "user.email", "repoledger@example.invalid"], consumer);
+  run("git", ["config", "user.name", "silvermoon smoke"], consumer);
+  run("git", ["config", "user.email", "silvermoon@example.invalid"], consumer);
   run("git", ["add", "."], consumer);
   run("git", ["commit", "-m", "Initialize smoke fixture"], consumer);
 
   npm(["install", "--ignore-scripts", "--no-audit", "--no-fund", tarball], consumer);
+  await assert.rejects(
+    readFile(join(consumer, "node_modules", ".bin", "repoledger"), "utf8"),
+    { code: "ENOENT" },
+  );
   run("git", ["add", "package.json", "package-lock.json", ".gitignore"], consumer);
-  run("git", ["commit", "-m", "Install packed Repoledger"], consumer);
+  run("git", ["commit", "-m", "Install packed Silvermoon"], consumer);
   run("git", ["init", "--bare", "--initial-branch=main", primary], consumer);
   run("git", ["push", primary, "main"], consumer);
   run(
@@ -72,23 +76,23 @@ try {
     ["config", `url.${pathToFileURL(primary).href}.insteadOf`, "https://example.com/owner/repository.git"],
     consumer,
   );
-  const help = npm(["exec", "--", "repoledger", "--help"], consumer);
-  assert.match(help, /repoledger whats-next/);
-  assert.match(help, /repoledger create-idea/);
-  assert.match(help, /repoledger check/);
-  assert.doesNotMatch(help, /repoledger whatsnext|repoledger task|repoledger status|repoledger init/);
-  assert.equal(npm(["exec", "--", "repoledger", "--version"], consumer), packed.version);
+  const help = npm(["exec", "--", "silvermoon", "--help"], consumer);
+  assert.match(help, /silvermoon whats-next/);
+  assert.match(help, /silvermoon create-idea/);
+  assert.match(help, /silvermoon check/);
+  assert.doesNotMatch(help, /silvermoon whatsnext|silvermoon task|silvermoon status|silvermoon init/);
+  assert.equal(npm(["exec", "--", "silvermoon", "--version"], consumer), packed.version);
   const exported = run(
     process.execPath,
     [
       "--input-type=module",
       "-e",
-      "import { checkRepository, createIdea, deriveIdeaState, generateUlid, implementationCriterionIds, parseIdeaStatus, verifyCriteriaEvidence, whatsNext } from 'repoledger'; console.log([checkRepository, createIdea, deriveIdeaState, generateUlid, implementationCriterionIds, parseIdeaStatus, verifyCriteriaEvidence, whatsNext].map((value) => typeof value).join(','));",
+      "import { checkRepository, createIdea, deriveIdeaState, generateUlid, implementationCriterionIds, parseIdeaStatus, verifyCriteriaEvidence, whatsNext } from 'silvermoon'; console.log([checkRepository, createIdea, deriveIdeaState, generateUlid, implementationCriterionIds, parseIdeaStatus, verifyCriteriaEvidence, whatsNext].map((value) => typeof value).join(','));",
     ],
     consumer,
   );
   assert.equal(exported, "function,function,function,function,function,function,function,function");
-  const created = JSON.parse(npm(["exec", "--", "repoledger", "create-idea", "--json"], consumer));
+  const created = JSON.parse(npm(["exec", "--", "silvermoon", "create-idea", "--json"], consumer));
   assert.equal(created.ok, true);
   assert.equal(created.command, "create-idea");
   assert.match(created.result.createdIdea.id, /^[0-7][0-9A-HJKMNP-TV-Z]{25}$/);
@@ -100,13 +104,13 @@ try {
     await readFile(join(consumer, created.result.createdIdea.statusPath), "utf8"),
     `version: 1\nid: ${created.result.createdIdea.id}\n`,
   );
-  const legacy = npmResult(["exec", "--", "repoledger", "whatsnext"], consumer);
+  const legacy = npmResult(["exec", "--", "silvermoon", "whatsnext"], consumer);
   assert.equal(legacy.status, 2, legacy.stderr);
-  const checked = JSON.parse(npm(["exec", "--", "repoledger", "check", "--json"], consumer));
+  const checked = JSON.parse(npm(["exec", "--", "silvermoon", "check", "--json"], consumer));
   assert.equal(checked.ok, true);
   assert.equal(checked.result.ideas[0].alias, "installed-smoke");
   const worktree = JSON.parse(
-    npm(["exec", "--", "repoledger", "check", "--worktree", "--json"], consumer),
+    npm(["exec", "--", "silvermoon", "check", "--worktree", "--json"], consumer),
   );
   const createdSummary = worktree.result.ideas.find(({ id: ideaId }) =>
     ideaId === created.result.createdIdea.id

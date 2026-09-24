@@ -41,14 +41,14 @@ afterEach(async () => {
 });
 
 async function createRepository() {
-  const base = await mkdtemp(join(tmpdir(), "repoledger-git-"));
+  const base = await mkdtemp(join(tmpdir(), "silvermoon-git-"));
   temporaryDirectories.push(base);
   const root = join(base, "work");
   const remote = join(base, "remote.git");
   await mkdir(root);
   git(root, "init", "--initial-branch=main");
-  git(root, "config", "user.name", "repoledger test");
-  git(root, "config", "user.email", "repoledger@example.invalid");
+  git(root, "config", "user.name", "silvermoon test");
+  git(root, "config", "user.email", "silvermoon@example.invalid");
   git(root, "config", "core.autocrlf", "false");
   await writeFile(join(root, "README.md"), "fixture\n");
   git(root, "add", "README.md");
@@ -63,7 +63,7 @@ async function createRepository() {
   );
   return {
     config: {
-      version: 3,
+      version: 1,
       ideasDirectory: "ideas",
       primaryRepository: repository,
       primaryBranch: "main",

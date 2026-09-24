@@ -282,7 +282,7 @@ export async function whatsNext({ create = false, idea: selector, root = process
     return failed(repositoryRoot, [diagnostic(
       "idea.not-found",
       `Idea ${selector} does not exist in observed primary ${observedPrimaryCommit}.`,
-      "Choose a ULID or exact alias reported by repoledger whats-next.",
+      "Choose a ULID or exact alias reported by silvermoon whats-next.",
       selector,
     )], request, observedPrimaryCommit);
   }

@@ -83,7 +83,7 @@ export function render(report, json, io) {
 export function createProgram(io = console) {
   const program = new Command();
   program
-    .name("repoledger")
+    .name("silvermoon")
     .description("Derive and validate repository-owned idea state.")
     .version(VERSION, "-v, --version", "display the installed version")
     .addHelpCommand(false)
@@ -98,15 +98,15 @@ export function createProgram(io = console) {
     .exitOverride()
     .addHelpText("after", `
 Examples:
-  $ repoledger whats-next
-  $ repoledger whats-next <idea>
-  $ repoledger whats-next <idea> --json
-  $ repoledger create-idea
-  $ repoledger check
-  $ repoledger check --worktree
-  $ repoledger check --staged
-  $ repoledger check --commit HEAD
-  $ repoledger check --remote`);
+  $ silvermoon whats-next
+  $ silvermoon whats-next <idea>
+  $ silvermoon whats-next <idea> --json
+  $ silvermoon create-idea
+  $ silvermoon check
+  $ silvermoon check --worktree
+  $ silvermoon check --staged
+  $ silvermoon check --commit HEAD
+  $ silvermoon check --remote`);
 
   addCommonOptions(
     program
@@ -131,7 +131,7 @@ Examples:
   addCommonOptions(
     program
       .command("check")
-      .description("validate vNext configuration, idea state, and an optional Git target")
+      .description("validate Silvermoon configuration, idea state, and an optional Git target")
       .addOption(new Option("--remote", "fetch and validate the primary tip selected by HEAD").conflicts(["commit", "staged", "worktree"]))
       .addOption(new Option("--commit <revision>", "validate one local commit snapshot").conflicts(["remote", "staged", "worktree"]))
       .addOption(new Option("--staged", "validate the index snapshot").conflicts(["remote", "commit", "worktree"]))
