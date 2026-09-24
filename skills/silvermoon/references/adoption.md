@@ -74,7 +74,10 @@ corresponding current world revision.
 
 For a new scaffold, run `silvermoon create-idea --json`. It generates the ULID,
 four structured documents and alias-less status; it does not stage, commit,
-push, approve, or accept.
+push, approve, or accept. During initial preparation, complete `Idea.md` while
+keeping the Implementation, Deployment, and ledger placeholders synchronized
+until their lifecycle actions. An Agent may add a concise, unique alias derived
+from the user's request without asking the user to choose a name.
 
 ## Adopting from another layout
 

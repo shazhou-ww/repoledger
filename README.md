@@ -162,8 +162,10 @@ command generates a canonical ULID, structured `Idea.md`, `Implementation.md`,
 `Deployment.md`, and `ledger.md` documents, plus a canonical `status.yaml`
 containing only `version` and `id`. It does not require or invent an alias. The
 new files are intentionally untracked, so the next `whats-next <ULID>` reports
-`inspect-worktree-changes` until you replace template placeholders, review the
-candidate, and publish it through ordinary Git.
+`inspect-worktree-changes` until you complete the initial `Idea.md`, review the
+candidate, and publish it through ordinary Git. An Agent may add a concise,
+unique alias derived from the user's request while preparing the idea; users
+need not stop to name it.
 
 Silvermoon has no approval or acceptance mutation commands. After an explicit
 decision, edit the idea's status file, run `silvermoon check --staged`, commit
