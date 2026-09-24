@@ -1,16 +1,16 @@
 ---
 idealRevision: 3d4e8ec9a0eef46ace02fa1a55899c89eff6e7d5
 implementationRevision: 62653b52b3593ea63bf964b255bcb0b3a9b80286
-deploymentRevision: 47e804c752c5204e47ff93483428e20dfedf5cfa
+deploymentRevision: 2adc0e523930a05408b393a3b6c0ebf5fe8afe6b
 ---
 
 # Ledger
 
 ## Current
 
-- State: implementing
-- Focus: implementation acceptance
-- Blocked: awaiting explicit human acceptance
+- State: deploying
+- Focus: public schema endpoint verification
+- Blocked: no
 
 ## Work
 
@@ -18,6 +18,8 @@ deploymentRevision: 47e804c752c5204e47ff93483428e20dfedf5cfa
 - [x] Add Draft 2020-12 compilation and positive/negative validation tests.
 - [x] Update README, package contents checks, and installed-package smoke coverage.
 - [x] Remove current implementation, test, script, and user-documentation references to `schema/v1.json`.
+- [x] Record explicit implementation acceptance for revision `62653b52b3593ea63bf964b255bcb0b3a9b80286`.
+- [ ] Verify the published raw schema endpoints and authoritative remote history.
 
 ## Checks
 
@@ -28,4 +30,6 @@ deploymentRevision: 47e804c752c5204e47ff93483428e20dfedf5cfa
 
 ## Next
 
-1. Obtain explicit implementation acceptance for revision `62653b52b3593ea63bf964b255bcb0b3a9b80286`.
+1. Publish the Outer World contract.
+2. Verify the public schema endpoints and run `silvermoon check --remote --json`.
+3. Obtain explicit deployment acceptance for revision `2adc0e523930a05408b393a3b6c0ebf5fe8afe6b`.
