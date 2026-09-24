@@ -38,8 +38,8 @@
 - [x] **D-S02:** 验证必需 ledger 的拒绝与迁移路径
 - [x] **D-S03:** 验证 Agent continuation 行为
 - [x] **D-S04:** 验证 package 与共享主分支候选
-- [ ] **D-S05:** 验证已安装 CLI 的标题模板
-- [ ] **D-S06:** 验证 repository-owned 文档迁移
+- [x] **D-S05:** 验证已安装 CLI 的标题模板
+- [x] **D-S06:** 验证 repository-owned 文档迁移
 
 ### Deployment acceptance criteria
 
@@ -48,6 +48,6 @@
 - [x] **D-AC03:** Agent 能从双阶段 ledger 继续工作
 - [x] **D-AC04:** Lifecycle 与 ledger 状态保持隔离
 - [x] **D-AC05:** 发布候选表面一致
-- [ ] **D-AC06:** Packed CLI 生成修正后的标题
-- [ ] **D-AC07:** 共享候选中的现有文档无重复 heading
-- [ ] **D-AC08:** 最终发布候选验证通过
+- [x] **D-AC06:** Packed CLI 生成修正后的标题
+- [x] **D-AC07:** 共享候选中的现有文档无重复 heading
+- [x] **D-AC08:** 最终发布候选验证通过
