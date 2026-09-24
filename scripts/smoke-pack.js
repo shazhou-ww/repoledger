@@ -80,6 +80,10 @@ try {
   run("git", ["commit", "-m", "Initialize smoke fixture"], consumer);
 
   npm(["install", "--ignore-scripts", "--no-audit", "--no-fund", tarball], consumer);
+  assert.match(
+    await readFile(join(consumer, "node_modules", "silvermoon", "README.zh-CN.md"), "utf8"),
+    /# Silvermoon（银月）/,
+  );
   for (const schema of [
     "config.schema.json",
     "definitions.schema.json",

@@ -2,6 +2,10 @@
   <img src="./assets/silvermoon.svg" width="960" alt="Silvermoon, the spirit of your project">
 </p>
 
+<p align="center">
+  English | <a href="./README.zh-CN.md">简体中文</a>
+</p>
+
 # Silvermoon（银月）
 
 **The spirit of your project.**

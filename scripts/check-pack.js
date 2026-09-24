@@ -23,6 +23,7 @@ if (packed.status !== 0) {
   const files = result.files.map(({ path }) => path).sort();
   const expected = [
     "README.md",
+    "README.zh-CN.md",
     "assets/silvermoon.svg",
     "bin/silvermoon.js",
     "package.json",
