@@ -80,7 +80,7 @@ jobs:
           RELEASE_COMMIT: ${{ github.sha }}
         run: >-
           node ${{ github.workspace }}/scripts/generate-npm-readme.mjs
-          --commit "$RELEASE_COMMIT" > README.md
+          --commit "$RELEASE_COMMIT" --out README.md
 
       - name: Verify selected package tarball
         working-directory: ${{ steps.release.outputs.package_directory }}

@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readFile, rename, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -69,6 +69,9 @@ export function generateNpmReadme({ source, commit }) {
   if (typeof source !== "string") {
     throw new Error("README source must be a string.");
   }
+  if (source.trim().length === 0) {
+    throw new Error("README source is empty; refusing to generate an empty npm README.");
+  }
 
   let result = source.replaceAll(
     rawMainPrefix,
@@ -77,6 +80,9 @@ export function generateNpmReadme({ source, commit }) {
   result = rewriteMarkdownRelativeLinks(result, releaseCommit);
   result = rewriteHtmlRelativeHrefs(result, releaseCommit);
   assertNoMovableOrRelativeRefs(result);
+  if (result.trim().length === 0) {
+    throw new Error("Generated npm README is empty; refusing to publish it.");
+  }
   return result;
 }
 
@@ -85,21 +91,36 @@ function parseArguments(argv) {
   for (let index = 0; index < argv.length; index += 2) {
     const option = argv[index];
     const value = argv[index + 1];
-    if (!value || option !== "--commit") {
-      throw new Error("Usage: node scripts/generate-npm-readme.mjs --commit <sha>");
+    if (!value || !["--commit", "--out"].includes(option)) {
+      throw new Error(
+        "Usage: node scripts/generate-npm-readme.mjs --commit <sha> [--out <path>]",
+      );
     }
-    values.commit = value;
+    values[option.slice(2)] = value;
   }
   if (!values.commit) {
-    throw new Error("Usage: node scripts/generate-npm-readme.mjs --commit <sha>");
+    throw new Error(
+      "Usage: node scripts/generate-npm-readme.mjs --commit <sha> [--out <path>]",
+    );
   }
   return values;
 }
 
 async function main() {
-  const { commit } = parseArguments(process.argv.slice(2));
+  const { commit, out } = parseArguments(process.argv.slice(2));
   const source = await readFile(resolve(repositoryRoot, "README.md"), "utf8");
-  process.stdout.write(generateNpmReadme({ source, commit }));
+  const generated = generateNpmReadme({ source, commit });
+  if (out) {
+    // Atomic write: never truncate the destination before the content exists.
+    // A shell redirect (`> README.md`) would empty the source file before this
+    // script reads it; --out exists so the release workflow cannot do that.
+    const target = resolve(out);
+    const temporary = `${target}.generated-tmp`;
+    await writeFile(temporary, generated, "utf8");
+    await rename(temporary, target);
+    return;
+  }
+  process.stdout.write(generated);
 }
 
 const invokedUrl = process.argv[1] ? pathToFileURL(resolve(process.argv[1])).href : null;

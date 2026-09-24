@@ -95,3 +95,12 @@ test("does not mutate the provided source string", () => {
   generateNpmReadme({ source, commit });
   assert.equal(source, snapshot);
 });
+
+test("fails closed on empty source instead of emitting an empty README", () => {
+  for (const source of ["", "   \n\t \n"]) {
+    assert.throws(
+      () => generateNpmReadme({ source, commit }),
+      /README source is empty/,
+    );
+  }
+});

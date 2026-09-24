@@ -111,7 +111,12 @@ test("uses a protected, least-privilege trusted-publishing workflow", async () =
   assert.equal(generateReadme.env.RELEASE_COMMIT, "${{ github.sha }}");
   assert.match(
     generateReadme.run,
-    /generate-npm-readme\.mjs[\s\S]*--commit "\$RELEASE_COMMIT" > README\.md/,
+    /generate-npm-readme\.mjs[\s\S]*--commit "\$RELEASE_COMMIT" --out README\.md/,
+  );
+  assert.doesNotMatch(
+    generateReadme.run,
+    />\s*README\.md/,
+    "README generation must use --out, never a shell redirect that truncates the source",
   );
   for (const step of [generateReadme, tarball, e2e, publication]) {
     assert.equal(

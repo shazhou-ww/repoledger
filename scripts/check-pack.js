@@ -60,10 +60,17 @@ if (packed.status !== 0) {
   const missing = expected.filter((path) => !files.includes(path));
   const unexpected = files.filter((path) => !expected.includes(path));
 
-  if (missing.length > 0 || unexpected.length > 0) {
+  const emptyReadme = result.files.find(
+    ({ path, size }) => path === "README.md" && !(size > 0),
+  );
+
+  if (missing.length > 0 || unexpected.length > 0 || emptyReadme) {
     if (missing.length > 0) process.stderr.write(`Missing packed files: ${missing.join(", ")}\n`);
     if (unexpected.length > 0) {
       process.stderr.write(`Unexpected packed files: ${unexpected.join(", ")}\n`);
+    }
+    if (emptyReadme) {
+      process.stderr.write("Packed README.md is empty; the release README generation is broken.\n");
     }
     process.exitCode = 1;
   } else {
