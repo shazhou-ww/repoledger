@@ -253,5 +253,4 @@ export {
   validateIdeaStatus,
 } from "./ideas.js";
 export { createIdea, generateUlid } from "./create-idea.js";
-export { implementationCriterionIds, verifyCriteriaEvidence } from "./evidence.js";
 export { whatsNext } from "./whatsnext.js";

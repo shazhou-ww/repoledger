@@ -10,6 +10,7 @@ export function ideaPaths(id) {
   return {
     ideaPath,
     statusPath: `${ideaPath}/status.yaml`,
+    ledgerPath: `${ideaPath}/ledger.md`,
     outerPath,
     deploymentDocumentPath: `${outerPath}/Deployment.md`,
     innerPath,

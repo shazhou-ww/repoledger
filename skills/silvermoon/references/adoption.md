@@ -29,6 +29,7 @@ Each idea is self-contained:
 ```text
 .silvermoon/ideas/<ULID>/
 |-- status.yaml
+|-- ledger.md (optional)
 `-- outer/
     |-- Deployment.md
     `-- inner/
@@ -45,12 +46,19 @@ but they serve rather than replace the canonical same-world entry.
 The nested opaque Git trees produce `idealRevision`,
 `implementationRevision`, and `deploymentRevision`. Inner World includes Ideal
 World; Outer World includes both nested worlds. `status.yaml` is outside all
-three revisions.
+three revisions. Optional `ledger.md` is also outside all three revisions and
+is not parsed by Silvermoon.
 
 Write implementation criteria in `Implementation.md` under
 `## Implementation acceptance criteria` and deployment criteria in
 `Deployment.md` under `## Deployment acceptance criteria`, using plain list
-items. Do not use task-list checkboxes as state.
+items. Keep task-list checkboxes out of world contracts.
+
+Agents may use `ledger.md` for cross-session continuation with revision
+frontmatter and `Current`, `Work`, `Checks`, and `Next` sections. Checkboxes
+record Agent work only, never human approval or acceptance. When a recorded
+revision differs from the current `whats-next` result, re-review the related
+ledger entries before continuing.
 
 ```yaml
 version: 1

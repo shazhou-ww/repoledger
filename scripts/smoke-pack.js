@@ -102,11 +102,11 @@ try {
     [
       "--input-type=module",
       "-e",
-      "import { checkRepository, createIdea, deriveIdeaState, generateUlid, implementationCriterionIds, parseIdeaStatus, verifyCriteriaEvidence, whatsNext } from 'silvermoon'; console.log([checkRepository, createIdea, deriveIdeaState, generateUlid, implementationCriterionIds, parseIdeaStatus, verifyCriteriaEvidence, whatsNext].map((value) => typeof value).join(','));",
+      "import * as silvermoon from 'silvermoon'; const names = ['checkRepository', 'createIdea', 'deriveIdeaState', 'generateUlid', 'parseIdeaStatus', 'whatsNext']; console.log(`${names.map((name) => typeof silvermoon[name]).join(',')}|${Object.hasOwn(silvermoon, 'implementationCriterionIds')},${Object.hasOwn(silvermoon, 'verifyCriteriaEvidence')}`);",
     ],
     consumer,
   );
-  assert.equal(exported, "function,function,function,function,function,function,function,function");
+  assert.equal(exported, "function,function,function,function,function,function|false,false");
   const created = JSON.parse(npm(["exec", "--", "silvermoon", "create-idea", "--json"], consumer));
   assert.equal(created.ok, true);
   assert.equal(created.command, "create-idea");

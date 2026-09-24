@@ -36,6 +36,12 @@ deployment acceptance, and abandonment are ordinary edits to one idea
 `status.yaml` after an explicit decision. Validate the candidate and publish a
 normal non-force commit. Prefer status-only decision commits when practical.
 
+The optional idea-root `ledger.md` is the Agent continuation surface. After
+repository hygiene and lifecycle routing, compare its revision frontmatter
+with the selected idea, re-review stale entries, and continue unfinished work,
+pending checks, or blockers for the reported action. Ledger checkboxes are
+Agent notes only and never imply approval or acceptance.
+
 Preserve unknown changes, concurrent history, and previous revision facts.
 Never force-push, reset, broadly clean, or automatically delete feature
 branches.
