@@ -1,3 +1,5 @@
 version: 1
 id: 01M396DEC3R5B6M9KS3M2XSPTG
 approvedRevision: f16a849f27f2702d09fb4959e11b0be9d84e0daa
+implementationAcceptedRevision: f78e230ff29a9ef1e894de930519a8e0f8a488cd
+deploymentAcceptedRevision: be800e15511af2df354767304d580a9a1775cb94
