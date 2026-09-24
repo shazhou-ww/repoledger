@@ -2,19 +2,22 @@
 
 ## Idea workflow
 
-Load and follow [`silvermoon`](skills/silvermoon/SKILL.md) when the user invokes
-`/silvermoon` or asks to navigate or continue a repository idea. Apply the
-repository profile in [`docs/repository-tasks.md`](docs/repository-tasks.md).
-
-- For an explicit new-idea request, start with `silvermoon create-idea --json`;
-  otherwise start with `silvermoon whats-next [idea] --json`. Execute only the
-  highest-priority action and preserve create intent across hygiene retries.
-- Preserve unknown work and both sides of concurrent history; never force-push,
-  reset, clean, or silently replay a stale decision.
+- Handle small, well-scoped tasks directly. For substantial, multi-step work
+  that needs durable scope, decisions, or progress tracking, suggest an idea
+  and wait for confirmation before creating it.
+- Load [`silvermoon`](skills/silvermoon/SKILL.md) and apply
+  [`docs/repository-tasks.md`](docs/repository-tasks.md) only when the user
+  invokes `/silvermoon`, requests a new idea, or asks to navigate or continue
+  an existing one.
+- Start new ideas with `silvermoon create-idea --json`; otherwise start with
+  `silvermoon whats-next [idea] --json`. Execute only the highest-priority
+  action and preserve creation intent across hygiene retries.
+- Preserve unknown and concurrent work. Never force-push, reset, clean, or
+  silently replay a stale decision.
 - Record approval, acceptance, and abandonment only as explicit status facts,
   validate the exact candidate, and publish through ordinary non-force Git.
-- Requery only after an observable delta. Yield on human/external waits and stop
-  on actionable errors or no progress.
+- Requery only after an observable change. Yield on human or external waits;
+  stop on actionable errors or lack of progress.
 
 ## Validation
 
@@ -24,8 +27,7 @@ repository profile in [`docs/repository-tasks.md`](docs/repository-tasks.md).
 
 ## npm releases
 
-Before preparing or troubleshooting a release, follow
-[`docs/npm-package-releases.md`](docs/npm-package-releases.md). Publish only
-through `.github/workflows/publish-npm.yml` using an immutable
-`npm/silvermoon/v<version>` tag on a commit reachable from `origin/main`.
-Never publish from a development machine or add npm tokens.
+- Follow [`docs/npm-package-releases.md`](docs/npm-package-releases.md).
+- Publish only through `.github/workflows/publish-npm.yml`, using an immutable
+  `npm/silvermoon/v<version>` tag on a commit reachable from `origin/main`.
+  Never publish locally or add npm tokens.
