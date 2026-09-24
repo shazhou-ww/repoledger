@@ -35,6 +35,7 @@ deploymentRevision: 07210a74bffb8a39a4995d94bb8cc3e01e6216e7
 - [x] D01: published `whats-next`, skill, and ledger expose the action and continuation context.
 - [x] D02: add, edit, and removal tests preserve all world revisions; remote state remains deploying until an explicit decision.
 - [x] D03: package smoke confirms the criteria evidence exports are absent; current guidance has no root evidence requirement.
+- [x] Removed the final obsolete root evidence artifact and retired the `evidence/` folder.
 - [x] `silvermoon check --remote --json` passed at primary commit `9545f3387c50a3b8962e0cf73541654cfbb20a88`.
 
 ## Next
