@@ -2,7 +2,7 @@
 
 <p align="center">
   <!-- markdownlint-disable-next-line MD013 -->
-  <img src="./docs/assets/silvermoon.svg" width="960" alt="Silvermoon，项目的器灵">
+  <img src="https://raw.githubusercontent.com/shazhou-ww/silvermoon/main/assets/silvermoon.svg" width="960" alt="Silvermoon，项目的器灵">
 </p>
 
 <p align="center">
@@ -67,7 +67,7 @@ Silvermoon 会让目标、实现、仓库状态与现实结果始终相连。完
   <tr>
     <td width="160" align="center" valign="top">
       <!-- markdownlint-disable-next-line MD013 -->
-      <img src="./docs/assets/silvermoon-avatar.svg" width="128" alt="项目器灵银月的线稿头像">
+      <img src="https://raw.githubusercontent.com/shazhou-ww/silvermoon/main/docs/assets/silvermoon-avatar.svg" width="128" alt="项目器灵银月的线稿头像">
     </td>
     <td valign="top">
       Silvermoon 得名于《凡人修仙传》中的银月。她来自灵界的银月狼族，是玲珑公主分裂出的
