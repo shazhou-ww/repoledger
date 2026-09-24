@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 
-const artworkUrl = new URL("../../docs/assets/silvermoon.svg", import.meta.url);
+const artworkUrl = new URL("../../assets/silvermoon.svg", import.meta.url);
 const avatarUrl = new URL("../../docs/assets/silvermoon-avatar.svg", import.meta.url);
 const readmeUrl = new URL("../../README.md", import.meta.url);
 
@@ -44,10 +44,13 @@ test("ships safe Silvermoon artwork with contrast in light and dark themes", asy
   );
 
   assert.doesNotMatch(readme, /<picture>|prefers-color-scheme/);
-  assert.match(readme, /src="\.\/docs\/assets\/silvermoon\.svg"/);
+  assert.match(
+    readme,
+    /src="https:\/\/raw\.githubusercontent\.com\/shazhou-ww\/silvermoon\/main\/assets\/silvermoon\.svg"/,
+  );
   assert.match(readme, /alt="Silvermoon, the artifact spirit of the project"/);
   assert.match(
     readme,
-    /src="\.\/docs\/assets\/silvermoon-avatar\.svg" width="128"/,
+    /src="https:\/\/raw\.githubusercontent\.com\/shazhou-ww\/silvermoon\/main\/docs\/assets\/silvermoon-avatar\.svg" width="128"/,
   );
 });
