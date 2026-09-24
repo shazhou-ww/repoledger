@@ -44,9 +44,14 @@ World 文档与 ledger 承担不同职责：
 Current 或 Next 摘要。Silvermoon lifecycle 仍只从 world revisions 与显式
 `status.yaml` decision facts 派生。
 
-默认 `Idea.md` 大标题明确提示作者应根据具体 idea 内容替换标题，而不是把 `Idea` 留作
-最终标题。默认 `ledger.md` 的 Implementation 与 Deployment 小标题在整份文档中保持
-唯一，同时继续清楚区分两个阶段的 steps 与 acceptance criteria。
+默认 `Idea.md` 大标题从 `# Idea` 改为
+`# Replace with a specific title for this idea`，明确要求作者根据具体 idea 内容替换标题，
+而不是把通用名称留作最终标题。
+
+默认 `ledger.md` 保留 `## Implementation` 与 `## Deployment` 阶段结构，并将四个三级
+标题分别改为 `### Implementation steps`、`### Implementation acceptance criteria`、
+`### Deployment steps` 和 `### Deployment acceptance criteria`。这样所有 heading 在
+整份文档中保持唯一，同时仍能清楚区分两个阶段的 steps 与 acceptance criteria。
 
 ## Scope
 
@@ -61,8 +66,11 @@ Current 或 Next 摘要。Silvermoon lifecycle 仍只从 world revisions 与显�
 - 明确 AC 本身同时包含 observable outcome 和证明方法。
 - 迁移所有现有 idea 到必需 ledger 和新的双阶段 ledger 结构。
 - 更新 CLI、layout validation、diagnostics、文档、skill、package surface 和测试。
-- 将默认 `Idea.md` 的大标题改为明确的可替换标题提示。
-- 消除默认 `ledger.md` 中重复的 Markdown heading，并同步相关示例、文档与精确内容测试。
+- 将默认 `Idea.md` 的大标题从 `# Idea` 改为
+  `# Replace with a specific title for this idea`。
+- 将默认 `ledger.md` 的四个三级标题改为 `Implementation steps`、
+  `Implementation acceptance criteria`、`Deployment steps` 和
+  `Deployment acceptance criteria`，并同步相关示例、文档与精确内容测试。
 
 ### Out of scope
 
@@ -81,9 +89,10 @@ Current 或 Next 摘要。Silvermoon lifecycle 仍只从 world revisions 与显�
 - ledger 保持在三个 nested world trees 之外，其更新不得改变任何 world revision。
 - stable ID 在标题细化时应保持不变；删除、新增或实质性修改条目时必须同步 ledger。
 - 这是直接切换，不保留缺少 ledger 的 legacy layout，也不保留 “optional ledger” 表述。
-- `Idea.md` 的标题提示不得被误解为已经确定的 idea 名称，填写契约时必须替换为具体标题。
-- ledger heading 在整份文档中必须唯一，并保持 Implementation 与 Deployment 条目的
-  归属清晰。
+- `Idea.md` 的标题提示必须是可见文本，不使用会形成空 heading 的 HTML comment；填写
+  契约时必须将整条提示替换为具体标题。
+- ledger heading 在整份文档中必须唯一；三级标题必须包含所属阶段名称，并继续位于对应
+  的 `## Implementation` 或 `## Deployment` 下。
 
 ## Open questions
 
