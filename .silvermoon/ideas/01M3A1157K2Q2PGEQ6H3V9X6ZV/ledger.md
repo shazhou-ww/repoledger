@@ -23,8 +23,13 @@
 
 ### Deployment steps
 
-- [ ] **D-S01:** Step title
+- [ ] **D-S01:** 发布并锁定现世契约
+- [ ] **D-S02:** 验证 ready 消费体验
+- [ ] **D-S03:** 验证 packaged consumer 的 gap 体验
+- [ ] **D-S04:** 执行发布级回归
 
 ### Deployment acceptance criteria
 
-- [ ] **D-AC01:** Criterion title
+- [ ] **D-AC01:** Ready 输出不展示 onboarding 流水账
+- [ ] **D-AC02:** Blocked 输出只展示完整 gap
+- [ ] **D-AC03:** 发布候选保持兼容且可交付
